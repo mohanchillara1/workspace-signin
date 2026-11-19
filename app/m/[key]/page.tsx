@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { MemberTasks } from '@/components/member/MemberTasks';
+import { SentInList } from '@/components/member/SentInList';
 import { memberCount } from '@/lib/attendance';
 import { clientAddress } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
@@ -9,6 +10,7 @@ import { getDb } from '@/lib/db/client';
 import { memberByPageKey } from '@/lib/members';
 import { qrSvg } from '@/lib/qr';
 import { hit } from '@/lib/rate-limit';
+import { standingFor } from '@/lib/submit';
 import { openFor } from '@/lib/tasks';
 
 export const dynamic = 'force-dynamic';
@@ -35,10 +37,11 @@ export default async function MemberPage({ params }: { params: Promise<{ key: st
   if (!member) notFound();
 
   const today = chicagoDay(now);
-  const [svg, tasks, count] = await Promise.all([
+  const [svg, tasks, count, sentIn] = await Promise.all([
     qrSvg(member.scanCode),
     openFor(db, member.id, today),
     memberCount(db, member.id, today),
+    standingFor(db, member.id),
   ]);
   const m = copy.member;
 
@@ -66,6 +69,8 @@ export default async function MemberPage({ params }: { params: Promise<{ key: st
 
       <h2 className="mb-3 mt-8 text-2xl">{m.tasksTitle}</h2>
       <MemberTasks pageKey={key} tasks={tasks} />
+
+      <SentInList rows={sentIn} />
     </main>
   );
 }

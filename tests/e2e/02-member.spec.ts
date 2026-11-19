@@ -13,7 +13,7 @@ test('the member page shows their QR, tasks and count on a phone', async ({ page
   const errors = watchConsole(page);
   const actor = await captainId();
   const member = await addMember(db(), { firstName: 'Phone', lastName: 'Person' }, null);
-  const task = await createTask(db(), { title: 'Phone job', audience: 'person', memberIds: [member.id], steps: ['Step one', 'Step two', 'Step three'] }, actor);
+  const task = await createTask(db(), { title: 'Phone job', audience: 'person', memberIds: [member.id], steps: ['Step one', 'Step two', 'Step three'], needsCheck: false }, actor);
   await publishTask(db(), task.id, actor);
 
   await page.goto(`/m/${member.pageKey}`);

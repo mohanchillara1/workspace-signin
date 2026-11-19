@@ -55,6 +55,7 @@ test('a lead adds a member and tasks, sees who is here, corrects by hand, export
   await newTask(page, 'Dash own job', async (p) => {
     await p.getByLabel(copy.tasks.audiencePerson).check();
     await p.getByLabel('Dash Board').check();
+    await p.getByLabel(copy.tasks.fieldNeedsCheck).uncheck();
   });
   await newTask(page, 'Build crew job', async (p) => {
     await p.getByLabel(copy.tasks.audienceSubteam).check();
