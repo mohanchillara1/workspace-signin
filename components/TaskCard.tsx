@@ -25,6 +25,7 @@ export function TaskCard({
   onPutBack,
   onDone,
   onSteps,
+  doneForm,
 }: {
   handout: Handout;
   size?: 'kiosk' | 'phone';
@@ -35,11 +36,17 @@ export function TaskCard({
   onDone?: () => void;
   /** When given, steps are tick boxes and this is called with the ticked ones. */
   onSteps?: (stepsDone: number[]) => void;
+  /**
+   * When given, "Done" on a task that needs a lead's check opens this form
+   * under the card in place of the two-tap finish. Call close to shut it.
+   */
+  doneForm?: (close: () => void) => React.ReactNode;
 }) {
   const [open, setOpen] = useState(stepsAlwaysOpen);
   // Done takes two taps, so a slip of the thumb does not finish a task. Only
   // a lead can bring a finished task back.
   const [confirming, setConfirming] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   useEffect(() => {
     if (!confirming) return;
     const timer = setTimeout(() => setConfirming(false), CONFIRM_MS);
@@ -47,6 +54,9 @@ export function TaskCard({
   }, [confirming]);
 
   const k = copy.kiosk;
+  const s = copy.submit;
+  const withForm = Boolean(doneForm) && handout.needsCheck;
+  const sentBack = handout.state === 'sent_back';
   const big = size === 'kiosk';
   const showBody = open || stepsAlwaysOpen;
   const canTake = handout.group === 'pool' && onTake;
@@ -74,12 +84,22 @@ export function TaskCard({
         >
           <h3 className={`font-display leading-tight ${big ? 'text-3xl landscape:text-2xl' : 'text-xl'}`}>{handout.title}</h3>
         </button>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex basis-full flex-wrap items-center gap-2 empty:hidden">
+          {sentBack && <span className={`${chip} !border-arcade-bumper !bg-arcade-bumper !text-paper`}>{s.sentBackChip}</span>}
+          {handout.needsCheck && <span className={chip}>{copy.finished.needsCheck}</span>}
           {handout.standing && <span className={chip}>{k.standing}</span>}
           {handout.overdue && <span className={`${chip} !border-arcade-bumper !bg-arcade-bumper !text-paper`}>{k.overdue}</span>}
           {handout.dueDay && !handout.overdue && <span className={chip}>{k.dueOn(dayLabel(handout.dueDay))}</span>}
         </div>
       </div>
+
+      {sentBack && (
+        <div data-testid="sent-back" className={`mt-3 rounded-lg border-2 border-ink bg-arcade-bumper px-3 py-2 text-paper ${big ? 'text-xl' : 'text-base'}`}>
+          <p className="font-bold">{s.sentBackTitle}</p>
+          {handout.sentBackComment && <p className="mt-1 whitespace-pre-wrap break-words">{handout.sentBackComment}</p>}
+          <p className="mt-1 opacity-90">{s.sentBackHint}</p>
+        </div>
+      )}
 
       {showBody && (
         <div className={`mt-3 ${big ? 'text-xl' : 'text-base'}`}>
@@ -127,15 +147,20 @@ export function TaskCard({
             <button
               type="button"
               disabled={busy}
+              aria-expanded={withForm ? formOpen : undefined}
               onClick={() => {
+                if (withForm) {
+                  setFormOpen((value) => !value);
+                  return;
+                }
                 if (confirming) {
                   setConfirming(false);
                   onDone();
                 } else setConfirming(true);
               }}
-              className={`btn-pill !shadow-none ${confirming ? 'bg-ink text-paper' : 'bg-arcade-mint text-ink'} ${big ? 'text-xl' : ''}`}
+              className={`btn-pill !shadow-none ${confirming && !withForm ? 'bg-ink text-paper' : 'bg-arcade-mint text-ink'} ${big ? 'text-xl' : ''}`}
             >
-              {confirming ? k.confirmDone : k.done}
+              {confirming && !withForm ? k.confirmDone : k.done}
             </button>
           )
         )}
@@ -150,6 +175,8 @@ export function TaskCard({
           </button>
         )}
       </div>
+
+      {withForm && formOpen && doneForm?.(() => setFormOpen(false))}
     </article>
   );
 }

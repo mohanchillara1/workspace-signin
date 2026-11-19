@@ -268,7 +268,8 @@ export function Kiosk({
       // someone else has scanned since, it is dropped.
       if (result && result.status === 'ok' && helloRef.current?.code === current.code) {
         setHello({ ...current, tasks: (result.tasks as Handout[] | null) ?? null });
-        setNote(result.changed ? '' : failNote);
+        setNote(result.changed ? (result.state === 'submitted' ? copy.submit.kioskWaiting : '') : failNote);
+        listRef.current?.scrollTo({ top: 0 });
       }
     } catch {
       goOffline();
@@ -375,6 +376,12 @@ export function Kiosk({
 
         {phase === 'hello' && hello && (
           <div ref={listRef} onScroll={measure} className="min-h-0 overflow-y-auto pb-6 pr-2">
+            {/* At the top, so it is seen even when the list is long. */}
+            {note && (
+              <p role="status" data-testid="kiosk-note" className="mb-4 max-w-3xl text-2xl font-bold text-arcade-fuel">
+                {note}
+              </p>
+            )}
             {hello.tasks === null ? (
               <div className="card max-w-3xl p-6">
                 <h2 className="text-3xl">{k.tasksFailedTitle}</h2>
@@ -408,7 +415,6 @@ export function Kiosk({
                 )}
               />
             )}
-            {note && <p className="mt-4 text-xl font-bold text-arcade-fuel">{note}</p>}
           </div>
         )}
       </div>
