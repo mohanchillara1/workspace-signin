@@ -3,7 +3,7 @@ import type { Db } from './db/client';
 import { memberByScanCode } from './members';
 import { shortName } from './names';
 import { hit } from './rate-limit';
-import { openFor, type Handout } from './tasks';
+import { forKiosk, openFor, type Handout } from './tasks';
 
 export type ScanResult =
   | {
@@ -58,7 +58,8 @@ export async function handleScan(
 
   let tasks: Handout[] | null = null;
   try {
-    tasks = await (deps.loadTasks ?? openFor)(db, member.id, day);
+    // This answer goes to the wall, so no lead's comment travels with it.
+    tasks = forKiosk(await (deps.loadTasks ?? openFor)(db, member.id, day));
   } catch (error) {
     console.error('Tasks did not load after a scan. The sign-in was recorded.', error);
   }

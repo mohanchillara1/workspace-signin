@@ -43,9 +43,7 @@ export default async function FinishedPage() {
               <div className="flex items-center gap-3">
                 {approved.has(row.assignmentId) ? (
                   <span data-testid="approved-chip" className="chip !bg-arcade-mint">{r.approvedChip}</span>
-                ) : (
-                  row.needsCheck && <span className="chip !bg-arcade-fuel">{f.needsCheck}</span>
-                )}
+                ) : null}
                 {row.canReopen ? (
                   <form action={reopenFinished}>
                     <input type="hidden" name="assignmentId" value={row.assignmentId} />

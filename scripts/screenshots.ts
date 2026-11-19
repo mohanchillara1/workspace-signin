@@ -14,7 +14,10 @@ import { makeDb } from '../lib/db/client';
 import { ensureDatabase, startLocalPostgres } from '../lib/db/local';
 import { migrateUrl } from '../lib/db/migrate';
 import { pairKiosk } from '../lib/kiosk';
+import { decide } from '../lib/review';
 import { seedDemo } from '../lib/seed';
+import { submitWork } from '../lib/submit';
+import { createTask, openFor, publishTask } from '../lib/tasks';
 import { copy } from '../lib/copy';
 
 const APP_PORT = 4322;
@@ -71,6 +74,24 @@ async function main() {
   const seed = await seedDemo(db, { captainPassword: password, today: chicagoDay(new Date()) });
   const m = seed.members;
 
+  // Phase 2: one member with work waiting, work sent back and work approved,
+  // made with the same functions the screens call.
+  const today = chicagoDay(new Date());
+  const captain = seed.captain.member.id;
+  const sendIn = async (title: string, note: string, link = '', via: 'member_page' | 'kiosk' = 'member_page') => {
+    const task = await createTask(db, { title, audience: 'person', memberIds: [m.B.id], steps: ['Check the drawing', 'Do the work', 'Tidy up'] }, captain);
+    await publishTask(db, task.id, captain);
+    const handout = (await openFor(db, m.B.id, today)).find((h) => h.taskId === task.id)!;
+    await submitWork(db, { taskId: task.id, assignmentId: handout.assignmentId, memberId: m.B.id, note, link, via, today });
+    return handout.assignmentId!;
+  };
+  await sendIn('Mount the gearbox plate', 'Plate is on. Two bolts are finger tight until the shaft is in.', 'https://example.org/gearbox-plate');
+  await sendIn('Tape the battery leads', '', '', 'kiosk');
+  const back = await sendIn('Label the wire runs', 'Labeled the left side.');
+  await decide(db, { assignmentId: back, decision: 'sent_back', comment: 'The right side has no labels yet.', actorId: captain });
+  const good = await sendIn('Charge the spare batteries', 'All four are on the chargers.');
+  await decide(db, { assignmentId: good, decision: 'approved', comment: '', actorId: captain });
+
   const app = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', String(APP_PORT), '-H', '127.0.0.1'], {
     stdio: 'ignore',
     env: {
@@ -78,6 +99,9 @@ async function main() {
       DATABASE_URL: dbUrl,
       SESSION_SECRET: randomBytes(32).toString('base64url'),
       KIOSK_TEST_FEED: '1',
+      // "Draft steps" answers from the built-in stand-in. No AI service is called.
+      STEP_DRAFTS_STAND_IN: '1',
+      ANTHROPIC_API_KEY: '',
       KIOSK_IDLE_SECONDS: '60',
     },
   });
@@ -129,6 +153,8 @@ async function main() {
       // A second person, so the Today screen has a few people on it.
       await feed(page, second.scanCode);
       await page.getByRole('heading', { name: k.hello(second.firstName) }).waitFor();
+      // Member B has work a lead sent back: the wall says so without the lead's words.
+      if (second.id === m.B.id) await shoot(page, `kiosk-sent-back-${label}`, errors, false);
       await context.close();
     }
     {
@@ -150,6 +176,12 @@ async function main() {
       const errors = watch(page);
       await page.goto(`${BASE}/m/${m.A.pageKey}`);
       await shoot(page, 'member-page-390', errors);
+      // Phase 2: sent-back work with the lead's comment, the "sent in" list, and the form.
+      await page.goto(`${BASE}/m/${m.B.pageKey}`);
+      await shoot(page, 'member-page-sent-in-390', errors);
+      await page.locator('article[data-testid="task"]', { hasText: 'Read the shop safety sheet' }).getByRole('button', { name: k.done, exact: true }).click();
+      await page.getByTestId('send-in-form').waitFor();
+      await shoot(page, 'member-page-send-in-form-390', errors);
       await context.close();
     }
 
@@ -171,6 +203,7 @@ async function main() {
         ['today', '/dashboard'],
         ['tasks', '/dashboard/tasks'],
         ['task-new', '/dashboard/tasks/new'],
+        ['review', '/dashboard/review'],
         ['finished', '/dashboard/finished'],
         ['members', '/dashboard/members'],
         ['attendance', '/dashboard/attendance'],
@@ -179,6 +212,12 @@ async function main() {
         await page.goto(`${BASE}${path}`);
         await shoot(page, `dashboard-${name}-${label}`, errors);
       }
+      // Phase 2: steps drafted by the stand-in, sitting in the box for the lead to edit.
+      await page.goto(`${BASE}/dashboard/tasks/new`);
+      await page.getByLabel(copy.tasks.fieldTitle).fill('Sort the pneumatics drawer');
+      await page.getByRole('button', { name: copy.drafts.button }).click();
+      await page.getByText(copy.drafts.filled).waitFor();
+      await shoot(page, `dashboard-task-drafted-${label}`, errors);
       await context.close();
     }
     await browser.close();

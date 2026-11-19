@@ -100,3 +100,19 @@ Run the browser tests in a lane with its own ports, for example `E2E_APP_PORT=43
 - No deleting files, branches or worktrees.
 - Every fixed string on a screen lives in the lane's copy file. Plain words, sentence case, no em dashes.
 - The look follows the rest of the app: the classes in `app/globals.css`, the colours in `tailwind.config.ts`. No gradients, no blur, no glow.
+
+## As merged (2026-11-19)
+
+The three lanes were merged in the order a, b, c with no conflicts. What ended up different from the plan above:
+
+- Lane a added `lib/submit-limits.ts` (the note and link limits, shared with the form) and returns a `problem` from `submitWork` so the screen can say why something was refused.
+- Lane b added `approvals(db, ids)` to `lib/review.ts`, which tells the Finished screen who approved what.
+- Lane c added one line to `scripts/e2e-server.ts` to turn the step-draft stand-in on for the test server.
+- After a check of the merged result, the builder changed these shared rules:
+  - The iPad on the wall is never sent a lead's comment (`forKiosk` in `lib/tasks.ts`). The comment shows on the member's own page.
+  - `decide` refuses a lead's answer on their own work and returns `reason: 'own_work'`.
+  - `standingFor` returns one row per hand-out, as it stands now. Earlier rounds stay in the `submissions` table.
+  - `reviewQueue` rows carry `round` and `lastComment`.
+  - Closing a task also closes work that is waiting on it. A change of who a task is for does not hand it out again while work on it waits. Sent-back work on a pool task can be put back.
+  - A link may hold only plain visible characters after `https://`.
+  - The stand-in is ignored anywhere `VERCEL` or `VERCEL_ENV` is set, not only in production.

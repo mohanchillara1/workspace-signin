@@ -3,7 +3,7 @@ import { getDb } from '@/lib/db/client';
 import { isUuid } from '@/lib/ids';
 import { answer, body, json, kioskOr401 } from '@/lib/kiosk-api';
 import { memberByScanCode } from '@/lib/members';
-import { claim, openFor } from '@/lib/tasks';
+import { claim, forKiosk, openFor } from '@/lib/tasks';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +18,6 @@ export function POST(request: Request) {
     if (!member || !isUuid(taskId)) return json({ status: 'unknown' });
     const today = chicagoDay(new Date());
     const { ok } = await claim(db, { taskId, memberId: member.id, today });
-    return json({ status: 'ok', changed: ok, tasks: await openFor(db, member.id, today) });
+    return json({ status: 'ok', changed: ok, tasks: forKiosk(await openFor(db, member.id, today)) });
   });
 }

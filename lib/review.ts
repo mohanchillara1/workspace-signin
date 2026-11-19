@@ -21,6 +21,10 @@ export type ReviewRow = {
   link: string;
   via: 'kiosk' | 'member_page' | 'lead';
   at: Date;
+  /** 1 the first time it is sent in, 2 after one send-back, and so on. */
+  round: number;
+  /** What a lead wrote the last time it was sent back. Empty on the first round. */
+  lastComment: string;
 };
 
 /**
@@ -50,8 +54,28 @@ export async function reviewQueue(db: Db): Promise<ReviewRow[]> {
     .orderBy(desc(submissions.createdAt), desc(submissions.id));
   const seen = new Set<string>();
   const newest = rows.filter((r) => (seen.has(r.assignmentId) ? false : (seen.add(r.assignmentId), true)));
+  // Earlier rounds of the same work: how many, and what was said last time.
+  const rounds = new Map<string, { count: number; lastComment: string }>();
+  if (newest.length) {
+    const earlier = await db
+      .select({ assignmentId: submissions.assignmentId, decision: submissions.decision, comment: submissions.comment })
+      .from(submissions)
+      .where(inArray(submissions.assignmentId, newest.map((r) => r.assignmentId)))
+      .orderBy(submissions.createdAt, submissions.id);
+    for (const e of earlier) {
+      const entry = rounds.get(e.assignmentId) ?? { count: 0, lastComment: '' };
+      entry.count++;
+      if (e.decision === 'sent_back') entry.lastComment = e.comment;
+      rounds.set(e.assignmentId, entry);
+    }
+  }
   return newest
-    .map(({ first, last, ...r }) => ({ ...r, member: `${first} ${last}`.trim() }))
+    .map(({ first, last, ...r }) => ({
+      ...r,
+      member: `${first} ${last}`.trim(),
+      round: rounds.get(r.assignmentId)?.count ?? 1,
+      lastComment: rounds.get(r.assignmentId)?.lastComment ?? '',
+    }))
     .sort((x, y) => x.at.getTime() - y.at.getTime() || (x.submissionId < y.submissionId ? -1 : 1));
 }
 
@@ -64,11 +88,12 @@ export async function reviewQueue(db: Db): Promise<ReviewRow[]> {
 export async function decide(
   db: Db,
   input: { assignmentId: string; decision: 'approved' | 'sent_back'; comment: string; actorId: string },
-): Promise<{ ok: boolean }> {
+): Promise<{ ok: boolean; reason?: 'own_work' }> {
   const { assignmentId, decision, actorId } = input;
   if (!isUuid(assignmentId) || !isUuid(actorId)) return { ok: false };
   if (decision !== 'approved' && decision !== 'sent_back') return { ok: false };
-  const comment = typeof input.comment === 'string' ? input.comment.trim() : '';
+  // Control characters have no place in a comment, and one of them (NUL) cannot be stored at all.
+  const comment = typeof input.comment === 'string' ? input.comment.replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, '').trim() : '';
   if (comment.length > COMMENT_MAX) return { ok: false };
   if (decision === 'sent_back' && comment === '') return { ok: false };
 
@@ -77,19 +102,18 @@ export async function decide(
     const [actor] = await tx.select().from(members).where(eq(members.id, actorId)).for('share');
     if (!actor || !actor.active || (actor.role !== 'lead' && actor.role !== 'captain')) return { ok: false };
 
-    const settled = await settleReview(tx, { assignmentId, decision });
-    if (!settled.ok) return { ok: false };
-
     const [sub] = await tx
-      .select({ id: submissions.id })
+      .select({ id: submissions.id, memberId: submissions.memberId })
       .from(submissions)
       .where(and(eq(submissions.assignmentId, assignmentId), isNull(submissions.decision)))
       .orderBy(desc(submissions.createdAt), desc(submissions.id))
       .limit(1);
-    if (!sub) {
-      // Nothing to answer: undo the move so the hand-out is not left without a record.
-      throw new Nothing();
-    }
+    if (!sub) return { ok: false };
+    // A check by the person who did the work is no check. Another lead answers it.
+    if (sub.memberId === actor.id) return { ok: false, reason: 'own_work' as const };
+
+    const settled = await settleReview(tx, { assignmentId, decision });
+    if (!settled.ok) return { ok: false };
     await tx
       .update(submissions)
       .set({ decision, comment, reviewedById: actor.id, reviewedAt: new Date() })

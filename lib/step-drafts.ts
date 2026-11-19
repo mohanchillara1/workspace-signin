@@ -48,7 +48,10 @@ export type DraftInput = { title: string; description: string; subteam: string |
 // ---------- Which mode ----------
 
 function standInOn(): boolean {
-  return process.env.STEP_DRAFTS_STAND_IN === '1' && process.env.VERCEL_ENV !== 'production';
+  // Never on the real host, whichever of its environments this is. The
+  // stand-in is for this machine's tests and review copies only.
+  if (process.env.VERCEL === '1' || process.env.VERCEL_ENV) return false;
+  return process.env.STEP_DRAFTS_STAND_IN === '1';
 }
 
 function apiKey(): string {
@@ -91,14 +94,17 @@ export function buildPrompt(input: DraftInput): StepPrompt {
 
 // ---------- Reading what comes back (untrusted text) ----------
 
-const LEAD = /^\s*(?:[-*+•–—·]+|\(?\d{1,2}\s*[.):]|step\s*\d{1,2}\s*[.):\-])\s*/i;
+// A list marker at the start of a line: a bullet, "1.", "2)" or "3:", or "Step 4:".
+// It has to be followed by a space, so "3.5mm drill bit" and "2:30 pm" are left alone.
+const LEAD = /^\s*(?:[-*+•–—·]+|\(?\d{1,2}[.):]|step\s*\d{1,2}\s*[.):\-])\s+/i;
 
 export function parseSteps(text: string): string[] {
   const out: string[] = [];
   const noBlocks = String(text ?? '').replace(/<(script|style)\b[\s\S]*?(<\/\1\s*>|$)/gi, ' ').replace(/```/g, ' ');
   for (const raw of noBlocks.split(/\r?\n/)) {
     let line = raw.replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, '');
-    line = line.replace(/<[^>]*>?/g, '');
+    // Only something shaped like a tag goes. "voltage < 12V" is words, not markup.
+    line = line.replace(/<\/?[a-zA-Z][^>]*>?/g, '');
     for (let i = 0; i < 3 && LEAD.test(line); i++) line = line.replace(LEAD, '');
     line = line
       .replace(/(\*\*|__|`)/g, '')

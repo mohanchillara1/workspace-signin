@@ -61,6 +61,8 @@ test('send in, send back, send again, approve: the member, the lead and the Fini
   await leadPage.reload();
   const second = leadPage.locator('[data-testid="review-card"]', { hasText: 'Loop job' });
   await expect(second.getByTestId('review-note')).toHaveText('Tightened it');
+  await expect(second.getByTestId('review-round')).toContainText(r.secondTry(2));
+  await expect(second.getByTestId('review-round')).toContainText('The right side is loose');
   await second.getByRole('button', { name: `${r.approve}: Loop job`, exact: true }).click();
   await expect(leadPage.locator('[data-testid="review-card"]', { hasText: 'Loop job' })).toHaveCount(0);
   await leadPage.goto('/dashboard/finished');
@@ -68,9 +70,11 @@ test('send in, send back, send again, approve: the member, the lead and the Fini
   await expect(finished.getByTestId('approved-chip')).toBeVisible();
   await expect(finished.getByTestId('approved-line')).toContainText('Test Captain');
 
-  // The member's page agrees, and the record keeps both rounds.
+  // The member's page agrees: one line for this work, as it stands now. The record keeps both rounds.
   await memberPage.reload();
-  await expect(memberPage.getByTestId('sent-in').locator('li[data-state="approved"]').first()).toContainText('Loop job');
+  const mine = memberPage.getByTestId('sent-in').locator('li', { hasText: 'Loop job' });
+  await expect(mine).toHaveCount(1);
+  await expect(mine).toHaveAttribute('data-state', 'approved');
   const [handout] = await db().select().from(assignments).where(eq(assignments.taskId, task.id));
   expect(handout.state).toBe('approved');
   const rounds = await db().select().from(submissions).where(eq(submissions.assignmentId, handout.id));
@@ -123,4 +127,22 @@ test('Done on the kiosk for a task that needs a check sends it to the queue with
   expect(row.needsCheck).toBe(false);
   await wall.close();
   await desk.close();
+});
+
+test('a lead cannot approve their own work on the Review screen', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  const actor = await captainId();
+  const task = await createTask(db(), { title: 'Captain own job', audience: 'person', memberIds: [actor] }, actor);
+  await publishTask(db(), task.id, actor);
+  const [handout] = await db().select().from(assignments).where(eq(assignments.taskId, task.id));
+  const { submitWork } = await import('@/lib/submit');
+  const { chicagoDay } = await import('@/lib/day');
+  await submitWork(db(), { taskId: task.id, assignmentId: handout.id, memberId: actor, note: 'my own', link: '', via: 'member_page', today: chicagoDay(new Date()) });
+  await logIn(page);
+  await page.goto('/dashboard/review');
+  const card = page.locator('[data-testid="review-card"]', { hasText: 'Captain own job' });
+  await card.getByRole('button', { name: `${r.approve}: Captain own job`, exact: true }).click();
+  await expect(card.getByTestId('review-problem')).toHaveText(r.ownWork);
+  const [after] = await db().select().from(assignments).where(eq(assignments.id, handout.id));
+  expect(after.state).toBe('submitted');
 });

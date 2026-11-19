@@ -216,8 +216,11 @@ describe('where each submission stands', () => {
       await settleReview(tx, { assignmentId: first.assignmentId, decision: 'approved' });
       await tx.update(submissions).set({ decision: 'approved', comment: 'Nice work', reviewedById: lead.id, reviewedAt: new Date() }).where(eq(submissions.assignmentId, first.assignmentId));
     });
-    // Sent back: set on the row directly.
-    await getDb().update(submissions).set({ decision: 'sent_back', comment: 'Add the photo', reviewedById: lead.id, reviewedAt: new Date() }).where(eq(submissions.assignmentId, second.assignmentId));
+    // Sent back: also through settleReview, so the hand-out and its row agree, as they always do in the app.
+    await getDb().transaction(async (tx) => {
+      await settleReview(tx, { assignmentId: second.assignmentId, decision: 'sent_back' });
+      await tx.update(submissions).set({ decision: 'sent_back', comment: 'Add the photo', reviewedById: lead.id, reviewedAt: new Date() }).where(eq(submissions.assignmentId, second.assignmentId));
+    });
     // Third is still waiting.
 
     const rows = await standingFor(getDb(), a.id);

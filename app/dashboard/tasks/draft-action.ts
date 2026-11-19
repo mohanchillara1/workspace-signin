@@ -25,14 +25,14 @@ export async function draftStepsAction(input: { title: string; description: stri
   if (!title) return { problem: copy.drafts.needTitle };
   if (!draftsAvailable()) return { problem: copy.drafts.unavailable };
 
-  const db = getDb();
-  const { allowed } = await hit(db, { key: `drafts:${lead.id}`, limit: DRAFTS_A_MINUTE, windowSeconds: 60, now: new Date() });
-  if (!allowed) return { problem: copy.drafts.tooMany };
-
-  let subteam: string | null = null;
-  if (isUuid(subteamId)) subteam = (await listSubteams(db)).find((s) => s.id === subteamId)?.name ?? null;
-
   try {
+    const db = getDb();
+    const { allowed } = await hit(db, { key: `drafts:${lead.id}`, limit: DRAFTS_A_MINUTE, windowSeconds: 60, now: new Date() });
+    if (!allowed) return { problem: copy.drafts.tooMany };
+
+    let subteam: string | null = null;
+    if (isUuid(subteamId)) subteam = (await listSubteams(db)).find((s) => s.id === subteamId)?.name ?? null;
+
     return { steps: await draftSteps({ title, description, subteam }) };
   } catch (error) {
     return { problem: error instanceof DraftError ? error.message : copy.drafts.failed };

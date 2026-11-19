@@ -1,4 +1,4 @@
-import { and, desc, eq, ne, or, isNotNull } from 'drizzle-orm';
+import { desc, eq } from 'drizzle-orm';
 import type { Db } from './db/client';
 import { assignments, submissions, tasks } from './db/schema';
 import { LINK_MAX, NOTE_MAX } from './submit-limits';
@@ -22,10 +22,16 @@ export type SubmitInput = {
 
 const length = (text: string) => [...text].length;
 
-/** A link is empty, or it starts with https:// and has no spaces or control characters. */
+/**
+ * A link is empty, or it starts with https:// and holds only plain visible
+ * characters. That rules out spaces and control characters, and also the
+ * invisible and right-to-left characters that can make a link read as one
+ * address and lead to another. A real address with other letters in it can
+ * always be written in this plain form.
+ */
 export function linkProblem(link: string): 'link_bad' | 'link_long' | null {
   if (link === '') return null;
-  if (!link.startsWith('https://') || link.length <= 'https://'.length || /[\s\u0000-\u001f\u007f]/.test(link)) return 'link_bad';
+  if (!/^https:\/\/[\x21-\x7e]+$/.test(link)) return 'link_bad';
   return length(link) > LINK_MAX ? 'link_long' : null;
 }
 
@@ -80,29 +86,36 @@ export type Standing = {
   at: Date;
 };
 
-/** Where each of a member's submissions stands, newest first, at most 20. */
+/**
+ * Where each piece of a member's sent-in work stands now, newest first, at
+ * most 20. One row per hand-out: its newest round. Work a lead reopened, or
+ * whose task was closed, is not listed: it is no longer waiting, approved or
+ * sent back.
+ */
 export async function standingFor(db: Db, memberId: string): Promise<Standing[]> {
   const rows = await db
-    .select({ s: submissions, title: tasks.title })
+    .select({ s: submissions, title: tasks.title, state: assignments.state })
     .from(submissions)
     .innerJoin(assignments, eq(submissions.assignmentId, assignments.id))
     .innerJoin(tasks, eq(assignments.taskId, tasks.id))
-    .where(
-      and(
-        eq(submissions.memberId, memberId),
-        // Work still waiting on a task a lead has since closed is not waiting any more.
-        or(isNotNull(submissions.decision), ne(assignments.state, 'closed')),
-      ),
-    )
-    .orderBy(desc(submissions.createdAt), desc(submissions.id))
-    .limit(STANDING_MAX);
-  return rows.map(({ s, title }) => ({
-    assignmentId: s.assignmentId,
-    title,
-    state: s.decision === 'approved' ? 'approved' : s.decision === 'sent_back' ? 'sent_back' : 'waiting',
-    note: s.note,
-    link: s.link,
-    comment: s.decision ? s.comment : '',
-    at: s.createdAt,
-  }));
+    .where(eq(submissions.memberId, memberId))
+    .orderBy(desc(submissions.createdAt), desc(submissions.id));
+  const seen = new Set<string>();
+  const out: Standing[] = [];
+  for (const { s, title, state } of rows) {
+    if (seen.has(s.assignmentId)) continue;
+    seen.add(s.assignmentId);
+    const now =
+      state === 'submitted' && s.decision === null
+        ? 'waiting'
+        : state === 'approved' && s.decision === 'approved'
+          ? 'approved'
+          : state === 'sent_back' && s.decision === 'sent_back'
+            ? 'sent_back'
+            : null;
+    if (!now) continue;
+    out.push({ assignmentId: s.assignmentId, title, state: now, note: s.note, link: s.link, comment: s.decision ? s.comment : '', at: s.createdAt });
+    if (out.length === STANDING_MAX) break;
+  }
+  return out;
 }

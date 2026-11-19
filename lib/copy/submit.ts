@@ -20,6 +20,9 @@ export const submitCopy = {
   sentBackChip: 'Sent back',
   sentBackTitle: 'A lead sent this back',
   sentBackHint: 'Fix it, then send it in again.',
+  // On the iPad on the wall the lead's comment is not shown. It is on the member's own page.
+  sentBackKiosk: 'Open your own page to read what to fix.',
+  sentAt: (day: string, time: string) => `Sent ${day} at ${time}`,
 
   // The "Sent in" list on the member's page.
   listTitle: 'Sent in',

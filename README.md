@@ -2,7 +2,7 @@
 
 An iPad on the workspace wall reads a member's QR code. The scan signs them in for the day and shows what they should work on. Leads load the tasks from a dashboard, see who is here, and export attendance.
 
-This is phase 1: sign-in and tasks. It runs on this machine only. Nothing here is deployed.
+Phase 1 is sign-in and tasks. Phase 2 adds marking work done with a note and a link, a review queue where a lead approves it or sends it back, and a "Draft steps" button on the task form. It all runs on this machine only. Nothing here is deployed.
 
 ## Run it
 
@@ -41,7 +41,10 @@ One browser test plays a video of a QR code as Chrome's camera, so the camera an
 |---|---|
 | `lib/scan.ts` | What happens on a scan. Attendance is written first; tasks load in their own `try`. |
 | `lib/attendance.ts` | One row per member per Central day, by-hand edits, meeting days, counts. |
-| `lib/tasks.ts` | Tasks and their hand-outs: person, subteam, pool, standing. |
+| `lib/tasks.ts` | Tasks and their hand-outs: person, subteam, pool, standing. The one place a hand-out is finished (`finishHandout`) and the one place a lead's answer moves it (`settleReview`). |
+| `lib/submit.ts` | A member sends work in, with a note and a link; where each piece stands. |
+| `lib/review.ts` | The leads' review queue: approve, or send back with a comment. |
+| `lib/step-drafts.ts` | "Draft steps": the request to the AI service, the stand-in, and the cleaning of what comes back. |
 | `lib/members.ts` | Members, scan codes, page links, roster paste. |
 | `lib/auth/` | Lead logins: invites, passwords, the session cookie. |
 | `lib/kiosk.ts` | Pairing a device as the kiosk. |
@@ -58,7 +61,9 @@ One browser test plays a video of a QR code as Chrome's camera, so the camera an
 - A "day" is the calendar date in Central time, worked out on the server.
 - Every page is `noindex`.
 - No email, phone number or birthday is stored.
-- No AI is called anywhere, and nothing judges a member's work.
+- Nothing judges a member's work but a lead. The one place AI can be used is "Draft steps" on the task form, and only when a key is set: it is sent the task's title, detail and subteam name, never a member or anything a member sent in, and a lead edits what comes back before anything is published. With no key the button is not there. No key exists yet and no real call has ever been made; the tests use a stand-in.
+- A lead's comment on someone's work shows on that member's own page, never on the iPad on the wall.
+- A lead cannot approve their own work. Another lead does.
 - A lead looks after members. Only a captain can change a lead or a captain, change roles, or make invite links.
 - Logging out ends that session on the server. Deactivating or demoting a lead, or sending them a new invite, ends all of theirs.
 - "Done" takes two taps, because only a lead can bring a finished task back.
@@ -81,4 +86,4 @@ The second command prints a one-time path where the first captain sets a passwor
 
 ## Not built yet
 
-Marking work done with a note or photo, a lead's approve or send back, step drafts, Wallet passes, Slack, a copy into the Google Sheet, sign-out and hours.
+Photo upload (it needs storage on a host), Wallet passes, Slack, a copy into the Google Sheet, sign-out and hours.

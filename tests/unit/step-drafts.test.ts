@@ -49,11 +49,11 @@ describe('draftsAvailable', () => {
     process.env.ANTHROPIC_API_KEY = 'not-a-real-key';
     expect(draftsAvailable()).toBe(true);
   });
-  it('honours the stand-in outside production', () => {
+  it('honours the stand-in on this machine, and never on the real host, preview included', () => {
     process.env.STEP_DRAFTS_STAND_IN = '1';
     expect(draftsAvailable()).toBe(true);
     process.env.VERCEL_ENV = 'preview';
-    expect(draftsAvailable()).toBe(true);
+    expect(draftsAvailable()).toBe(false);
   });
   it('only treats the value 1 as on', () => {
     process.env.STEP_DRAFTS_STAND_IN = 'true';
@@ -267,6 +267,7 @@ describe('the task form', () => {
   it('has the button and the notice when canDraft is true', () => {
     const html = render(true);
     expect(html).toContain(copy.drafts.button);
-    expect(html).toContain(copy.drafts.notice);
+    // The page writes an apostrophe as &#x27;, so compare it that way.
+    expect(html).toContain(copy.drafts.notice.replace(/'/g, '&#x27;'));
   });
 });

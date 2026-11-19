@@ -3,7 +3,7 @@ import { getDb } from '@/lib/db/client';
 import { isUuid } from '@/lib/ids';
 import { answer, body, json, kioskOr401 } from '@/lib/kiosk-api';
 import { memberByScanCode } from '@/lib/members';
-import { giveBack, openFor } from '@/lib/tasks';
+import { giveBack, forKiosk, openFor } from '@/lib/tasks';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,6 +17,6 @@ export function POST(request: Request) {
     const member = await memberByScanCode(db, code);
     if (!member || !isUuid(assignmentId)) return json({ status: 'unknown' });
     const { ok } = await giveBack(db, { assignmentId, memberId: member.id });
-    return json({ status: 'ok', changed: ok, tasks: await openFor(db, member.id, chicagoDay(new Date())) });
+    return json({ status: 'ok', changed: ok, tasks: forKiosk(await openFor(db, member.id, chicagoDay(new Date()))) });
   });
 }

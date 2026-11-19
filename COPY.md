@@ -341,6 +341,8 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `sentBackChip` | Sent back |
 | `sentBackTitle` | A lead sent this back |
 | `sentBackHint` | Fix it, then send it in again. |
+| `sentBackKiosk` | Open your own page to read what to fix. |
+| `sentAt` | Sent Wed, Nov 18 at 4:32 PM |
 | `listTitle` | Sent in |
 | `listNone` | Nothing sent in yet. When you finish a task that needs a lead's check, it shows up here. |
 | `waiting` | Waiting for a lead's check |
@@ -383,6 +385,9 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `commentLong` | Shorten the comment to 500 characters or fewer. |
 | `gone` | Someone already answered this one, or it is no longer waiting. Reload the page to see what is left. |
 | `notAllowed` | That didn't go through. Try again, or log in again if it keeps happening. |
+| `ownWork` | This is your own work, so another lead has to check it. |
+| `secondTry` | Try {round} |
+| `lastComment` | Last time a lead wrote |
 | `approvedBy` | Approved by Test M. on Wed, Nov 18 at 4:32 PM |
 | `approvedByLead` | Approved by a lead |
 | `approvedChip` | Approved |
@@ -393,7 +398,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 |---|---|
 | `button` | Draft steps |
 | `working` | Drafting |
-| `notice` | A computer drafts these from the title and detail. Read every step and fix it before you publish. |
+| `notice` | This sends the title, the detail and the subteam name to an AI service, which drafts the steps. Don't put anyone's name in them. Read every step and fix it before you publish. |
 | `replaceAsk` | The Steps box already has text. Replace it with a new draft? |
 | `replaceYes` | Replace it |
 | `replaceNo` | Keep my steps |

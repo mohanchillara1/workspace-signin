@@ -4,7 +4,8 @@
 export const draftsCopy = {
   button: 'Draft steps',
   working: 'Drafting',
-  notice: 'A computer drafts these from the title and detail. Read every step and fix it before you publish.',
+  notice:
+    "This sends the title, the detail and the subteam name to an AI service, which drafts the steps. Don't put anyone's name in them. Read every step and fix it before you publish.",
   replaceAsk: 'The Steps box already has text. Replace it with a new draft?',
   replaceYes: 'Replace it',
   replaceNo: 'Keep my steps',

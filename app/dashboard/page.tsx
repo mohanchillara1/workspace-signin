@@ -38,7 +38,7 @@ export default async function TodayPage() {
       <p className="mt-1 text-lg text-paper/70">{dayLabel(today)}</p>
 
       <div className="mt-8 grid items-start gap-6 lg:grid-cols-3">
-        <section data-list="here" className="on-fill rounded-xl border-2 border-ink bg-arcade-mint p-5 text-ink shadow-hard">
+        <section data-list="here" className="on-fill min-w-0 rounded-xl border-2 border-ink bg-arcade-mint p-5 text-ink shadow-hard">
           <h2 className="text-2xl">{t.here(board.here.length)}</h2>
           {board.here.length === 0 ? (
             <p className="mt-2">{t.hereEmpty}</p>
@@ -51,7 +51,7 @@ export default async function TodayPage() {
           )}
         </section>
 
-        <section data-list="here-nothing" className="on-fill rounded-xl border-2 border-ink bg-arcade-fuel p-5 text-ink shadow-hard">
+        <section data-list="here-nothing" className="on-fill min-w-0 rounded-xl border-2 border-ink bg-arcade-fuel p-5 text-ink shadow-hard">
           <h2 className="text-2xl">{t.hereNothing(hereNothing.length)}</h2>
           <p className="mt-1 text-sm">{t.hereNothingHelp}</p>
           {hereNothing.length === 0 ? (
@@ -66,7 +66,7 @@ export default async function TodayPage() {
           <Link href="/dashboard/tasks/new" className="btn-small mt-4">{t.giveTask}</Link>
         </section>
 
-        <section data-list="not-here" className="rounded-xl border-2 border-paper/30 bg-deep p-5">
+        <section data-list="not-here" className="min-w-0 rounded-xl border-2 border-paper/30 bg-deep p-5">
           <h2 className="text-2xl">{t.notHere(board.notHere.length)}</h2>
           {board.notHere.length === 0 ? (
             <p className="mt-2 text-paper/80">{t.notHereEmpty}</p>

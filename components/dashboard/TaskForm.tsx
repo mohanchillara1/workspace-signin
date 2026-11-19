@@ -124,7 +124,7 @@ export function TaskForm({
       </div>
 
       <label className="flex items-start gap-3">
-        <input type="checkbox" name="standing" className="mt-1 h-5 w-5 accent-arcade-purple" checked={v.standing} onChange={(e) => setV((old) => ({ ...old, standing: e.target.checked, needsCheck: e.target.checked ? false : old.needsCheck }))} />
+        <input type="checkbox" name="standing" className="mt-1 h-5 w-5 accent-arcade-purple" checked={v.standing} onChange={(e) => setV((old) => ({ ...old, standing: e.target.checked, needsCheck: !e.target.checked }))} />
         <span>
           <span className="font-bold">{t.fieldStanding}</span>
           <span className="block text-sm text-ink/70">{t.fieldStandingHelp}</span>

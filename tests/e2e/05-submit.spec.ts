@@ -136,7 +136,7 @@ test.describe('the member page, on a phone', () => {
     await expect(page.getByTestId('sent-in').locator('li', { hasText: 'Quick chore' })).toHaveCount(0);
   });
 
-  test('sent-back work shows the lead\'s comment on its card, can be sent in again, and the list keeps both rounds', async ({ page }) => {
+  test('sent-back work shows the lead\'s comment on its card, can be sent in again, and the list shows it once, as it stands now', async ({ page }) => {
     const errors = watchConsole(page);
     const member = await person('Submit', 'Echo');
     const lead = await captainId();
@@ -170,10 +170,13 @@ test.describe('the member page, on a phone', () => {
     await expect(card(page, 'Redo the bracket')).toHaveCount(0);
     expect(await rowsOf(assignmentId)).toHaveLength(2);
     expect(await stateOf(assignmentId)).toBe('submitted');
-    const both = page.getByTestId('sent-in').locator('li', { hasText: 'Redo the bracket' });
-    await expect(both).toHaveCount(2);
-    await expect(both.first()).toContainText(s.waiting);
-    await expect(both.nth(1)).toContainText(s.sentBack);
+    // The record keeps both rounds (two rows above). The member's list shows the
+    // work once, as it stands now: waiting again, with the new note.
+    const now = page.getByTestId('sent-in').locator('li', { hasText: 'Redo the bracket' });
+    await expect(now).toHaveCount(1);
+    await expect(now).toContainText(s.waiting);
+    await expect(now).toContainText('second go');
+    await expect(now).not.toContainText(s.sentBack);
     expect(errors).toEqual([]);
   });
 
@@ -245,7 +248,7 @@ test.describe('the kiosk', () => {
     expect(errors).toEqual([]);
   });
 
-  test('the kiosk shows a sent-back task with the lead\'s comment, and the same two taps send it in again', async ({ page, context }) => {
+  test('the kiosk shows a sent-back task without the lead\'s comment, and the same two taps send it in again', async ({ page, context }) => {
     const member = await person('Submit', 'Hotel');
     const lead = await captainId();
     const { task, assignmentId } = await giveTask(member, 'Kiosk redo job');
@@ -257,12 +260,23 @@ test.describe('the kiosk', () => {
     await pairByCookie(context, 'Submit sent-back kiosk');
     await page.setViewportSize({ width: 1366, height: 1024 });
     await page.goto('/kiosk');
+    // A lead's words about someone's work are for that person's own page. The
+    // wall says only that it came back and where to read why, and the comment
+    // is not in anything the kiosk was sent.
+    let sentToKiosk = '';
+    page.on('response', async (response) => {
+      if (response.url().includes('/api/kiosk/')) sentToKiosk += await response.text().catch(() => '');
+    });
     await feed(page, member.scanCode);
     const redo = card(page, 'Kiosk redo job');
-    await expect(redo.getByTestId('sent-back')).toContainText('Label the wires.');
+    await expect(redo.getByTestId('sent-back')).toContainText(s.sentBackTitle);
+    await expect(redo.getByTestId('sent-back')).toContainText(s.sentBackKiosk);
+    await expect(page.getByText('Label the wires.')).toHaveCount(0);
     await shot(page, 'kiosk-1366x1024-sent-back');
     await tapDone(redo);
     await expect(page.getByTestId('kiosk-note')).toHaveText(s.kioskWaiting);
+    expect(sentToKiosk).toContain('Kiosk redo job');
+    expect(sentToKiosk).not.toContain('Label the wires.');
     expect(await rowsOf(assignmentId)).toHaveLength(2);
     expect(
       await db().select().from(assignments).where(and(eq(assignments.id, assignmentId), eq(assignments.state, 'submitted'))),

@@ -28,6 +28,9 @@ export const reviewCopy = {
   commentLong: 'Shorten the comment to 500 characters or fewer.',
   gone: 'Someone already answered this one, or it is no longer waiting. Reload the page to see what is left.',
   notAllowed: "That didn't go through. Try again, or log in again if it keeps happening.",
+  ownWork: "This is your own work, so another lead has to check it.",
+  secondTry: (round: number) => `Try ${round}`,
+  lastComment: 'Last time a lead wrote',
 
   // Finished screen, for work a lead approved.
   approvedBy: (name: string, day: string, time: string) => `Approved by ${name} on ${day} at ${time}`,

@@ -27,9 +27,16 @@ export async function decideAction(_previous: ReviewState, form: FormData): Prom
   const sent = decision === 'sent_back' ? comment : '';
   if (decision === 'sent_back' && sent === '') return { problem: r.commentNeeded };
 
-  const result = await decide(getDb(), { assignmentId, decision, comment: sent, actorId: lead.id });
+  let result: Awaited<ReturnType<typeof decide>>;
+  try {
+    result = await decide(getDb(), { assignmentId, decision, comment: sent, actorId: lead.id });
+  } catch (error) {
+    // The database is away, or something else broke. Say so plainly; change nothing.
+    console.error('A review decision failed.', error);
+    return { problem: r.notAllowed };
+  }
   // A refusal leaves the card where it is, so the lead can read why.
-  if (!result.ok) return { problem: r.gone };
+  if (!result.ok) return { problem: result.reason === 'own_work' ? r.ownWork : r.gone };
   revalidatePath('/dashboard/review');
   revalidatePath('/dashboard/finished');
   revalidatePath('/dashboard/tasks');

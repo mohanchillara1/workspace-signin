@@ -1,4 +1,5 @@
 import { copy } from '@/lib/copy';
+import { chicagoDay, chicagoTime, dayLabel } from '@/lib/day';
 import type { Standing } from '@/lib/submit';
 
 const STATE_CHIP: Record<Standing['state'], string> = {
@@ -36,6 +37,7 @@ export function SentInList({ rows }: { rows: Standing[] }) {
                 <h3 className="min-w-0 break-words font-display text-lg leading-tight">{row.title}</h3>
                 <span className={`chip ${STATE_CHIP[row.state]}`}>{label[row.state]}</span>
               </div>
+              <p className="mt-1 text-sm text-ink/70">{s.sentAt(dayLabel(chicagoDay(row.at)), chicagoTime(row.at))}</p>
               {row.note && (
                 <p className="mt-2 whitespace-pre-wrap break-words text-base">
                   <span className="font-bold">{s.yourNote}: </span>

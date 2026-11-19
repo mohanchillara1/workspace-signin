@@ -4,7 +4,7 @@ import { isUuid } from '@/lib/ids';
 import { answer, body, json, kioskOr401 } from '@/lib/kiosk-api';
 import { memberByScanCode } from '@/lib/members';
 import { submitWork } from '@/lib/submit';
-import { openFor } from '@/lib/tasks';
+import { forKiosk, openFor } from '@/lib/tasks';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +28,6 @@ export function POST(request: Request) {
       via: 'kiosk',
       today,
     });
-    return json({ status: 'ok', changed: ok, state: state ?? null, tasks: await openFor(db, member.id, today) });
+    return json({ status: 'ok', changed: ok, state: state ?? null, tasks: forKiosk(await openFor(db, member.id, today)) });
   });
 }

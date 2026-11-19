@@ -38,6 +38,17 @@ export default async function ReviewPage() {
               <p className="mt-1 text-sm text-ink/70">
                 {r.sentBy(row.member, dayLabel(chicagoDay(row.at)), chicagoTime(row.at))}, {via[row.via]}
               </p>
+              {row.round > 1 && (
+                <p data-testid="review-round" className="mt-3 rounded-lg border-2 border-ink bg-arcade-sky px-3 py-2">
+                  <span className="chip mr-2">{r.secondTry(row.round)}</span>
+                  {row.lastComment && (
+                    <span className="whitespace-pre-wrap break-words">
+                      <span className="font-bold">{r.lastComment}: </span>
+                      {row.lastComment}
+                    </span>
+                  )}
+                </p>
+              )}
 
               <dl className="mt-4 space-y-3">
                 <div>

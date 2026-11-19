@@ -96,8 +96,9 @@ export function TaskCard({
       {sentBack && (
         <div data-testid="sent-back" className={`mt-3 rounded-lg border-2 border-ink bg-arcade-bumper px-3 py-2 text-paper ${big ? 'text-xl' : 'text-base'}`}>
           <p className="font-bold">{s.sentBackTitle}</p>
+          {/* The kiosk is never sent the comment. It is on the member's own page. */}
           {handout.sentBackComment && <p className="mt-1 whitespace-pre-wrap break-words">{handout.sentBackComment}</p>}
-          <p className="mt-1 opacity-90">{s.sentBackHint}</p>
+          <p className="mt-1 opacity-90">{big ? s.sentBackKiosk : s.sentBackHint}</p>
         </div>
       )}
 

@@ -139,7 +139,10 @@ async function reconcile(tx: Db, task: Task, options: { fresh: boolean }): Promi
   const now = new Date();
   const rows = await tx.select().from(assignments).where(eq(assignments.taskId, task.id));
   const live = rows.filter(isLive);
-  const done = options.fresh ? [] : rows.filter(isSettled);
+  // What already answers the task. After a change of shape, finished history
+  // no longer counts, but work waiting for a lead's check still does: it is
+  // not handed out a second time while a lead has it.
+  const done = rows.filter((r) => (options.fresh ? r.state === 'submitted' : isSettled(r)));
   const keep = new Set<string>();
   const add: (typeof assignments.$inferInsert)[] = [];
 
@@ -166,8 +169,12 @@ async function reconcile(tx: Db, task: Task, options: { fresh: boolean }): Promi
       }
     }
     for (const row of done) if (row.memberId) have.add(row.memberId);
-    // "Done once for the group" and already done: nobody gets it again.
-    const finishedOnce = task.audience === 'person' && task.completion === 'once' && done.length > 0;
+    // "Done once for the group" and already done, or sent back to the one who
+    // did it: nobody else gets it again.
+    const finishedOnce =
+      task.audience === 'person' &&
+      task.completion === 'once' &&
+      (done.length > 0 || (!options.fresh && live.some((r) => r.state === 'sent_back')));
     if (!finishedOnce) {
       for (const memberId of wanted) if (!have.has(memberId)) add.push({ taskId: task.id, memberId });
     }
@@ -234,10 +241,12 @@ export async function closeTask(db: Db, taskId: string, actorId: string | null):
   await db.transaction(async (tx) => {
     await lockTask(tx, taskId);
     await tx.update(tasks).set({ state: 'closed', closedAt: now, updatedAt: now }).where(eq(tasks.id, taskId));
+    // Work waiting for a check goes too: the lead has ended the task, so
+    // there is nothing left to approve or send back.
     await tx
       .update(assignments)
       .set({ state: 'closed', closedAt: now })
-      .where(and(eq(assignments.taskId, taskId), inArray(assignments.state, LIVE)));
+      .where(and(eq(assignments.taskId, taskId), inArray(assignments.state, [...LIVE, 'submitted'])));
     await logChange(tx, { actorId, action: 'task.close', entity: 'task', entityId: taskId });
   });
 }
@@ -258,16 +267,14 @@ export async function syncMember(db: Db, memberId: string): Promise<void> {
         .select({ row: assignments, task: tasks })
         .from(assignments)
         .innerJoin(tasks, eq(assignments.taskId, tasks.id))
-        .where(and(eq(assignments.memberId, memberId), eq(assignments.state, 'claimed'), eq(tasks.audience, 'pool')));
-      for (const { row } of held) {
-        if (row.day) await tx.delete(assignments).where(eq(assignments.id, row.id));
-        else {
-          await tx
-            .update(assignments)
-            .set({ memberId: null, state: 'open', claimedAt: null, stepsDone: [] })
-            .where(eq(assignments.id, row.id));
-        }
-      }
+        .where(
+          and(
+            eq(assignments.memberId, memberId),
+            inArray(assignments.state, ['claimed', 'sent_back']),
+            eq(tasks.audience, 'pool'),
+          ),
+        );
+      for (const { row, task } of held) await unclaim(tx, row, task);
     }
     const each = await tx
       .select()
@@ -310,11 +317,20 @@ function toHandout(task: Task, row: Assignment | null, memberId: string, today: 
     state: row?.state === 'claimed' ? 'claimed' : row?.state === 'sent_back' ? 'sent_back' : 'open',
     needsCheck: task.needsCheck,
     sentBackComment: row?.state === 'sent_back' ? comment : null,
-    canGiveBack: task.audience === 'pool' && claimedByMe && row?.state === 'claimed',
+    canGiveBack: task.audience === 'pool' && claimedByMe && (row?.state === 'claimed' || row?.state === 'sent_back'),
     dueDay: task.dueDay,
     overdue: task.dueDay !== null && task.dueDay < today,
     standing: task.standing,
   };
+}
+
+/**
+ * The same list for the iPad on the wall. A lead's comment on someone's work
+ * is for that member's own page, not a screen the room can read, so it is
+ * taken out before the list leaves the server.
+ */
+export function forKiosk(handouts: Handout[]): Handout[] {
+  return handouts.map((handout) => ({ ...handout, sentBackComment: null }));
 }
 
 const GROUP_ORDER = { yours: 0, subteam: 1, pool: 2 } as const;
@@ -340,7 +356,9 @@ export async function openFor(db: Db, memberId: string, today: string): Promise<
         eq(tasks.state, 'published'),
         inArray(assignments.state, LIVE),
         or(mine, myTeams, unclaimedPool),
-        or(isNull(assignments.day), eq(assignments.day, today)),
+        // A standing task's row belongs to one day. Sent-back work is the
+        // exception: it stays with its member until they send it in again.
+        or(isNull(assignments.day), eq(assignments.day, today), and(mine, eq(assignments.state, 'sent_back'))),
       ),
     );
   // Standing tasks nobody has taken or finished today.
@@ -409,9 +427,11 @@ export async function claim(
   return { ok: taken.length === 1 };
 }
 
-/** Puts a claimed pool hand-out back. False if it was not claimed any more. */
+const HELD = ['claimed', 'sent_back'] as const;
+
+/** Puts a held pool hand-out (taken, or sent back to its taker) back. False if it was not held any more. */
 async function unclaim(db: Db, row: Assignment, task: Task): Promise<boolean> {
-  if (task.standing) {
+  if (task.standing && row.state === 'claimed') {
     // A standing claim is only a marker for that day. Removing it frees the task.
     const gone = await db
       .delete(assignments)
@@ -419,10 +439,20 @@ async function unclaim(db: Db, row: Assignment, task: Task): Promise<boolean> {
       .returning({ id: assignments.id });
     return gone.length === 1;
   }
+  if (task.standing) {
+    // Sent-back standing work has a record behind it, so it closes rather than
+    // vanishes. The task itself is up for grabs again each day anyway.
+    const closed = await db
+      .update(assignments)
+      .set({ state: 'closed', closedAt: new Date() })
+      .where(and(eq(assignments.id, row.id), eq(assignments.state, 'sent_back')))
+      .returning({ id: assignments.id });
+    return closed.length === 1;
+  }
   const freed = await db
     .update(assignments)
     .set({ memberId: null, state: 'open', claimedAt: null, stepsDone: [] })
-    .where(and(eq(assignments.id, row.id), eq(assignments.state, 'claimed')))
+    .where(and(eq(assignments.id, row.id), inArray(assignments.state, HELD)))
     .returning({ id: assignments.id });
   return freed.length === 1;
 }
@@ -433,7 +463,7 @@ async function claimedPoolRow(db: Db, assignmentId: string) {
     .from(assignments)
     .innerJoin(tasks, eq(assignments.taskId, tasks.id))
     .where(eq(assignments.id, assignmentId));
-  return found && found.task.audience === 'pool' && found.row.state === 'claimed' ? found : null;
+  return found && found.task.audience === 'pool' && (HELD as readonly string[]).includes(found.row.state) ? found : null;
 }
 
 /** A lead takes a pool task back from whoever claimed it. */
@@ -596,7 +626,10 @@ export async function setStepsDone(
   return { ok: true };
 }
 
-/** A lead puts finished work back on the member's list. Only while the task is still published. */
+/**
+ * A lead puts finished work back on the list of whoever finished it, and nobody
+ * else's. Only while the task is still published.
+ */
 export async function reopen(db: Db, assignmentId: string, actorId: string | null): Promise<void> {
   await db.transaction(async (tx) => {
     const [first] = await tx.select().from(assignments).where(eq(assignments.id, assignmentId));
@@ -609,13 +642,6 @@ export async function reopen(db: Db, assignmentId: string, actorId: string | nul
       .update(assignments)
       .set({ state: back, doneById: null, doneAt: null, doneVia: null })
       .where(eq(assignments.id, assignmentId));
-    if (task.audience === 'person' && task.completion === 'once' && row.doneAt) {
-      // The copies that closed with it come back too.
-      await tx
-        .update(assignments)
-        .set({ state: 'open', closedAt: null })
-        .where(and(eq(assignments.taskId, task.id), eq(assignments.state, 'closed'), eq(assignments.closedAt, row.doneAt)));
-    }
     await logChange(tx, {
       actorId,
       action: 'assignment.reopen',
