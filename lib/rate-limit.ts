@@ -1,4 +1,4 @@
-import { lt, sql } from 'drizzle-orm';
+import { and, eq, lt, sql } from 'drizzle-orm';
 import type { Db } from './db/client';
 import { rateHits } from './db/schema';
 
@@ -25,4 +25,15 @@ export async function hit(
     await db.delete(rateHits).where(lt(rateHits.windowStart, new Date(input.now.getTime() - 86_400_000)));
   }
   return { allowed: row.count <= input.limit };
+}
+
+/** How many hits a key has in the current window, without adding one. */
+export async function peek(db: Db, input: { key: string; windowSeconds: number; now: Date }): Promise<number> {
+  const windowMs = input.windowSeconds * 1000;
+  const windowStart = new Date(Math.floor(input.now.getTime() / windowMs) * windowMs);
+  const [row] = await db
+    .select({ count: rateHits.count })
+    .from(rateHits)
+    .where(and(eq(rateHits.key, input.key), eq(rateHits.windowStart, windowStart)));
+  return row?.count ?? 0;
 }
