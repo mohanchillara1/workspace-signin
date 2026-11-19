@@ -79,6 +79,9 @@ async function main() {
       DATABASE_URL: base.href,
       SESSION_SECRET: process.env.SESSION_SECRET ?? randomBytes(32).toString('base64url'),
       KIOSK_TEST_FEED: '1',
+      // "Draft steps" answers from the built-in stand-in. No AI service is called.
+      STEP_DRAFTS_STAND_IN: '1',
+      ANTHROPIC_API_KEY: '',
       KIOSK_IDLE_SECONDS: process.env.KIOSK_IDLE_SECONDS ?? '15',
     },
   });
