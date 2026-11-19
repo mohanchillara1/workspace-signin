@@ -7,6 +7,7 @@ import { dayLabel } from '@/lib/day';
 import { getDb } from '@/lib/db/client';
 import { isUuid } from '@/lib/ids';
 import { listMembers, listSubteams } from '@/lib/members';
+import { draftsAvailable } from '@/lib/step-drafts';
 import { taskToForm } from '@/lib/task-form';
 import { handoutsOf, taskById } from '@/lib/tasks';
 
@@ -53,7 +54,7 @@ export default async function TaskPage({
           {noteText}
         </p>
       )}
-      <TaskForm key={`${task.id}-${task.updatedAt.getTime()}`} initial={taskToForm(task)} people={people} subteams={subteams} />
+      <TaskForm key={`${task.id}-${task.updatedAt.getTime()}`} initial={taskToForm(task)} people={people} subteams={subteams} canDraft={draftsAvailable()} />
 
       <section className="mt-10 max-w-3xl">
         <h2 className="text-2xl">{t.handoutsTitle}</h2>

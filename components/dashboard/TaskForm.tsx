@@ -1,6 +1,7 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useRef, useState } from 'react';
+import { draftStepsAction } from '@/app/dashboard/tasks/draft-action';
 import { saveTask, type TaskFormState } from '@/app/dashboard/tasks/actions';
 import { copy } from '@/lib/copy';
 
@@ -23,19 +24,56 @@ export function TaskForm({
   initial,
   people,
   subteams,
+  canDraft = false,
 }: {
   initial: TaskFormValues;
   people: { id: string; name: string }[];
   subteams: { id: string; name: string }[];
+  // True only when the page found drafting turned on. Without it there is no button.
+  canDraft?: boolean;
 }) {
   const [state, action, pending] = useActionState<TaskFormState, FormData>(saveTask, {});
   // Controlled fields: what a lead typed is still there if the save is refused.
   const [v, setV] = useState(initial);
   const set = <K extends keyof TaskFormValues>(key: K, value: TaskFormValues[K]) => setV((old) => ({ ...old, [key]: value }));
   const t = copy.tasks;
+  const d = copy.drafts;
+  const [drafting, setDrafting] = useState(false);
+  const [asking, setAsking] = useState(false);
+  const [draftNote, setDraftNote] = useState<{ kind: 'ok' | 'problem'; text: string } | null>(null);
+  const stepsNow = useRef(v.steps);
+  stepsNow.current = v.steps;
   const audience = v.standing ? 'pool' : v.audience;
   const group = audience === 'subteam' || (audience === 'person' && v.memberIds.length > 1);
   const closed = v.state === 'closed';
+
+  async function draft() {
+    if (drafting) return;
+    setAsking(false);
+    setDraftNote(null);
+    if (!v.title.trim()) {
+      setDraftNote({ kind: 'problem', text: d.needTitle });
+      return;
+    }
+    const before = stepsNow.current;
+    setDrafting(true);
+    try {
+      const result = await draftStepsAction({ title: v.title, description: v.description, subteamId: audience === 'subteam' ? v.subteamId : '' });
+      if (result.problem !== undefined) {
+        setDraftNote({ kind: 'problem', text: result.problem });
+      } else if (stepsNow.current !== before) {
+        // The lead typed while it was working. Their words win.
+        setDraftNote({ kind: 'problem', text: d.changedWhileWaiting });
+      } else {
+        set('steps', result.steps.join('\n'));
+        setDraftNote({ kind: 'ok', text: d.filled });
+      }
+    } catch {
+      setDraftNote({ kind: 'problem', text: d.failed });
+    } finally {
+      setDrafting(false);
+    }
+  }
 
   return (
     <form action={action} className="card max-w-3xl space-y-5 p-6">
@@ -53,6 +91,36 @@ export function TaskForm({
         <label className="label" htmlFor="steps">{t.fieldSteps}</label>
         <textarea id="steps" name="steps" rows={5} className="field" value={v.steps} onChange={(e) => set('steps', e.target.value)} />
         <p className="mt-1 text-sm text-ink/70">{t.fieldStepsHelp}</p>
+        {canDraft && !closed && (
+          <div className="mt-3 space-y-2" data-testid="draft-steps">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                className="btn-small"
+                disabled={drafting}
+                aria-busy={drafting}
+                onClick={() => (v.steps.trim() ? (setDraftNote(null), setAsking(true)) : void draft())}
+              >
+                {drafting ? d.working : d.button}
+              </button>
+              <span className="text-sm text-ink/70">{d.notice}</span>
+            </div>
+            {asking && !drafting && (
+              <div role="alert" className="rounded-lg border-2 border-ink bg-paper p-3">
+                <p className="font-bold">{d.replaceAsk}</p>
+                <div className="mt-2 flex flex-wrap gap-3">
+                  <button type="button" className="btn-small" onClick={() => void draft()}>{d.replaceYes}</button>
+                  <button type="button" className="btn-small" onClick={() => setAsking(false)}>{d.replaceNo}</button>
+                </div>
+              </div>
+            )}
+            {draftNote && (
+              <p role={draftNote.kind === 'problem' ? 'alert' : 'status'} className={draftNote.kind === 'problem' ? 'font-bold text-arcade-bumper' : 'font-bold text-ink'}>
+                {draftNote.text}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       <label className="flex items-start gap-3">

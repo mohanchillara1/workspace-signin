@@ -36,6 +36,7 @@ async function main() {
       SESSION_SECRET: randomBytes(32).toString('base64url'),
       KIOSK_TEST_FEED: '1',
       KIOSK_IDLE_SECONDS: '3',
+      STEP_DRAFTS_STAND_IN: '1',
     },
   });
   const stop = async () => {
