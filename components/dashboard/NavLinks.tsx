@@ -10,6 +10,7 @@ import { copy } from '@/lib/copy';
 const LINKS = [
   { href: '/dashboard', label: copy.nav.today },
   { href: '/dashboard/tasks', label: copy.nav.tasks },
+  { href: '/dashboard/review', label: copy.review.navLabel },
   { href: '/dashboard/finished', label: copy.nav.finished },
   { href: '/dashboard/members', label: copy.nav.members },
   { href: '/dashboard/attendance', label: copy.nav.attendance },
