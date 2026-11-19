@@ -11,7 +11,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `title` | Singularity workspace |
 | `shortTitle` | Workspace |
 | `notFoundTitle` | Nothing here |
-| `notFoundBody` | This link does not open anything. Check it, or ask a lead for a new one. |
+| `notFoundBody` | This link doesn't open anything. Check it, or ask a lead for a new one. |
 | `tooManyTitle` | Slow down |
 | `tooManyBody` | This page was opened too many times in a minute. Wait a minute and try again. |
 
@@ -20,21 +20,25 @@ Strings with a name or a number in them are shown with sample values, once for o
 | Key | Text |
 |---|---|
 | `generic` | Something went wrong. Try again |
-| `taskTitle` | The task needs a title |
-| `taskTitleLong` | The title is longer than 120 characters |
-| `taskDescriptionLong` | The description is longer than 2000 characters |
-| `taskStepsMany` | A task can have 12 steps at most |
-| `taskStepLong` | One of the steps is longer than 200 characters |
+| `taskTitle` | Fill in what needs doing |
+| `taskTitleLong` | Shorten "What needs doing" to 120 characters or fewer |
+| `taskDescriptionLong` | Shorten the detail to 2,000 characters or fewer |
+| `taskStepsMany` | Use 12 steps or fewer |
+| `taskStepLong` | Shorten each step to 200 characters or fewer |
 | `taskNoPeople` | Pick at least one person |
 | `taskNoSubteam` | Pick a subteam |
-| `taskBadDue` | The due day is not a date |
-| `taskMissing` | That task is gone |
-| `firstNameEmpty` | The first name is empty |
-| `nameLong` | A name is longer than 60 characters |
-| `subteamEmpty` | The subteam name is empty |
-| `captainOnly` | Only a captain can invite a lead |
+| `taskBadDue` | Pick a real date for the due day |
+| `taskMissing` | That task is gone. Go back to Tasks |
+| `firstNameEmpty` | Type a first name |
+| `nameLong` | Shorten the name to 60 characters or fewer |
+| `subteamEmpty` | Type a subteam name |
+| `subteamInUse` | That subteam still has members or tasks. Move them first |
+| `captainOnly` | Only a captain can make an invite link |
 | `notALead` | Only a lead or a captain can have a login |
-| `exportDays` | Pick a from day and a to day, with the from day first. |
+| `leadsAreCaptainOnly` | Only a captain can change a lead or a captain |
+| `notYourself` | Ask another captain to do that to your own account |
+| `rosterBig` | That file is too big. Paste the names in, or split the file |
+| `exportDays` | Pick a start day and an end day. The start day must come first. |
 
 ## kiosk
 
@@ -44,7 +48,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `idleHint` | Hold your phone up to the camera. |
 | `cameraHint` | Hold your phone here |
 | `cameraStarting` | Turning the camera on |
-| `cameraBlocked` | The camera did not turn on. Allow the camera for this page, then tap the button. |
+| `cameraBlocked` | The camera didn't turn on. Allow the camera for this page, then tap the button. |
 | `cameraButton` | Turn the camera on |
 | `reading` | Reading |
 | `hello` | Hi Test. |
@@ -55,24 +59,26 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `groupPool` | Up for grabs |
 | `nothingTitle` | Nothing is assigned to you yet. |
 | `nothingBody` | Find a lead and ask what needs doing. |
-| `tasksFailedTitle` | Your tasks did not load. |
-| `tasksFailedBody` | You are signed in. Ask a lead what to work on. |
+| `tasksFailedTitle` | Your tasks didn't load. |
+| `tasksFailedBody` | You're signed in. Ask a lead what to work on. |
 | `take` | I'll take this |
+| `putBack` | Put it back |
 | `done` | Done |
+| `confirmDone` | Tap again to finish |
 | `showSteps` | Show steps |
 | `hideSteps` | Hide steps |
 | `noSteps` | This one has no steps. Ask a lead if you get stuck. |
 | `taken` | Someone else just took that one. |
 | `moreBelow` | More below. Scroll down. |
-| `finishedHere` | I'm finished here |
+| `backNow` | Back to the start |
 | `backIn` | Back to the start in 1 second.<br>Back to the start in 12 seconds. |
 | `unknownTitle` | Code not recognized |
 | `unknownBody` | Find a lead. |
 | `slowTitle` | Too many scans |
 | `slowBody` | Wait a minute, then scan again. |
 | `offlineTitle` | No connection |
-| `offlineBody` | The kiosk is offline, so it cannot sign anyone in. A lead can add you by hand. |
-| `errorTitle` | That did not work |
+| `offlineBody` | This iPad is offline, so it can't sign anyone in. A lead can add you by hand later. |
+| `errorTitle` | That didn't work |
 | `errorBody` | Scan again. If it keeps happening, find a lead. |
 | `statusOnline` | Online. |
 | `statusOffline` | Offline. |
@@ -97,7 +103,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `countNone` | No meetings have been counted since Wed, Nov 18. |
 | `tasksTitle` | Your tasks |
 | `nothingTitle` | Nothing is assigned to you yet. |
-| `nothingBody` | Ask a lead what needs doing next time you are in. |
+| `nothingBody` | Ask a lead what needs doing next time you're in. |
 | `stepsDone` | 1 of 4 steps done<br>3 of 4 steps done |
 
 ## login
@@ -108,7 +114,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `name` | Login name |
 | `password` | Password |
 | `submit` | Log in |
-| `wrong` | That login name and password do not match. |
+| `wrong` | That login name and password don't match. |
 | `locked` | Too many wrong tries. Wait 15 minutes, then try again. |
 | `help` | Lost your password? Ask a captain for a new invite link. |
 
@@ -119,14 +125,14 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `title` | Set up your login, Test |
 | `body` | Pick a login name and a password. You will use them to open the lead dashboard. |
 | `name` | Login name |
-| `nameHelp` | 3 to 32 characters: small letters, numbers, dots, dashes. |
+| `nameHelp` | 3 to 32 characters: lowercase letters, numbers, dots, dashes or underscores. |
 | `password` | Password |
 | `passwordHelp` | At least 10 characters. |
 | `submit` | Save and log in |
-| `badLinkTitle` | This invite link does not work |
+| `badLinkTitle` | This invite link doesn't work |
 | `badLinkBody` | It was used already, or it is more than 7 days old. Ask a captain for a new one. |
 | `weakPassword` | The password needs at least 10 characters. |
-| `badName` | The login name needs 3 to 32 characters: small letters, numbers, dots or dashes. |
+| `badName` | The login name needs 3 to 32 characters: lowercase letters, numbers, dots, dashes or underscores. |
 | `nameTaken` | Someone else has that login name. Pick another. |
 
 ## nav
@@ -140,6 +146,8 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `attendance` | Attendance |
 | `kiosk` | Kiosk |
 | `logout` | Log out |
+| `menu` | Menu |
+| `closeMenu` | Close |
 | `loggedInAs` | Logged in as Test M. |
 
 ## today
@@ -148,7 +156,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 |---|---|
 | `title` | Today |
 | `here` | Here (1)<br>Here (3) |
-| `hereNothing` | Here with nothing to do (1)<br>Here with nothing to do (3) |
+| `hereNothing` | Here with no task of their own (1)<br>Here with no task of their own (3) |
 | `notHere` | Not here (1)<br>Not here (3) |
 | `hereEmpty` | Nobody has scanned in yet. |
 | `hereNothingEmpty` | Everyone who is here has a task. |
@@ -164,19 +172,20 @@ Strings with a name or a number in them are shown with sample values, once for o
 |---|---|
 | `title` | Tasks |
 | `newTask` | New task |
-| `noTask` | 1 active member has no open task.<br>3 active members have no open task. |
-| `noTaskNone` | Every active member has an open task. |
+| `noTask` | 1 active member has no task.<br>3 active members have no task. |
+| `noTaskNone` | Every active member has a task. |
 | `empty` | No tasks yet. Write the first one. |
 | `stateDraft` | Draft |
 | `statePublished` | Published |
 | `stateClosed` | Closed |
 | `forPeople` | For Test M., Test L. |
 | `forSubteam` | For Build |
-| `forPool` | Open pool |
+| `forPool` | Up for grabs |
 | `standing` | Standing |
-| `openCount` | 1 open<br>3 open |
+| `overdue` | Overdue |
+| `openCount` | 1 not done<br>3 not done |
 | `doneCount` | 1 done<br>3 done |
-| `edit` | Open |
+| `edit` | Edit |
 | `formNewTitle` | New task |
 | `formEditTitle` | Task |
 | `fieldTitle` | What needs doing |
@@ -187,7 +196,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `fieldAudience` | Who is it for |
 | `audiencePerson` | A person, or a few people |
 | `audienceSubteam` | A subteam |
-| `audiencePool` | The open pool |
+| `audiencePool` | Anyone (up for grabs) |
 | `fieldPeople` | People |
 | `fieldSubteam` | Subteam |
 | `fieldCompletion` | When more than one person has it |
@@ -196,7 +205,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `fieldDue` | Due day |
 | `fieldDueHelp` | Optional. |
 | `fieldStanding` | Standing task |
-| `fieldStandingHelp` | It stays in the pool and comes back every day. Use it for chores like cleaning the bench. |
+| `fieldStandingHelp` | It stays up for grabs and comes back every day. Use it for chores like cleaning the bench. |
 | `fieldNeedsCheck` | Needs a lead's check when it is done |
 | `saveDraft` | Save draft |
 | `save` | Save |
@@ -204,12 +213,12 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `close` | Close task |
 | `handoutsTitle` | Who has it |
 | `handoutsNone` | Nobody yet. A standing task shows up here when someone takes it that day. |
-| `handoutOpen` | Open |
+| `handoutOpen` | Not started |
 | `handoutClaimed` | Taken |
 | `handoutDone` | Done |
 | `handoutClosed` | Closed |
-| `handoutPool` | Open pool |
-| `takeBack` | Take it back |
+| `handoutPool` | Up for grabs |
+| `takeBack` | Put back up for grabs |
 | `saved` | Saved. |
 | `published` | Published. |
 | `closed` | Closed. |
@@ -221,13 +230,14 @@ Strings with a name or a number in them are shown with sample values, once for o
 |---|---|
 | `title` | Finished |
 | `empty` | Nothing has been marked done yet. |
-| `by` | Test M., Wed, Nov 18 4:32 PM |
+| `by` | Test M. on Wed, Nov 18 at 4:32 PM |
 | `viaKiosk` | on the kiosk |
-| `viaMemberPage` | on their phone |
+| `viaMemberPage` | on their own page |
 | `viaLead` | by a lead |
-| `needsCheck` | Needs a look |
+| `needsCheck` | Needs a lead's check |
 | `reopen` | Reopen |
 | `help` | Reopening puts a task back on the list of whoever finished it. |
+| `taskClosed` | Task closed |
 
 ## members
 
@@ -245,12 +255,15 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `roleCaptain` | Captain |
 | `add` | Add member |
 | `rosterTitle` | Paste a roster |
-| `rosterHelp` | One person per line: "First Last" or "First Last, Subteam". If the subteam is new, it gets added. |
+| `rosterHelp` | One person per line: "First Last", "First Last, Subteam" or "First, Last, Subteam". A header row is skipped. If the subteam is new, it gets added. Someone already on the roster is not added twice. |
+| `rosterFile` | Or pick a CSV file |
 | `rosterSubmit` | Add everyone |
-| `rosterResult` | Added 5.<br>Added 5. Skipped 2 lines that could not be read. |
-| `subteamTitle` | Add a subteam |
-| `subteamName` | Subteam name |
+| `rosterResult` | Added {added}. {already} were already on the roster. Skipped {skipped} lines that could not be read. |
+| `subteamsTitle` | Subteams |
+| `subteamName` | New subteam name |
 | `subteamAdd` | Add subteam |
+| `subteamUse` | {members} members, {tasks} tasks |
+| `subteamRemove` | Remove Test M. |
 | `listTitle` | Everyone (1)<br>Everyone (3) |
 | `inactive` | Inactive |
 | `hasLogin` | Has a login |
@@ -258,6 +271,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `copied` | Copied |
 | `newCode` | New QR code |
 | `newLink` | New page link |
+| `rekeyNote` | A new QR code or a new page link stops the old one at once. |
 | `deactivate` | Deactivate |
 | `reactivate` | Reactivate |
 | `save` | Save |
@@ -267,7 +281,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `print` | Print QR codes |
 | `printTitle` | QR codes |
 | `printHelp` | For people without a phone that day. Cut along the lines. |
-| `captainOnly` | Only a captain can change roles or make invite links. |
+| `captainOnly` | Only a captain can change a lead or a captain, change roles, or make invite links. |
 | `problem` | Not saved. The task needs a title. |
 
 ## attendance
@@ -276,7 +290,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 |---|---|
 | `title` | Attendance |
 | `dayLabel` | Day |
-| `show` | Show |
+| `show` | Go |
 | `previous` | Day before |
 | `next` | Day after |
 | `present` | Here (1)<br>Here (3) |
@@ -285,18 +299,24 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `scanned` | scanned at 4:32 PM |
 | `byHand` | added by hand by Test M. |
 | `markHere` | Mark here |
-| `remove` | Remove |
-| `strike` | Strike this day |
+| `remove` | Unmark |
+| `strike` | Don't count this day |
 | `unstrike` | Count this day again |
-| `struckNote` | This day is struck. It does not count as a meeting. |
-| `strikeHelp` | Strike a day when its scans were only tests. |
+| `struckNote` | This day is not counted as a meeting. |
+| `strikeHelp` | Use this when the day's scans were only tests. |
 | `meetingNote` | This day counts as a meeting. |
-| `notMeetingNote` | No kiosk scan yet, so this day does not count as a meeting. |
+| `notMeetingNote` | No scan on the kiosk yet, so this day doesn't count as a meeting. |
+| `changesTitle` | Changes made by hand |
+| `changesNone` | Nobody changed this day by hand. |
+| `changeAdded` | {who} marked {member} here at 4:32 PM. |
+| `changeRemoved` | {who} unmarked {member} at 4:32 PM. |
+| `changeStruck` | {who} set this day to not count at 4:32 PM. |
+| `changeUnstruck` | {who} set this day to count again at 4:32 PM. |
 | `exportTitle` | Export |
 | `from` | From |
 | `to` | To |
 | `download` | Download CSV |
-| `csvHeaders` | day<br>first name<br>last name<br>subteam<br>first scan (Central time)<br>recorded<br>recorded by |
+| `csvHeaders` | day<br>first name<br>last name<br>subteam<br>first scan (Central time)<br>how recorded<br>recorded by |
 | `csvKiosk` | kiosk |
 | `csvManual` | by hand |
 
@@ -305,7 +325,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | Key | Text |
 |---|---|
 | `title` | Kiosk |
-| `body` | The scan page only works on a device a lead has set up here. Do it once, on the iPad itself. |
+| `body` | The scan page works only on a device that a lead has set up as the kiosk. Do it once, on the iPad itself. |
 | `pairTitle` | Make this the kiosk |
 | `pairHelp` | This logs you out on this device and opens the scan page. To come back here, log in again. |
 | `name` | Name for this device |
@@ -316,6 +336,6 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `lastSeen` | last seen Wed, Nov 18 4:32 PM |
 | `neverSeen` | not seen yet |
 | `unpaired` | Turned off |
-| `unpair` | Turn off |
+| `unpair` | Turn off Test M. |
 | `setupTitle` | On the iPad, once |
 | `setup` | Open this site in Safari and add it to the Home Screen.<br>Open it from the Home Screen, log in, and make it the kiosk.<br>Turn on Guided Access so it stays on this page.<br>Set Auto-Lock to Never and keep it on the charger. |

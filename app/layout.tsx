@@ -6,7 +6,8 @@ import './globals.css';
 
 const manrope = Manrope({
   subsets: ['latin'],
-  weight: ['400', '500', '600', '700', '800'],
+  // The same four weights the team site loads.
+  weight: ['400', '500', '600', '700'],
   display: 'swap',
   variable: '--font-manrope',
 });

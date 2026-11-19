@@ -5,6 +5,7 @@ import { setByHand, strikeDay, unstrikeDay } from '@/lib/attendance';
 import { requireLead } from '@/lib/auth/session';
 import { isDay } from '@/lib/day';
 import { getDb } from '@/lib/db/client';
+import { isUuid } from '@/lib/ids';
 
 function refresh() {
   revalidatePath('/dashboard');
@@ -15,7 +16,7 @@ export async function markByHand(form: FormData): Promise<void> {
   const lead = await requireLead();
   const memberId = String(form.get('memberId') ?? '');
   const day = String(form.get('day') ?? '');
-  if (!memberId || !isDay(day)) return;
+  if (!isUuid(memberId) || !isDay(day)) return;
   await setByHand(getDb(), {
     memberId,
     day,

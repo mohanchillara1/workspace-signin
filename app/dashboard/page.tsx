@@ -11,12 +11,12 @@ export const dynamic = 'force-dynamic';
 
 function Person({ row, children }: { row: BoardRow; children?: React.ReactNode }) {
   return (
-    <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2">
-      <span>
-        <span className="font-bold">{row.fullName}</span>
-        {row.subteam && <span className="ml-2 text-sm opacity-70">{row.subteam}</span>}
+    <li className="flex items-center justify-between gap-3 py-2">
+      <span className="min-w-0">
+        <span className="block truncate font-bold">{row.fullName}</span>
+        {row.subteam && <span className="block truncate text-sm opacity-70">{row.subteam}</span>}
       </span>
-      <span className="flex items-center gap-2 text-sm">{children}</span>
+      <span className="flex shrink-0 items-center gap-2 text-sm">{children}</span>
     </li>
   );
 }
@@ -37,8 +37,8 @@ export default async function TodayPage() {
       <h1 className="text-5xl">{t.title}</h1>
       <p className="mt-1 text-lg text-paper/70">{dayLabel(today)}</p>
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-3">
-        <section data-list="here" className="rounded-xl border-2 border-ink bg-arcade-mint p-5 text-ink shadow-hard">
+      <div className="mt-8 grid items-start gap-6 lg:grid-cols-3">
+        <section data-list="here" className="on-fill rounded-xl border-2 border-ink bg-arcade-mint p-5 text-ink shadow-hard">
           <h2 className="text-2xl">{t.here(board.here.length)}</h2>
           {board.here.length === 0 ? (
             <p className="mt-2">{t.hereEmpty}</p>
@@ -51,7 +51,7 @@ export default async function TodayPage() {
           )}
         </section>
 
-        <section data-list="here-nothing" className="rounded-xl border-2 border-ink bg-arcade-fuel p-5 text-ink shadow-hard">
+        <section data-list="here-nothing" className="on-fill rounded-xl border-2 border-ink bg-arcade-fuel p-5 text-ink shadow-hard">
           <h2 className="text-2xl">{t.hereNothing(hereNothing.length)}</h2>
           <p className="mt-1 text-sm">{t.hereNothingHelp}</p>
           {hereNothing.length === 0 ? (

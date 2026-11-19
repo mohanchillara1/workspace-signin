@@ -27,6 +27,16 @@ export async function hit(
   return { allowed: row.count <= input.limit };
 }
 
+/** Takes one hit back, for a try that turned out to be fine (a correct password). */
+export async function unhit(db: Db, input: { key: string; windowSeconds: number; now: Date }): Promise<void> {
+  const windowMs = input.windowSeconds * 1000;
+  const windowStart = new Date(Math.floor(input.now.getTime() / windowMs) * windowMs);
+  await db
+    .update(rateHits)
+    .set({ count: sql`greatest(${rateHits.count} - 1, 0)` })
+    .where(and(eq(rateHits.key, input.key), eq(rateHits.windowStart, windowStart)));
+}
+
 /** How many hits a key has in the current window, without adding one. */
 export async function peek(db: Db, input: { key: string; windowSeconds: number; now: Date }): Promise<number> {
   const windowMs = input.windowSeconds * 1000;

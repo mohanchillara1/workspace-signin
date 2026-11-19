@@ -1,10 +1,10 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
-import { copy } from './copy';
 import type { Db } from './db/client';
 import { leadLogins, members, subteams, type Member, type Subteam } from './db/schema';
-import { UserError } from './errors';
+import { UserError, type ErrorKey } from './errors';
 import { newPageKey, newScanCode, SCAN_CODE_PATTERN } from './ids';
 import { logChange } from './log';
+import { syncMember } from './tasks';
 
 export type Role = Member['role'];
 export type NewMember = { firstName: string; lastName?: string; subteamId?: string | null; role?: Role };
@@ -13,18 +13,26 @@ export type MemberListRow = Member & { subteamName: string | null; hasLogin: boo
 const NAME_MAX = 60;
 const PAGE_KEY_PATTERN = /^[A-Za-z0-9_-]{32}$/;
 
-function cleanName(text: string | undefined, emptyMessage: string | null): string {
+function cleanName(text: string | undefined, emptyError: ErrorKey | null): string {
   const name = (text ?? '').replace(/\s+/g, ' ').trim();
-  if (emptyMessage && !name) throw new UserError(emptyMessage);
-  if (name.length > NAME_MAX) throw new UserError(copy.errors.nameLong(NAME_MAX));
+  if (emptyError && !name) throw new UserError(emptyError);
+  if (name.length > NAME_MAX) throw new UserError('nameLong');
   return name;
+}
+
+/** Ends every session a lead has, wherever they are logged in. */
+async function endAllSessions(db: Db, memberId: string): Promise<void> {
+  await db
+    .update(leadLogins)
+    .set({ version: sql`${leadLogins.version} + 1`, updatedAt: new Date() })
+    .where(eq(leadLogins.memberId, memberId));
 }
 
 export async function addMember(db: Db, input: NewMember, actorId: string | null): Promise<Member> {
   const [member] = await db
     .insert(members)
     .values({
-      firstName: cleanName(input.firstName, copy.errors.firstNameEmpty),
+      firstName: cleanName(input.firstName, 'firstNameEmpty'),
       lastName: cleanName(input.lastName, null),
       subteamId: input.subteamId ?? null,
       role: input.role ?? 'member',
@@ -33,6 +41,7 @@ export async function addMember(db: Db, input: NewMember, actorId: string | null
     })
     .returning();
   await logChange(db, { actorId, action: 'member.add', entity: 'member', entityId: member.id });
+  if (member.subteamId) await syncMember(db, member.id);
   return member;
 }
 
@@ -42,8 +51,10 @@ export async function updateMember(
   patch: { firstName?: string; lastName?: string; subteamId?: string | null; role?: Role },
   actorId: string | null,
 ): Promise<void> {
+  const [before] = await db.select().from(members).where(eq(members.id, id));
+  if (!before) return;
   const set: Partial<typeof members.$inferInsert> = {};
-  if (patch.firstName !== undefined) set.firstName = cleanName(patch.firstName, copy.errors.firstNameEmpty);
+  if (patch.firstName !== undefined) set.firstName = cleanName(patch.firstName, 'firstNameEmpty');
   if (patch.lastName !== undefined) set.lastName = cleanName(patch.lastName, null);
   if (patch.subteamId !== undefined) set.subteamId = patch.subteamId;
   if (patch.role !== undefined) set.role = patch.role;
@@ -56,6 +67,9 @@ export async function updateMember(
     entityId: id,
     detail: { fields: Object.keys(set) },
   });
+  // A change of role ends the sessions made under the old one.
+  if (set.role !== undefined && set.role !== before.role) await endAllSessions(db, id);
+  if (set.subteamId !== undefined && set.subteamId !== before.subteamId) await syncMember(db, id);
 }
 
 export async function setActive(db: Db, id: string, active: boolean, actorId: string | null): Promise<void> {
@@ -69,6 +83,10 @@ export async function setActive(db: Db, id: string, active: boolean, actorId: st
     entity: 'member',
     entityId: id,
   });
+  // Deactivating ends their sessions for good: a later reactivation does not
+  // bring an old cookie back to life.
+  if (!active) await endAllSessions(db, id);
+  await syncMember(db, id);
 }
 
 /** Issues a new QR code. The old one stops working at once. */
@@ -85,6 +103,29 @@ export async function reissuePageKey(db: Db, id: string, actorId: string | null)
   await db.update(members).set({ pageKey }).where(eq(members.id, id));
   await logChange(db, { actorId, action: 'member.new_link', entity: 'member', entityId: id });
   return pageKey;
+}
+
+export type ManageAction = 'deactivate' | 'reactivate' | 'new-code' | 'new-link' | 'edit' | 'role';
+
+/**
+ * Who may change whom. A lead looks after members and their own record. Only
+ * a captain can change another lead or a captain, or anyone's role. Nobody
+ * deactivates or re-roles themselves, so a slip cannot lock the last captain
+ * out. Throws a UserError when the answer is no.
+ */
+export async function assertMayManage(db: Db, actorId: string, targetId: string, what: ManageAction): Promise<Member> {
+  const [actor] = await db.select().from(members).where(eq(members.id, actorId));
+  const [target] = await db.select().from(members).where(eq(members.id, targetId));
+  const actorIsLead = !!actor && actor.active && (actor.role === 'lead' || actor.role === 'captain');
+  if (!actorIsLead || !target) throw new UserError('leadsAreCaptainOnly');
+  const self = actor.id === target.id;
+  if (self && (what === 'deactivate' || what === 'role')) {
+    throw new UserError(actor.role === 'captain' ? 'notYourself' : 'leadsAreCaptainOnly');
+  }
+  if (actor.role === 'captain') return target;
+  if (what === 'role') throw new UserError('leadsAreCaptainOnly');
+  if (target.role !== 'member' && !self) throw new UserError('leadsAreCaptainOnly');
+  return target;
 }
 
 /** The active member a scanned code belongs to, or null for anything else. */
@@ -122,7 +163,7 @@ export async function listMembers(db: Db): Promise<MemberListRow[]> {
 }
 
 export async function addSubteam(db: Db, name: string): Promise<Subteam> {
-  const clean = cleanName(name, copy.errors.subteamEmpty);
+  const clean = cleanName(name, 'subteamEmpty');
   const [existing] = await db
     .select()
     .from(subteams)
@@ -132,37 +173,113 @@ export async function addSubteam(db: Db, name: string): Promise<Subteam> {
   return made;
 }
 
-export async function listSubteams(db: Db): Promise<Subteam[]> {
-  return db.select().from(subteams).orderBy(asc(subteams.name));
+export type SubteamRow = Subteam & { members: number; tasks: number };
+
+export async function listSubteams(db: Db): Promise<SubteamRow[]> {
+  const rows = await db
+    .select({
+      subteam: subteams,
+      // Table names are written out: inside a one-table select the query
+      // builder drops them, and the two "id" columns would be confused.
+      members: sql<number>`(select count(*)::int from "members" where "members"."subteam_id" = "subteams"."id")`,
+      tasks: sql<number>`(select count(*)::int from "tasks" where "tasks"."subteam_id" = "subteams"."id")`,
+    })
+    .from(subteams)
+    .orderBy(asc(subteams.name));
+  return rows.map((r) => ({ ...r.subteam, members: r.members, tasks: r.tasks }));
 }
 
+/** Removes a subteam made by mistake. Only one that no member and no task uses. */
+export async function removeSubteam(db: Db, id: string, actorId: string | null): Promise<void> {
+  const all = await listSubteams(db);
+  const row = all.find((s) => s.id === id);
+  if (!row) return;
+  if (row.members > 0 || row.tasks > 0) throw new UserError('subteamInUse');
+  await db.delete(subteams).where(eq(subteams.id, id));
+  await logChange(db, { actorId, action: 'subteam.remove', entity: 'subteam', entityId: id, detail: { name: row.name } });
+}
+
+/** One line of CSV into its cells. Handles "quoted, cells" and "" inside quotes. */
+function csvCells(line: string): string[] {
+  const cells: string[] = [];
+  let cell = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell.trim() === '') {
+      cell = '';
+      quoted = true;
+    } else if (ch === ',') {
+      cells.push(cell);
+      cell = '';
+    } else cell += ch;
+  }
+  cells.push(cell);
+  return cells.map((c) => c.replace(/\s+/g, ' ').trim());
+}
+
+const HEADER_WORDS = new Set(['name', 'full name', 'first', 'first name', 'last', 'last name', 'subteam', 'team', 'member']);
+
 /**
- * Adds members from pasted text, one per line: "First Last" or
- * "First Last, Subteam". A subteam that does not exist yet is made.
+ * Adds members from pasted text or an uploaded CSV, one person per line:
+ *   First Last            First Last, Subteam            First, Last, Subteam
+ * A header row is skipped. Cells may be in quotes. A subteam that does not
+ * exist yet is made. Someone already on the roster (same first and last
+ * name, any letter case) is not added again.
  */
 export async function importRoster(
   db: Db,
   text: string,
   actorId: string | null,
-): Promise<{ added: number; skipped: string[] }> {
+): Promise<{ added: number; skipped: string[]; already: string[] }> {
   let added = 0;
   const skipped: string[] = [];
-  for (const raw of text.split(/\r?\n/)) {
+  const already: string[] = [];
+  const existing = new Set(
+    (await db.select({ first: members.firstName, last: members.lastName }).from(members)).map((m) =>
+      `${m.first} ${m.last}`.trim().toLowerCase(),
+    ),
+  );
+  let first = true;
+  for (const raw of text.replace(/^﻿/, '').split(/\r?\n/)) {
     const line = raw.trim();
     if (!line) continue;
-    const comma = line.indexOf(',');
-    const namePart = (comma === -1 ? line : line.slice(0, comma)).replace(/\s+/g, ' ').trim();
-    const subteamPart = comma === -1 ? '' : line.slice(comma + 1).trim();
-    const space = namePart.indexOf(' ');
-    const firstName = space === -1 ? namePart : namePart.slice(0, space);
-    const lastName = space === -1 ? '' : namePart.slice(space + 1);
-    if (!firstName || firstName.length > NAME_MAX || lastName.length > NAME_MAX || subteamPart.length > NAME_MAX) {
+    const cells = csvCells(line);
+    if (first) {
+      first = false;
+      if (cells.every((c) => HEADER_WORDS.has(c.toLowerCase()))) continue;
+    }
+    let firstName: string;
+    let lastName: string;
+    let subteamName: string;
+    if (cells.length >= 3) {
+      [firstName, lastName, subteamName] = cells;
+    } else {
+      const name = cells[0] ?? '';
+      const space = name.indexOf(' ');
+      firstName = space === -1 ? name : name.slice(0, space);
+      lastName = space === -1 ? '' : name.slice(space + 1);
+      subteamName = cells[1] ?? '';
+    }
+    if (!firstName || firstName.length > NAME_MAX || lastName.length > NAME_MAX || subteamName.length > NAME_MAX || cells.length > 3) {
       skipped.push(line);
       continue;
     }
-    const subteam = subteamPart ? await addSubteam(db, subteamPart) : null;
+    const whole = `${firstName} ${lastName}`.trim();
+    if (existing.has(whole.toLowerCase())) {
+      already.push(whole);
+      continue;
+    }
+    const subteam = subteamName ? await addSubteam(db, subteamName) : null;
     await addMember(db, { firstName, lastName, subteamId: subteam?.id ?? null }, actorId);
+    existing.add(whole.toLowerCase());
     added++;
   }
-  return { added, skipped };
+  return { added, skipped, already };
 }

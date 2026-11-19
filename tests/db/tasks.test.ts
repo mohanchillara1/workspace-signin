@@ -205,7 +205,9 @@ describe('tasks and hand-outs', () => {
     expect(nothing.map((m) => m.memberId)).not.toContain(gone.id);
     expect(nothing.map((m) => m.memberId)).not.toContain(c.id);
     // A pool task does not count as "has a task": idle still has none of their own.
-    expect((await openFor(db, idle.id, TODAY)).every((h) => h.group === 'pool')).toBe(true);
+    const forIdle = await openFor(db, idle.id, TODAY);
+    expect(forIdle.length).toBeGreaterThan(0);
+    expect(forIdle.every((h) => h.group === 'pool')).toBe(true);
   });
 
   it('refuses a task with no title, no people, or no subteam', async () => {

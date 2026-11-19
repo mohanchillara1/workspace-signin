@@ -44,6 +44,9 @@ export default async function TasksPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="chip">{task.state === 'draft' ? t.stateDraft : task.state === 'published' ? t.statePublished : t.stateClosed}</span>
                   {task.standing && <span className="chip !bg-arcade-fuel">{t.standing}</span>}
+                  {task.state === 'published' && task.open > 0 && task.dueDay !== null && task.dueDay < today && (
+                    <span className="chip !border-arcade-bumper !bg-arcade-bumper !text-paper">{t.overdue}</span>
+                  )}
                   {task.state !== 'draft' && <span className="text-sm text-paper/70">{t.openCount(task.open)}, {t.doneCount(task.done)}</span>}
                   <Link href={`/dashboard/tasks/${task.id}`} className="btn-small">{t.edit}</Link>
                 </div>

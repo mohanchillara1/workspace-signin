@@ -25,15 +25,19 @@ export default async function FinishedPage() {
               <div className="min-w-0">
                 <h2 className="font-sans text-xl font-bold tracking-normal">{row.title}</h2>
                 <p className="mt-1 text-sm text-paper/70">
-                  {f.by(row.doneByFull, `${dayLabel(chicagoDay(row.doneAt))} ${chicagoTime(row.doneAt)}`)}, {via[row.doneVia]}
+                  {f.by(row.doneByFull, dayLabel(chicagoDay(row.doneAt)), chicagoTime(row.doneAt))}, {via[row.doneVia]}
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 {row.needsCheck && <span className="chip !bg-arcade-fuel">{f.needsCheck}</span>}
-                <form action={reopenFinished}>
-                  <input type="hidden" name="assignmentId" value={row.assignmentId} />
-                  <button type="submit" className="btn-small">{f.reopen}</button>
-                </form>
+                {row.canReopen ? (
+                  <form action={reopenFinished}>
+                    <input type="hidden" name="assignmentId" value={row.assignmentId} />
+                    <button type="submit" className="btn-small">{f.reopen}</button>
+                  </form>
+                ) : (
+                  <span className="chip">{f.taskClosed}</span>
+                )}
               </div>
             </li>
           ))}

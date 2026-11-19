@@ -77,7 +77,7 @@ export function TaskForm({
       {audience === 'person' && (
         <fieldset>
           <legend className="label">{t.fieldPeople}</legend>
-          <div className="grid max-h-64 gap-x-6 gap-y-1 overflow-y-auto rounded-lg border-2 border-ink/20 p-3 sm:grid-cols-2">
+          <div className="grid gap-x-6 gap-y-2 rounded-lg border-2 border-ink/20 p-3 sm:grid-cols-2">
             {people.map((person) => (
               <label key={person.id} className="flex items-center gap-3">
                 <input

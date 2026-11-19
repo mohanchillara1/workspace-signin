@@ -25,3 +25,10 @@ export function newToken(): string {
 export function sha256(text: string): string {
   return createHash('sha256').update(text).digest('hex');
 }
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** True for a well-formed id. Anything else never reaches the database. */
+export function isUuid(value: unknown): value is string {
+  return typeof value === 'string' && UUID_PATTERN.test(value);
+}

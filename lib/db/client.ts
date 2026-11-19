@@ -9,7 +9,16 @@ type Tx = Parameters<Parameters<Root['transaction']>[0]>[0];
 export type Db = Root | Tx;
 
 export function makeDb(url: string): { db: Root; pool: Pool } {
-  const pool = new Pool({ connectionString: url, max: 10 });
+  const pool = new Pool({
+    connectionString: url,
+    // A serverless host runs many copies of the app; each keeps a small pool.
+    max: Number(process.env.DB_POOL_MAX ?? 5),
+    // Fail in seconds, not minutes, when the database is slow or away, so the
+    // kiosk can say so.
+    connectionTimeoutMillis: 5000,
+    statement_timeout: 8000,
+    query_timeout: 10000,
+  });
   return { db: drizzle(pool, { schema }), pool };
 }
 

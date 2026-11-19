@@ -1,18 +1,18 @@
-import { and, eq, gt, isNull, ne, sql } from 'drizzle-orm';
-import { copy } from '../copy';
+import { and, eq, gt, isNull, lt, ne, sql } from 'drizzle-orm';
 import type { Db } from '../db/client';
+import { endedSessions, invites, leadLogins, members, type Member } from '../db/schema';
 import { UserError } from '../errors';
-import { invites, leadLogins, members, type Member } from '../db/schema';
 import { newToken, sha256 } from '../ids';
 import { logChange } from '../log';
-import { hit, peek } from '../rate-limit';
+import { hit, unhit } from '../rate-limit';
 import { hashPassword, PASSWORD_MAX, PASSWORD_MIN, verifyPassword } from './password';
 
 const INVITE_DAYS = 7;
 const LOCK_WINDOW_SECONDS = 15 * 60;
 const WRONG_PER_NAME = 5;
 const WRONG_PER_ADDRESS = 20;
-const LOGIN_NAME_PATTERN = /^[a-z0-9._-]{3,32}$/;
+export const LOGIN_NAME_PATTERN = /^[a-z0-9._-]{3,32}$/;
+export const SESSION_DAYS = 14;
 // A stored value no password can match. Set when a new invite goes out.
 const NO_PASSWORD = '!';
 
@@ -35,12 +35,12 @@ export async function createInvite(
 ): Promise<string> {
   if (input.actorId) {
     const [actor] = await db.select().from(members).where(eq(members.id, input.actorId));
-    if (!actor || !actor.active || actor.role !== 'captain') throw new UserError(copy.errors.captainOnly);
+    if (!actor || !actor.active || actor.role !== 'captain') throw new UserError('captainOnly');
   } else if (!input.bootstrap) {
-    throw new UserError(copy.errors.captainOnly);
+    throw new UserError('captainOnly');
   }
   const [member] = await db.select().from(members).where(eq(members.id, input.memberId));
-  if (!isLead(member)) throw new UserError(copy.errors.notALead);
+  if (!isLead(member)) throw new UserError('notALead');
 
   const token = newToken();
   await db.insert(invites).values({
@@ -73,7 +73,17 @@ export type AcceptResult =
   | { ok: true; memberId: string; version: number }
   | { ok: false; reason: 'bad_link' | 'weak_password' | 'bad_name' | 'name_taken' };
 
-/** A lead opens their invite link and picks a login name and a password. */
+class Refused extends Error {
+  constructor(public readonly reason: 'bad_link' | 'name_taken') {
+    super(reason);
+  }
+}
+
+/**
+ * A lead opens their invite link and picks a login name and a password. The
+ * link is used up and the login is written in one step, so a link opened
+ * twice at the same moment still works only once.
+ */
 export async function acceptInvite(
   db: Db,
   input: { token: unknown; loginName: string; password: string; now: Date },
@@ -85,27 +95,45 @@ export async function acceptInvite(
   }
   const loginName = normalLoginName(input.loginName);
   if (!LOGIN_NAME_PATTERN.test(loginName)) return { ok: false, reason: 'bad_name' };
-  const [taken] = await db
-    .select({ memberId: leadLogins.memberId })
-    .from(leadLogins)
-    .where(and(eq(leadLogins.loginName, loginName), ne(leadLogins.memberId, member.id)));
-  if (taken) return { ok: false, reason: 'name_taken' };
-
   const passwordHash = await hashPassword(input.password);
-  const [login] = await db
-    .insert(leadLogins)
-    .values({ memberId: member.id, loginName, passwordHash, updatedAt: input.now })
-    .onConflictDoUpdate({
-      target: leadLogins.memberId,
-      set: { loginName, passwordHash, version: sql`${leadLogins.version} + 1`, updatedAt: input.now },
-    })
-    .returning({ version: leadLogins.version });
-  await db
-    .update(invites)
-    .set({ usedAt: input.now })
-    .where(and(eq(invites.memberId, member.id), isNull(invites.usedAt)));
-  await logChange(db, { actorId: member.id, action: 'lead.set_password', entity: 'member', entityId: member.id });
-  return { ok: true, memberId: member.id, version: login.version };
+  try {
+    const version = await db.transaction(async (tx) => {
+      const used = await tx
+        .update(invites)
+        .set({ usedAt: input.now })
+        .where(and(eq(invites.tokenHash, sha256(String(input.token))), isNull(invites.usedAt), gt(invites.expiresAt, input.now)))
+        .returning({ memberId: invites.memberId });
+      if (used.length !== 1) throw new Refused('bad_link');
+      const [taken] = await tx
+        .select({ memberId: leadLogins.memberId })
+        .from(leadLogins)
+        .where(and(eq(leadLogins.loginName, loginName), ne(leadLogins.memberId, member.id)));
+      if (taken) throw new Refused('name_taken');
+      const [login] = await tx
+        .insert(leadLogins)
+        .values({ memberId: member.id, loginName, passwordHash, updatedAt: input.now })
+        .onConflictDoUpdate({
+          target: leadLogins.memberId,
+          set: { loginName, passwordHash, version: sql`${leadLogins.version} + 1`, updatedAt: input.now },
+        })
+        .returning({ version: leadLogins.version });
+      // Any other invite still open for this lead is spent too.
+      await tx
+        .update(invites)
+        .set({ usedAt: input.now })
+        .where(and(eq(invites.memberId, member.id), isNull(invites.usedAt)));
+      await logChange(tx, { actorId: member.id, action: 'lead.set_password', entity: 'member', entityId: member.id });
+      return login.version;
+    });
+    return { ok: true, memberId: member.id, version };
+  } catch (error) {
+    if (error instanceof Refused) return { ok: false, reason: error.reason };
+    // Two leads picking the same new name at the same moment: the second insert is refused.
+    if (error instanceof Error && /lead_logins_login_name_unique|duplicate key/.test(`${error.message} ${String((error as { cause?: unknown }).cause ?? '')}`)) {
+      return { ok: false, reason: 'name_taken' };
+    }
+    throw error;
+  }
 }
 
 let dummyHash: Promise<string> | undefined;
@@ -116,22 +144,23 @@ export type LoginResult =
 
 /**
  * Checks a login name and password. A wrong password and an unknown name get
- * the same answer. Five wrong tries on a name, or twenty from one address,
- * lock it for the rest of a 15-minute window.
+ * the same answer. Each try is counted before the password is looked at, so
+ * many guesses sent at once cannot slip past the count: five wrong tries on
+ * a name, or twenty from one address, lock it for the rest of a 15-minute
+ * window. A correct password gives its count back.
  */
 export async function checkLogin(
   db: Db,
   input: { loginName: string; password: string; ip: string; now: Date },
 ): Promise<LoginResult> {
   const loginName = normalLoginName(input.loginName).slice(0, 64);
-  const nameKey = `login-name:${loginName}`;
-  const addressKey = `login-ip:${input.ip}`;
-  const window = { windowSeconds: LOCK_WINDOW_SECONDS, now: input.now };
+  const nameKey = { key: `login-name:${loginName}`, windowSeconds: LOCK_WINDOW_SECONDS, now: input.now };
+  const addressKey = { key: `login-ip:${input.ip}`, windowSeconds: LOCK_WINDOW_SECONDS, now: input.now };
   const [byName, byAddress] = await Promise.all([
-    peek(db, { key: nameKey, ...window }),
-    peek(db, { key: addressKey, ...window }),
+    hit(db, { ...nameKey, limit: WRONG_PER_NAME }),
+    hit(db, { ...addressKey, limit: WRONG_PER_ADDRESS }),
   ]);
-  if (byName >= WRONG_PER_NAME || byAddress >= WRONG_PER_ADDRESS) return { ok: false, reason: 'locked' };
+  if (!byName.allowed || !byAddress.allowed) return { ok: false, reason: 'locked' };
 
   const [found] = await db
     .select({ login: leadLogins, member: members })
@@ -141,20 +170,19 @@ export async function checkLogin(
   // Always spend the time of one hash check, so a missing name looks the same.
   dummyHash ??= hashPassword('not a real password');
   const matches = await verifyPassword(found?.login.passwordHash ?? (await dummyHash), input.password.slice(0, PASSWORD_MAX));
-  if (!found || !matches || !isLead(found.member)) {
-    await hit(db, { key: nameKey, limit: WRONG_PER_NAME, ...window });
-    await hit(db, { key: addressKey, limit: WRONG_PER_ADDRESS, ...window });
-    return { ok: false, reason: 'wrong' };
-  }
+  if (!found || !matches || !isLead(found.member)) return { ok: false, reason: 'wrong' };
+  await Promise.all([unhit(db, nameKey), unhit(db, addressKey)]);
   return { ok: true, memberId: found.member.id, version: found.login.version };
 }
 
+/** What the session cookie holds. */
+export type SessionData = { memberId?: string; version?: number; sid?: string };
+
 /** The lead a session cookie stands for, or null if it should no longer work. */
-export async function leadForSession(
-  db: Db,
-  session: { memberId?: string; version?: number },
-): Promise<Member | null> {
-  if (!session.memberId || typeof session.version !== 'number') return null;
+export async function leadForSession(db: Db, session: SessionData): Promise<Member | null> {
+  if (!session.memberId || typeof session.version !== 'number' || !session.sid) return null;
+  const [ended] = await db.select().from(endedSessions).where(eq(endedSessions.sid, session.sid));
+  if (ended) return null;
   const [found] = await db
     .select({ login: leadLogins, member: members })
     .from(leadLogins)
@@ -162,4 +190,14 @@ export async function leadForSession(
     .where(eq(leadLogins.memberId, session.memberId));
   if (!found || found.login.version !== session.version || !isLead(found.member)) return null;
   return found.member;
+}
+
+/** Logging out. The cookie is cleared, and a copy of it kept elsewhere stops working too. */
+export async function endSession(db: Db, sid: string | undefined): Promise<void> {
+  if (!sid) return;
+  await db.insert(endedSessions).values({ sid }).onConflictDoNothing();
+  // A cookie cannot outlive its lifetime, so old entries can go.
+  if (Math.random() < 0.05) {
+    await db.delete(endedSessions).where(lt(endedSessions.endedAt, new Date(Date.now() - (SESSION_DAYS + 1) * 86_400_000)));
+  }
 }

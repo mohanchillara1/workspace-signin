@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireLead, setKioskCookie, signOutLead } from '@/lib/auth/session';
 import { getDb } from '@/lib/db/client';
+import { isUuid } from '@/lib/ids';
 import { pairKiosk, unpairKiosk } from '@/lib/kiosk';
 
 /** "Make this the kiosk": pair this browser, log the lead out here, open the scan page. */
@@ -17,6 +18,8 @@ export async function pairThisDevice(form: FormData): Promise<void> {
 
 export async function unpairDevice(form: FormData): Promise<void> {
   const lead = await requireLead();
-  await unpairKiosk(getDb(), String(form.get('id') ?? ''), lead.id);
+  const id = form.get('id');
+  if (!isUuid(id)) return;
+  await unpairKiosk(getDb(), id, lead.id);
   revalidatePath('/dashboard/kiosk');
 }

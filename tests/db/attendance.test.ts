@@ -2,6 +2,7 @@ import { and, eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import {
   attendanceRows,
+  changesFor,
   meetingDays,
   memberCount,
   recordScan,
@@ -59,6 +60,20 @@ describe('attendance', () => {
     const logged = all.filter((l) => l.action.startsWith('attendance.'));
     expect(logged.map((l) => l.action).sort()).toEqual(['attendance.add_by_hand', 'attendance.remove_by_hand']);
     expect(logged.every((l) => l.actorId === lead.id)).toBe(true);
+  });
+
+  it('lists what was changed by hand for a day, with whole names', async () => {
+    const db = getDb();
+    const lead = await addMember(db, { firstName: 'Log', lastName: 'Lead', role: 'lead' }, null);
+    const member = await addMember(db, { firstName: 'Log', lastName: 'Member' }, null);
+    await setByHand(db, { memberId: member.id, day: '2026-10-05', present: true, actorId: lead.id, at: EVENING });
+    await setByHand(db, { memberId: member.id, day: '2026-10-05', present: false, actorId: lead.id, at: EVENING });
+    await strikeDay(db, '2026-10-05', lead.id);
+    await setByHand(db, { memberId: member.id, day: '2026-10-06', present: true, actorId: lead.id, at: EVENING });
+    const changes = await changesFor(db, '2026-10-05');
+    expect(changes.map((c) => c.what)).toEqual(['added', 'removed', 'struck']);
+    expect(changes[0]).toMatchObject({ who: 'Log Lead', member: 'Log Member' });
+    expect(changes[2]).toMatchObject({ who: 'Log Lead', member: '' });
   });
 
   it('counts a day as a meeting day only if a kiosk scan happened and nobody struck it', async () => {

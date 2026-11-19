@@ -48,6 +48,22 @@ describe('the scan', () => {
     expect(rows[0].day).toBe('2026-11-18');
   });
 
+  it('still signs the member in when the scan limiter itself fails', async () => {
+    const db = getDb();
+    const other = await addMember(db, { firstName: 'Test', lastName: 'Member L' }, null);
+    const result = await handleScan(
+      db,
+      { code: other.scanCode, kioskId: null, now: new Date('2026-11-18T23:03:00Z') },
+      {
+        count: async () => {
+          throw new Error('the counter table is gone');
+        },
+      },
+    );
+    expect(result.status).toBe('ok');
+    expect(await rowsFor(other.id)).toHaveLength(1);
+  });
+
   it('makes one row when the same code arrives ten times at once', async () => {
     const db = getDb();
     const other = await addMember(db, { firstName: 'Test', lastName: 'Member C' }, null);

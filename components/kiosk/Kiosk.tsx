@@ -8,7 +8,7 @@ import { cameraSource, testSource, type ScanSource } from '@/lib/scanner/sources
 import type { Handout } from '@/lib/tasks';
 
 type Phase = 'idle' | 'loading' | 'hello' | 'unknown' | 'slow' | 'offline' | 'error' | 'not_paired';
-type Hello = { code: string; firstName: string; firstToday: boolean; tasks: Handout[] | null };
+type Hello = { code: string; firstName: string; name: string; firstToday: boolean; tasks: Handout[] | null };
 type Camera = 'starting' | 'on' | 'blocked';
 
 // After a result leaves the screen, the same code is ignored until it has been
@@ -17,16 +17,26 @@ type Camera = 'starting' | 'on' | 'blocked';
 const CLEAR_MS = 2000;
 // Messages with nothing to tap go away sooner than a task list.
 const SHORT_MESSAGE_SECONDS = 5;
+// A request that has not answered by now is treated as no connection, so the
+// kiosk can never sit waiting for good.
+const REQUEST_TIMEOUT_MS = 8000;
 
 const k = copy.kiosk;
 
 async function post(path: string, data: unknown): Promise<Response> {
-  return fetch(path, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify(data),
-    cache: 'no-store',
-  });
+  const control = new AbortController();
+  const timer = setTimeout(() => control.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    return await fetch(path, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(data),
+      cache: 'no-store',
+      signal: control.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 export function Kiosk({
@@ -91,6 +101,30 @@ export function Kiosk({
     setPhase('offline');
   }, [setHello, setPhase]);
 
+  /** What every answer from the server has to pass: paired, reachable, working. */
+  const readAnswer = useCallback(
+    async (response: Response): Promise<Record<string, unknown> | null> => {
+      if (response.status === 401) {
+        setPhase('not_paired');
+        return null;
+      }
+      // The server is up but cannot do its job (its database is away, say).
+      // The health check asks the database too, so the kiosk stays on this
+      // message until sign-ins can work again.
+      if (response.status >= 500) {
+        goOffline();
+        return null;
+      }
+      try {
+        return (await response.json()) as Record<string, unknown>;
+      } catch {
+        goOffline();
+        return null;
+      }
+    },
+    [goOffline, setPhase],
+  );
+
   const submit = useCallback(
     async (code: string) => {
       busyRef.current = true;
@@ -98,15 +132,17 @@ export function Kiosk({
       setNote('');
       if (phaseRef.current === 'idle') setPhase('loading');
       try {
-        const response = await post('/api/kiosk/scan', { code });
-        if (response.status === 401) {
-          setPhase('not_paired');
-          return;
-        }
-        const result = await response.json();
+        const result = await readAnswer(await post('/api/kiosk/scan', { code }));
+        if (!result) return;
         setLastRead(new Date());
         if (result.status === 'ok') {
-          setHello({ code, firstName: result.firstName, firstToday: result.firstToday, tasks: result.tasks });
+          setHello({
+            code,
+            firstName: String(result.firstName),
+            name: String(result.name),
+            firstToday: result.firstToday === true,
+            tasks: (result.tasks as Handout[] | null) ?? null,
+          });
           setPhase('hello');
           startClock(idleSeconds);
         } else {
@@ -120,7 +156,7 @@ export function Kiosk({
         busyRef.current = false;
       }
     },
-    [goOffline, idleSeconds, setHello, setPhase, startClock],
+    [goOffline, idleSeconds, readAnswer, setHello, setPhase, startClock],
   );
 
   const onCode = useCallback(
@@ -227,14 +263,11 @@ export function Kiosk({
     setActing(true);
     startClock(idleSeconds);
     try {
-      const response = await post(path, { code: current.code, ...data });
-      if (response.status === 401) {
-        setPhase('not_paired');
-        return;
-      }
-      const result = await response.json();
-      if (result.status === 'ok' && helloRef.current?.code === current.code) {
-        setHello({ ...current, tasks: result.tasks });
+      const result = await readAnswer(await post(path, { code: current.code, ...data }));
+      // The answer belongs to whoever was on screen when it was asked. If
+      // someone else has scanned since, it is dropped.
+      if (result && result.status === 'ok' && helloRef.current?.code === current.code) {
+        setHello({ ...current, tasks: (result.tasks as Handout[] | null) ?? null });
         setNote(result.changed ? '' : failNote);
       }
     } catch {
@@ -245,6 +278,7 @@ export function Kiosk({
   };
 
   const showCameraBig = phase === 'idle' || phase === 'loading';
+  const trouble = phase === 'unknown' || phase === 'slow' || phase === 'error' || phase === 'offline';
   const status =
     (phase === 'offline' ? k.statusOffline : k.statusOnline) +
     ' ' +
@@ -302,7 +336,7 @@ export function Kiosk({
             )}
           </div>
           {showCameraBig && (
-            <p className="absolute -bottom-5 left-6 rotate-1 rounded-full border-2 border-ink bg-arcade-fuel px-5 py-2 text-xl font-extrabold text-ink shadow-hard-sm">
+            <p className="absolute -bottom-5 left-6 rotate-1 rounded-full border-2 border-ink bg-arcade-fuel px-5 py-2 text-xl font-bold text-ink shadow-hard-sm">
               {k.cameraHint}
             </p>
           )}
@@ -310,17 +344,22 @@ export function Kiosk({
           {phase === 'hello' && hello && (
             <div className="min-w-0">
               <h1 className="text-7xl leading-none">{k.hello(hello.firstName)}</h1>
-              <p className="mt-3 inline-block rounded-full border-2 border-ink bg-arcade-mint px-5 py-1 text-2xl font-extrabold text-ink">
-                {hello.firstToday ? k.signedIn : k.signedInAgain}
+              <p className="mt-3 flex flex-wrap items-center gap-3">
+                <span className="rounded-full border-2 border-ink bg-arcade-mint px-5 py-1 text-2xl font-bold text-ink">
+                  {hello.firstToday ? k.signedIn : k.signedInAgain}
+                </span>
+                {/* First name and last initial, so two people with one first
+                    name can see whose sign-in this is. */}
+                <span data-testid="kiosk-name" className="text-2xl text-paper/80">{hello.name}</span>
               </p>
             </div>
           )}
-          {(phase === 'unknown' || phase === 'slow' || phase === 'error' || phase === 'offline') && (
-            <div className="min-w-0">
+          {trouble && (
+            <div className="min-w-0 max-w-3xl rounded-xl border-2 border-ink bg-arcade-bumper p-6 text-paper shadow-hard">
               <h1 className="text-6xl leading-none">
                 {phase === 'unknown' ? k.unknownTitle : phase === 'slow' ? k.slowTitle : phase === 'offline' ? k.offlineTitle : k.errorTitle}
               </h1>
-              <p className="mt-4 max-w-2xl text-3xl text-paper/85">
+              <p className="mt-4 text-3xl">
                 {phase === 'unknown' ? k.unknownBody : phase === 'slow' ? k.slowBody : phase === 'offline' ? k.offlineBody : k.errorBody}
               </p>
             </div>
@@ -335,7 +374,7 @@ export function Kiosk({
         )}
 
         {phase === 'hello' && hello && (
-          <div ref={listRef} onScroll={measure} className="relative min-h-0 overflow-y-auto pb-6 pr-2">
+          <div ref={listRef} onScroll={measure} className="min-h-0 overflow-y-auto pb-6 pr-2">
             {hello.tasks === null ? (
               <div className="card max-w-3xl p-6">
                 <h2 className="text-3xl">{k.tasksFailedTitle}</h2>
@@ -357,6 +396,11 @@ export function Kiosk({
                     size="kiosk"
                     busy={acting}
                     onTake={() => void act('/api/kiosk/claim', { taskId: handout.taskId }, k.taken)}
+                    onPutBack={
+                      handout.assignmentId
+                        ? () => void act('/api/kiosk/giveback', { assignmentId: handout.assignmentId }, '')
+                        : undefined
+                    }
                     onDone={() =>
                       void act('/api/kiosk/done', { taskId: handout.taskId, assignmentId: handout.assignmentId }, k.taken)
                     }
@@ -365,30 +409,29 @@ export function Kiosk({
               />
             )}
             {note && <p className="mt-4 text-xl font-bold text-arcade-fuel">{note}</p>}
-            {moreBelow && (
-              <p className="pointer-events-none sticky bottom-2 mt-2 flex justify-center">
-                <span className="rounded-full border-2 border-ink bg-paper px-4 py-1 text-base font-extrabold text-ink shadow-hard-purple">
-                  {k.moreBelow}
-                </span>
-              </p>
-            )}
           </div>
         )}
       </div>
 
       <footer className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 border-t-2 border-paper/20 px-8 py-3">
-        <p data-testid="kiosk-status" className="text-base text-paper/70">
+        <p data-testid="kiosk-status" className="text-lg text-paper/75">
           {status}
         </p>
+        {/* In the bar, not over the list, so it never covers a task. */}
+        {phase === 'hello' && moreBelow && (
+          <p data-testid="more-below" className="rounded-full border-2 border-ink bg-arcade-fuel px-4 py-1 text-lg font-bold text-ink">
+            {k.moreBelow}
+          </p>
+        )}
         {phase === 'hello' ? (
           <div className="flex items-center gap-4">
-            <p className="text-base text-paper/70">{k.backIn(secondsLeft)}</p>
-            <button type="button" onClick={toIdle} className="btn-small">
-              {k.finishedHere}
+            <p className="text-lg text-paper/75">{k.backIn(secondsLeft)}</p>
+            <button type="button" onClick={toIdle} className="btn-small !text-base">
+              {k.backNow}
             </button>
           </div>
         ) : (
-          <p className="text-base text-paper/50">{kioskName}</p>
+          <p className="text-lg text-paper/70">{kioskName}</p>
         )}
       </footer>
     </main>

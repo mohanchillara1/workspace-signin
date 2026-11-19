@@ -3,9 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireLead } from '@/lib/auth/session';
-import { copy } from '@/lib/copy';
 import { getDb } from '@/lib/db/client';
-import { UserError } from '@/lib/errors';
+import { errorKey, errorText } from '@/lib/errors';
+import { isUuid } from '@/lib/ids';
 import { closeTask, createTask, publishTask, release, reopen, updateTask, type TaskInput } from '@/lib/tasks';
 
 export type TaskFormState = { problem?: string };
@@ -32,6 +32,7 @@ export async function saveTask(_previous: TaskFormState, form: FormData): Promis
   const db = getDb();
   const intent = String(form.get('intent') ?? 'save');
   let id = String(form.get('id') ?? '');
+  if (id && !isUuid(id)) return { problem: errorText('taskMissing') };
   try {
     if (intent === 'close' && id) {
       await closeTask(db, id, lead.id);
@@ -42,7 +43,7 @@ export async function saveTask(_previous: TaskFormState, form: FormData): Promis
       if (intent === 'publish') await publishTask(db, id, lead.id);
     }
   } catch (error) {
-    return { problem: error instanceof UserError ? error.message : copy.errors.generic };
+    return { problem: errorText(errorKey(error)) };
   }
   revalidatePath('/dashboard/tasks');
   const note = intent === 'publish' ? 'published' : intent === 'close' ? 'closed' : 'saved';
@@ -51,12 +52,16 @@ export async function saveTask(_previous: TaskFormState, form: FormData): Promis
 
 export async function takeBack(form: FormData): Promise<void> {
   const lead = await requireLead();
-  await release(getDb(), String(form.get('assignmentId') ?? ''), lead.id);
+  const assignmentId = form.get('assignmentId');
+  if (!isUuid(assignmentId)) return;
+  await release(getDb(), assignmentId, lead.id);
   revalidatePath('/dashboard/tasks');
 }
 
 export async function reopenFinished(form: FormData): Promise<void> {
   const lead = await requireLead();
-  await reopen(getDb(), String(form.get('assignmentId') ?? ''), lead.id);
+  const assignmentId = form.get('assignmentId');
+  if (!isUuid(assignmentId)) return;
+  await reopen(getDb(), assignmentId, lead.id);
   revalidatePath('/dashboard/finished');
 }

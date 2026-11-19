@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { copy } from '@/lib/copy';
 import { dayLabel } from '@/lib/day';
 import type { Handout } from '@/lib/tasks';
@@ -13,12 +13,16 @@ const FILL: Record<Handout['group'], string> = {
   pool: 'bg-arcade-fuel',
 };
 
+// How long "Tap again to finish" waits for the second tap.
+const CONFIRM_MS = 4000;
+
 export function TaskCard({
   handout,
   size = 'phone',
   stepsAlwaysOpen = false,
   busy = false,
   onTake,
+  onPutBack,
   onDone,
   onSteps,
 }: {
@@ -27,15 +31,26 @@ export function TaskCard({
   stepsAlwaysOpen?: boolean;
   busy?: boolean;
   onTake?: () => void;
+  onPutBack?: () => void;
   onDone?: () => void;
   /** When given, steps are tick boxes and this is called with the ticked ones. */
   onSteps?: (stepsDone: number[]) => void;
 }) {
   const [open, setOpen] = useState(stepsAlwaysOpen);
+  // Done takes two taps, so a slip of the thumb does not finish a task. Only
+  // a lead can bring a finished task back.
+  const [confirming, setConfirming] = useState(false);
+  useEffect(() => {
+    if (!confirming) return;
+    const timer = setTimeout(() => setConfirming(false), CONFIRM_MS);
+    return () => clearTimeout(timer);
+  }, [confirming]);
+
   const k = copy.kiosk;
   const big = size === 'kiosk';
   const showBody = open || stepsAlwaysOpen;
   const canTake = handout.group === 'pool' && onTake;
+  const chip = big ? 'chip chip-kiosk' : 'chip';
 
   const toggleStep = (index: number) => {
     if (!onSteps) return;
@@ -60,9 +75,9 @@ export function TaskCard({
           <h3 className={`font-display leading-tight ${big ? 'text-3xl landscape:text-2xl' : 'text-xl'}`}>{handout.title}</h3>
         </button>
         <div className="flex flex-wrap items-center gap-2">
-          {handout.standing && <span className="chip">{k.standing}</span>}
-          {handout.overdue && <span className="chip !border-arcade-bumper !bg-arcade-bumper !text-paper">{k.overdue}</span>}
-          {handout.dueDay && !handout.overdue && <span className="chip">{k.dueOn(dayLabel(handout.dueDay))}</span>}
+          {handout.standing && <span className={chip}>{k.standing}</span>}
+          {handout.overdue && <span className={`${chip} !border-arcade-bumper !bg-arcade-bumper !text-paper`}>{k.overdue}</span>}
+          {handout.dueDay && !handout.overdue && <span className={chip}>{k.dueOn(dayLabel(handout.dueDay))}</span>}
         </div>
       </div>
 
@@ -72,13 +87,13 @@ export function TaskCard({
           {handout.steps.length === 0 && !handout.description && <p className="text-ink/75">{k.noSteps}</p>}
           {handout.steps.length > 0 &&
             (onSteps ? (
-              <ul className="mt-3 space-y-2">
+              <ul className="mt-3 space-y-1">
                 {handout.steps.map((step, index) => (
                   <li key={index}>
-                    <label className="flex items-start gap-3">
+                    <label className="flex items-start gap-3 py-1.5">
                       <input
                         type="checkbox"
-                        className="mt-1 h-5 w-5 shrink-0 accent-arcade-purple"
+                        className="mt-0.5 h-6 w-6 shrink-0 accent-arcade-purple"
                         checked={handout.stepsDone.includes(index)}
                         onChange={() => toggleStep(index)}
                       />
@@ -102,20 +117,35 @@ export function TaskCard({
         </div>
       )}
 
-      <div className={`flex flex-wrap items-center gap-3 ${big ? 'mt-5' : 'mt-4'}`}>
+      <div className={`flex flex-wrap items-center gap-x-4 gap-y-3 ${big ? 'mt-5' : 'mt-4'}`}>
         {canTake ? (
           <button type="button" disabled={busy} onClick={onTake} className={`btn-pill bg-ink text-paper !shadow-none ${big ? 'text-xl' : ''}`}>
             {k.take}
           </button>
         ) : (
           onDone && (
-            <button type="button" disabled={busy} onClick={onDone} className={`btn-pill bg-arcade-mint text-ink !shadow-none ${big ? 'text-xl' : ''}`}>
-              {k.done}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => {
+                if (confirming) {
+                  setConfirming(false);
+                  onDone();
+                } else setConfirming(true);
+              }}
+              className={`btn-pill !shadow-none ${confirming ? 'bg-ink text-paper' : 'bg-arcade-mint text-ink'} ${big ? 'text-xl' : ''}`}
+            >
+              {confirming ? k.confirmDone : k.done}
             </button>
           )
         )}
+        {handout.canGiveBack && onPutBack && (
+          <button type="button" disabled={busy} onClick={onPutBack} className={`font-bold underline underline-offset-4 ${big ? 'py-2 text-lg' : 'text-sm'}`}>
+            {k.putBack}
+          </button>
+        )}
         {!stepsAlwaysOpen && (
-          <button type="button" onClick={() => setOpen((value) => !value)} className="text-sm font-bold underline underline-offset-4">
+          <button type="button" onClick={() => setOpen((value) => !value)} className={`font-bold underline underline-offset-4 ${big ? 'py-2 text-lg' : 'text-sm'}`}>
             {showBody ? k.hideSteps : k.showSteps}
           </button>
         )}

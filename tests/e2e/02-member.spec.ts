@@ -4,7 +4,7 @@ import { PNG } from 'pngjs';
 import { copy } from '@/lib/copy';
 import { addMember, setActive } from '@/lib/members';
 import { createTask, publishTask } from '@/lib/tasks';
-import { captainId, closeDb, db, watchConsole } from './helpers';
+import { captainId, closeDb, db, tapDone, watchConsole } from './helpers';
 
 test.use({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
 test.afterAll(closeDb);
@@ -36,7 +36,7 @@ test('the member page shows their QR, tasks and count on a phone', async ({ page
   await expect(page.getByLabel('Step one')).not.toBeChecked();
 
   // Done takes the task off the list.
-  await page.getByRole('button', { name: copy.kiosk.done }).click();
+  await tapDone(page);
   await expect(page.getByText('Phone job')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

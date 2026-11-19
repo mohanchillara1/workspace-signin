@@ -55,7 +55,7 @@ export default async function KioskAdminPage() {
               ) : (
                 <form action={unpairDevice}>
                   <input type="hidden" name="id" value={kiosk.id} />
-                  <button type="submit" className="btn-small">{c.unpair}</button>
+                  <button type="submit" className="btn-small">{c.unpair(kiosk.name)}</button>
                 </form>
               )}
             </li>

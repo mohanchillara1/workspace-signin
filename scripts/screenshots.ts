@@ -122,7 +122,7 @@ async function main() {
       await shoot(page, `kiosk-after-scan-${label}`, errors, false);
       await page.locator('article[data-testid="task"] h3').first().click();
       await shoot(page, `kiosk-task-steps-${label}`, errors, false);
-      await page.getByRole('button', { name: k.finishedHere }).click();
+      await page.getByRole('button', { name: k.backNow, exact: true }).click();
       await feed(page, 'https://example.com/not-a-member-code');
       await page.getByRole('heading', { name: k.unknownTitle }).waitFor();
       await shoot(page, `kiosk-unknown-code-${label}`, errors, false);

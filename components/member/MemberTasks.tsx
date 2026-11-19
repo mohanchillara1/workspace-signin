@@ -1,7 +1,7 @@
 'use client';
 
 import { useOptimistic, useTransition } from 'react';
-import { finishTask, takeTask, tickSteps } from '@/app/m/[key]/actions';
+import { finishTask, putBack, takeTask, tickSteps } from '@/app/m/[key]/actions';
 import { TaskCard, TaskGroups } from '@/components/TaskCard';
 import { copy } from '@/lib/copy';
 import type { Handout } from '@/lib/tasks';
@@ -34,6 +34,7 @@ export function MemberTasks({ pageKey, tasks }: { pageKey: string; tasks: Handou
           stepsAlwaysOpen
           busy={pending}
           onTake={() => startTransition(() => takeTask(pageKey, handout.taskId))}
+          onPutBack={handout.assignmentId ? () => startTransition(() => putBack(pageKey, handout.assignmentId!)) : undefined}
           onDone={() => startTransition(() => finishTask(pageKey, handout.taskId, handout.assignmentId))}
           onSteps={
             handout.assignmentId && handout.group !== 'pool'

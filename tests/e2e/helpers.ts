@@ -62,3 +62,9 @@ export function watchConsole(page: Page): string[] {
   page.on('pageerror', (error) => errors.push(String(error)));
   return errors;
 }
+
+/** Done takes two taps: "Done", then "Tap again to finish". */
+export async function tapDone(scope: Page | import('@playwright/test').Locator): Promise<void> {
+  await scope.getByRole('button', { name: copy.kiosk.done, exact: true }).click();
+  await scope.getByRole('button', { name: copy.kiosk.confirmDone }).click();
+}

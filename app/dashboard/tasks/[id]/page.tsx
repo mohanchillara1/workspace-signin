@@ -5,6 +5,7 @@ import { requireLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
 import { dayLabel } from '@/lib/day';
 import { getDb } from '@/lib/db/client';
+import { isUuid } from '@/lib/ids';
 import { listMembers, listSubteams } from '@/lib/members';
 import { taskToForm } from '@/lib/task-form';
 import { handoutsOf, taskById } from '@/lib/tasks';
@@ -21,7 +22,7 @@ export default async function TaskPage({
   await requireLead();
   const { id } = await params;
   const { note } = await searchParams;
-  if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
+  if (!isUuid(id)) notFound();
   const db = getDb();
   const task = await taskById(db, id);
   if (!task) notFound();

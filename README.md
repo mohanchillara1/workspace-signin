@@ -28,6 +28,7 @@ A laptop's camera works for trying the kiosk. Browsers only give a page the came
 npm test             # the rules, against a throwaway Postgres (about 5 seconds)
 npm run test:e2e     # builds the app, then drives it in Chrome (about a minute)
 npm run screenshots -- some/folder   # after a build: every screen, with checks
+npm run review -- 4320 signin        # after a build: a copy to click through, with the test feed on
 ```
 
 The browser tests use the system Chrome at `/usr/bin/google-chrome`. Set `CHROME` to use another.
@@ -58,6 +59,9 @@ One browser test plays a video of a QR code as Chrome's camera, so the camera an
 - Every page is `noindex`.
 - No email, phone number or birthday is stored.
 - No AI is called anywhere, and nothing judges a member's work.
+- A lead looks after members. Only a captain can change a lead or a captain, change roles, or make invite links.
+- Logging out ends that session on the server. Deactivating or demoting a lead, or sending them a new invite, ends all of theirs.
+- "Done" takes two taps, because only a lead can bring a finished task back.
 
 ## Setting up the iPad (later, when it is deployed)
 

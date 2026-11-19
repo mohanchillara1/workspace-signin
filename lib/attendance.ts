@@ -1,8 +1,8 @@
-import { and, asc, between, eq, inArray, notInArray, sql } from 'drizzle-orm';
+import { and, asc, between, eq, inArray, notInArray, or, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { chicagoDay } from './day';
 import type { Db } from './db/client';
-import { attendance, members, struckDays, subteams } from './db/schema';
+import { attendance, changeLog, members, struckDays, subteams } from './db/schema';
 import { logChange } from './log';
 import { shortName } from './names';
 
@@ -207,5 +207,52 @@ export async function attendanceRows(db: Db, range: { from: string; to: string }
     firstScanAt: r.firstScanAt,
     source: r.source,
     recordedBy: r.recorderFirst ? `${r.recorderFirst} ${r.recorderLast ?? ''}`.trim() : '',
+  }));
+}
+
+export type DayChange = {
+  at: Date;
+  who: string;
+  what: 'added' | 'removed' | 'struck' | 'unstruck';
+  member: string;
+};
+
+/** What leads changed by hand for one day, oldest first, with whole names. */
+export async function changesFor(db: Db, day: string): Promise<DayChange[]> {
+  const actor = alias(members, 'actor');
+  const target = alias(members, 'target');
+  const rows = await db
+    .select({
+      at: changeLog.at,
+      action: changeLog.action,
+      actorFirst: actor.firstName,
+      actorLast: actor.lastName,
+      targetFirst: target.firstName,
+      targetLast: target.lastName,
+    })
+    .from(changeLog)
+    .leftJoin(actor, eq(changeLog.actorId, actor.id))
+    .leftJoin(target, sql`${changeLog.entity} = 'member' and ${changeLog.entityId} = ${target.id}::text`)
+    .where(
+      or(
+        and(
+          inArray(changeLog.action, ['attendance.add_by_hand', 'attendance.remove_by_hand']),
+          sql`${changeLog.detail}->>'day' = ${day}`,
+        ),
+        and(inArray(changeLog.action, ['day.strike', 'day.unstrike']), eq(changeLog.entityId, day)),
+      ),
+    )
+    .orderBy(asc(changeLog.at));
+  const what = {
+    'attendance.add_by_hand': 'added',
+    'attendance.remove_by_hand': 'removed',
+    'day.strike': 'struck',
+    'day.unstrike': 'unstruck',
+  } as const;
+  return rows.map((r) => ({
+    at: r.at,
+    who: `${r.actorFirst ?? ''} ${r.actorLast ?? ''}`.trim(),
+    what: what[r.action as keyof typeof what],
+    member: `${r.targetFirst ?? ''} ${r.targetLast ?? ''}`.trim(),
   }));
 }

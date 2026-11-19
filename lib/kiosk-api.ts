@@ -23,3 +23,13 @@ export async function body(request: Request): Promise<Record<string, unknown>> {
     return {};
   }
 }
+
+/** Runs a kiosk route. A fault becomes a JSON answer the kiosk can show, not a bare 500. */
+export async function answer(run: () => Promise<Response>): Promise<Response> {
+  try {
+    return await run();
+  } catch (error) {
+    console.error('A kiosk route failed.', error);
+    return json({ status: 'error' }, 503);
+  }
+}

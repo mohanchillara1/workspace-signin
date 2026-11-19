@@ -5,24 +5,28 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createInvite } from '@/lib/auth/leads';
 import { isHttps, requireLead } from '@/lib/auth/session';
-import { copy } from '@/lib/copy';
 import { getDb } from '@/lib/db/client';
-import { UserError } from '@/lib/errors';
+import { errorKey, errorText, UserError } from '@/lib/errors';
+import { isUuid } from '@/lib/ids';
 import {
   addMember,
   addSubteam,
+  assertMayManage,
   importRoster,
-  memberById,
   reissuePageKey,
   reissueScanCode,
+  removeSubteam,
   setActive,
   updateMember,
+  type ManageAction,
   type Role,
 } from '@/lib/members';
 
 const ROLES: Role[] = ['member', 'lead', 'captain'];
+const ROSTER_MAX = 200_000;
 const text = (form: FormData, name: string) => String(form.get(name) ?? '');
-const problem = (error: unknown) => encodeURIComponent(error instanceof UserError ? error.message : copy.errors.generic);
+// The page gets a key, not words, so a link cannot put words of its own on it.
+const refused = (error: unknown): never => redirect(`/dashboard/members?problem=${errorKey(error)}`);
 
 export async function addMemberAction(form: FormData): Promise<void> {
   const lead = await requireLead();
@@ -33,14 +37,14 @@ export async function addMemberAction(form: FormData): Promise<void> {
       {
         firstName: text(form, 'firstName'),
         lastName: text(form, 'lastName'),
-        subteamId: text(form, 'subteamId') || null,
+        subteamId: isUuid(form.get('subteamId')) ? text(form, 'subteamId') : null,
         // Only a captain can hand out lead or captain roles.
         role: lead.role === 'captain' && ROLES.includes(role) ? role : 'member',
       },
       lead.id,
     );
   } catch (error) {
-    redirect(`/dashboard/members?problem=${problem(error)}`);
+    refused(error);
   }
   revalidatePath('/dashboard/members');
   redirect('/dashboard/members');
@@ -48,22 +52,27 @@ export async function addMemberAction(form: FormData): Promise<void> {
 
 export async function editMemberAction(form: FormData): Promise<void> {
   const lead = await requireLead();
-  const id = text(form, 'id');
+  const db = getDb();
+  const id = form.get('id');
   const role = text(form, 'role') as Role;
   try {
+    if (!isUuid(id)) throw new UserError('generic');
+    const target = await assertMayManage(db, lead.id, id, 'edit');
+    const newRole = ROLES.includes(role) && role !== target.role ? role : undefined;
+    if (newRole) await assertMayManage(db, lead.id, id, 'role');
     await updateMember(
-      getDb(),
+      db,
       id,
       {
         firstName: text(form, 'firstName'),
         lastName: text(form, 'lastName'),
-        subteamId: text(form, 'subteamId') || null,
-        ...(lead.role === 'captain' && ROLES.includes(role) && id !== lead.id ? { role } : {}),
+        subteamId: isUuid(form.get('subteamId')) ? text(form, 'subteamId') : null,
+        ...(newRole ? { role: newRole } : {}),
       },
       lead.id,
     );
   } catch (error) {
-    redirect(`/dashboard/members?problem=${problem(error)}`);
+    refused(error);
   }
   revalidatePath('/dashboard/members');
   redirect('/dashboard/members');
@@ -71,9 +80,22 @@ export async function editMemberAction(form: FormData): Promise<void> {
 
 export async function rosterAction(form: FormData): Promise<void> {
   const lead = await requireLead();
-  const result = await importRoster(getDb(), text(form, 'roster').slice(0, 20_000), lead.id);
+  let result = { added: 0, skipped: [] as string[], already: [] as string[] };
+  try {
+    const file = form.get('file');
+    const pasted = text(form, 'roster');
+    let uploaded = '';
+    if (file instanceof File && file.size > 0) {
+      if (file.size > ROSTER_MAX) throw new UserError('rosterBig');
+      uploaded = await file.text();
+    }
+    if (pasted.length > ROSTER_MAX) throw new UserError('rosterBig');
+    result = await importRoster(getDb(), `${pasted}\n${uploaded}`, lead.id);
+  } catch (error) {
+    refused(error);
+  }
   revalidatePath('/dashboard/members');
-  redirect(`/dashboard/members?added=${result.added}&skipped=${result.skipped.length}`);
+  redirect(`/dashboard/members?added=${result.added}&skipped=${result.skipped.length}&already=${result.already.length}`);
 }
 
 export async function addSubteamAction(form: FormData): Promise<void> {
@@ -81,22 +103,42 @@ export async function addSubteamAction(form: FormData): Promise<void> {
   try {
     await addSubteam(getDb(), text(form, 'name'));
   } catch (error) {
-    redirect(`/dashboard/members?problem=${problem(error)}`);
+    refused(error);
   }
   revalidatePath('/dashboard/members');
+  redirect('/dashboard/members');
 }
+
+export async function removeSubteamAction(form: FormData): Promise<void> {
+  const lead = await requireLead();
+  try {
+    const id = form.get('id');
+    if (isUuid(id)) await removeSubteam(getDb(), id, lead.id);
+  } catch (error) {
+    refused(error);
+  }
+  revalidatePath('/dashboard/members');
+  redirect('/dashboard/members');
+}
+
+const ROW_ACTIONS: ManageAction[] = ['new-code', 'new-link', 'deactivate', 'reactivate'];
 
 export async function memberRowAction(form: FormData): Promise<void> {
   const lead = await requireLead();
   const db = getDb();
-  const id = text(form, 'id');
-  const what = text(form, 'what');
-  if (!(await memberById(db, id))) return;
-  if (what === 'new-code') await reissueScanCode(db, id, lead.id);
-  else if (what === 'new-link') await reissuePageKey(db, id, lead.id);
-  else if (what === 'deactivate' && id !== lead.id) await setActive(db, id, false, lead.id);
-  else if (what === 'reactivate') await setActive(db, id, true, lead.id);
+  const id = form.get('id');
+  const what = text(form, 'what') as ManageAction;
+  try {
+    if (!isUuid(id) || !ROW_ACTIONS.includes(what)) throw new UserError('generic');
+    await assertMayManage(db, lead.id, id, what);
+    if (what === 'new-code') await reissueScanCode(db, id, lead.id);
+    else if (what === 'new-link') await reissuePageKey(db, id, lead.id);
+    else await setActive(db, id, what === 'reactivate', lead.id);
+  } catch (error) {
+    refused(error);
+  }
   revalidatePath('/dashboard/members');
+  redirect('/dashboard/members');
 }
 
 export type InviteLinkState = { link?: string; problem?: string };
@@ -105,10 +147,12 @@ export type InviteLinkState = { link?: string; problem?: string };
 export async function makeInvite(_previous: InviteLinkState, form: FormData): Promise<InviteLinkState> {
   const lead = await requireLead();
   try {
-    const token = await createInvite(getDb(), { memberId: text(form, 'id'), actorId: lead.id, now: new Date() });
+    const id = form.get('id');
+    if (!isUuid(id)) throw new UserError('generic');
+    const token = await createInvite(getDb(), { memberId: id, actorId: lead.id, now: new Date() });
     const host = (await headers()).get('host') ?? 'localhost';
     return { link: `${(await isHttps()) ? 'https' : 'http'}://${host}/invite/${token}` };
   } catch (error) {
-    return { problem: error instanceof UserError ? error.message : copy.errors.generic };
+    return { problem: errorText(errorKey(error)) };
   }
 }

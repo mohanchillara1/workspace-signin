@@ -42,5 +42,8 @@ export function dayLabel(day: string): string {
 }
 
 export function isDay(text: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(text) && !Number.isNaN(Date.parse(`${text}T12:00:00Z`));
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(text)) return false;
+  const date = new Date(`${text}T12:00:00Z`);
+  // "2026-02-31" parses in some engines as March 3. A real day comes back unchanged.
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === text;
 }

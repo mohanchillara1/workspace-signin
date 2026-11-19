@@ -152,6 +152,13 @@ export const leadLogins = pgTable('lead_logins', {
   updatedAt: at('updated_at').notNull().defaultNow(),
 });
 
+// A session a lead ended by logging out (or by turning a device into the
+// kiosk). The cookie may still exist somewhere; it no longer opens anything.
+export const endedSessions = pgTable('ended_sessions', {
+  sid: text('sid').primaryKey(),
+  endedAt: at('ended_at').notNull().defaultNow(),
+});
+
 export const rateHits = pgTable(
   'rate_hits',
   {

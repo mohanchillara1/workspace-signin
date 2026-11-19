@@ -5,7 +5,7 @@ import { chicagoDay } from '@/lib/day';
 import { assignments, attendance } from '@/lib/db/schema';
 import { addMember, addSubteam } from '@/lib/members';
 import { createTask, publishTask } from '@/lib/tasks';
-import { captainId, closeDb, db, feed, logIn, pairByCookie, watchConsole } from './helpers';
+import { captainId, closeDb, db, feed, logIn, pairByCookie, tapDone, watchConsole } from './helpers';
 
 const k = copy.kiosk;
 const kiosk = (page: import('@playwright/test').Page) => page.getByTestId('kiosk');
@@ -17,7 +17,7 @@ test('an unpaired browser cannot use the scan page or its routes', async ({ page
   await expect(page.getByRole('heading', { name: k.notPairedTitle })).toBeVisible();
   const response = await request.post('/api/kiosk/scan', { data: { code: 'SR1-00000000000000000000000000' } });
   expect(response.status()).toBe(401);
-  for (const path of ['/api/kiosk/claim', '/api/kiosk/done', '/api/kiosk/hello']) {
+  for (const path of ['/api/kiosk/claim', '/api/kiosk/done', '/api/kiosk/giveback', '/api/kiosk/hello']) {
     expect((await request.post(path, { data: {} })).status()).toBe(401);
   }
 });
@@ -68,6 +68,8 @@ test('a scan signs the member in once and shows their tasks in order', async ({ 
   for (let i = 0; i < 5; i++) await feed(page, member.scanCode);
   await expect(page.getByRole('heading', { name: k.hello('Kiosk') })).toBeVisible();
   await expect(page.getByText(k.signedIn, { exact: true })).toBeVisible();
+  // First name in the greeting, first name and last initial beside it.
+  await expect(page.getByTestId('kiosk-name')).toHaveText('Kiosk T.');
   const groups = await page.locator('section[data-group]').evaluateAll((els) => els.map((el) => el.getAttribute('data-group')));
   expect(groups).toEqual(['yours', 'subteam', 'pool']);
   await expect(page.locator('section[data-group="yours"]')).toContainText('Own job');
@@ -87,7 +89,7 @@ test('a scan signs the member in once and shows their tasks in order', async ({ 
   const pool = page.locator('article[data-testid="task"]', { hasText: 'Pool job for the kiosk test' });
   await pool.getByRole('button', { name: k.take }).click();
   await expect(page.locator('section[data-group="yours"]')).toContainText('Pool job for the kiosk test');
-  await page.locator('section[data-group="yours"] article', { hasText: 'Pool job for the kiosk test' }).getByRole('button', { name: k.done }).click();
+  await tapDone(page.locator('section[data-group="yours"] article', { hasText: 'Pool job for the kiosk test' }));
   await expect(page.getByText('Pool job for the kiosk test')).toHaveCount(0);
   const done = await db().select().from(assignments).where(and(eq(assignments.doneById, member.id), eq(assignments.state, 'done')));
   expect(done).toHaveLength(1);

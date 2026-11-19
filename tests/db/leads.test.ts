@@ -91,24 +91,28 @@ describe('lead logins', () => {
 
   it('ends a session when the lead is deactivated, demoted, or sent a new invite', async () => {
     const db = getDb();
-    const login = await checkLogin(db, { loginName: 'testlead', password: GOOD, ip: '10.3.0.1', now: later(200) });
-    if (!login.ok) throw new Error('expected a login');
-    const session = { memberId: login.memberId, version: login.version };
+    const fresh = async (minutes: number) => {
+      const login = await checkLogin(db, { loginName: 'testlead', password: GOOD, ip: '10.3.0.1', now: later(minutes) });
+      if (!login.ok) throw new Error('expected a login');
+      return { memberId: login.memberId, version: login.version, sid: `sid-${minutes}` };
+    };
+    let session = await fresh(200);
     expect((await leadForSession(db, session))?.id).toBe(lead.id);
 
     await setActive(db, lead.id, false, captain.id);
     expect(await leadForSession(db, session)).toBeNull();
     expect((await checkLogin(db, { loginName: 'testlead', password: GOOD, ip: '10.3.0.2', now: later(200) })).ok).toBe(false);
     await setActive(db, lead.id, true, captain.id);
-    expect((await leadForSession(db, session))?.id).toBe(lead.id);
 
+    session = await fresh(201);
     await updateMember(db, lead.id, { role: 'member' }, captain.id);
     expect(await leadForSession(db, session)).toBeNull();
     await updateMember(db, lead.id, { role: 'lead' }, captain.id);
 
-    await createInvite(db, { memberId: lead.id, actorId: captain.id, now: later(201) });
+    session = await fresh(202);
+    await createInvite(db, { memberId: lead.id, actorId: captain.id, now: later(203) });
     expect(await leadForSession(db, session)).toBeNull();
     // The old password stops working the moment a new invite goes out.
-    expect((await checkLogin(db, { loginName: 'testlead', password: GOOD, ip: '10.3.0.3', now: later(202) })).ok).toBe(false);
+    expect((await checkLogin(db, { loginName: 'testlead', password: GOOD, ip: '10.3.0.3', now: later(204) })).ok).toBe(false);
   });
 });

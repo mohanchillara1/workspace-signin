@@ -1,5 +1,4 @@
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
-import { copy } from './copy';
 import type { Db } from './db/client';
 import { assignments, members, subteams, tasks, type Assignment, type Task } from './db/schema';
 import { isDay } from './day';
@@ -31,6 +30,8 @@ export type Handout = {
   stepsDone: number[];
   group: 'yours' | 'subteam' | 'pool';
   state: 'open' | 'claimed';
+  /** A pool task this member took and may put back. */
+  canGiveBack: boolean;
   dueDay: string | null;
   overdue: boolean;
   standing: boolean;
@@ -50,6 +51,8 @@ export type FinishedRow = {
   doneVia: DoneVia;
   needsCheck: boolean;
   standing: boolean;
+  /** False once the task itself is closed. */
+  canReopen: boolean;
 };
 
 const TITLE_MAX = 120;
@@ -60,22 +63,22 @@ const LIVE = ['open', 'claimed'] as const;
 
 function clean(input: TaskInput) {
   const title = input.title.replace(/\s+/g, ' ').trim();
-  if (!title) throw new UserError(copy.errors.taskTitle);
-  if (title.length > TITLE_MAX) throw new UserError(copy.errors.taskTitleLong(TITLE_MAX));
+  if (!title) throw new UserError('taskTitle');
+  if (title.length > TITLE_MAX) throw new UserError('taskTitleLong');
   const description = (input.description ?? '').trim();
-  if (description.length > TEXT_MAX) throw new UserError(copy.errors.taskDescriptionLong(TEXT_MAX));
+  if (description.length > TEXT_MAX) throw new UserError('taskDescriptionLong');
   const steps = (input.steps ?? []).map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
-  if (steps.length > STEPS_MAX) throw new UserError(copy.errors.taskStepsMany(STEPS_MAX));
-  if (steps.some((s) => s.length > STEP_MAX)) throw new UserError(copy.errors.taskStepLong(STEP_MAX));
+  if (steps.length > STEPS_MAX) throw new UserError('taskStepsMany');
+  if (steps.some((s) => s.length > STEP_MAX)) throw new UserError('taskStepLong');
   const standing = input.standing ?? false;
   // A standing task (clean the bench) always lives in the pool.
   const audience = standing ? 'pool' : input.audience;
   const memberIds = audience === 'person' ? [...new Set(input.memberIds ?? [])] : [];
   const subteamId = audience === 'subteam' ? (input.subteamId ?? null) : null;
-  if (audience === 'person' && memberIds.length === 0) throw new UserError(copy.errors.taskNoPeople);
-  if (audience === 'subteam' && !subteamId) throw new UserError(copy.errors.taskNoSubteam);
+  if (audience === 'person' && memberIds.length === 0) throw new UserError('taskNoPeople');
+  if (audience === 'subteam' && !subteamId) throw new UserError('taskNoSubteam');
   const dueDay = input.dueDay || null;
-  if (dueDay && !isDay(dueDay)) throw new UserError(copy.errors.taskBadDue);
+  if (dueDay && !isDay(dueDay)) throw new UserError('taskBadDue');
   return {
     title,
     description,
@@ -100,66 +103,184 @@ export async function createTask(db: Db, input: TaskInput, actorId: string | nul
   return task;
 }
 
+/** Holds the task's row until the transaction ends, so two changes to one task take turns. */
+async function lockTask(tx: Db, taskId: string): Promise<Task | null> {
+  await tx.execute(sql`select 1 from ${tasks} where ${tasks.id} = ${taskId} for update`);
+  const [task] = await tx.select().from(tasks).where(eq(tasks.id, taskId));
+  return task ?? null;
+}
+
+const isLive = (row: Assignment) => row.state === 'open' || row.state === 'claimed';
+
+/**
+ * Makes a published task's hand-outs match what the task now says.
+ *
+ * It closes live hand-outs that no longer belong (a person taken off the
+ * task, a member who left the subteam) and adds the missing ones. Finished
+ * hand-outs are never touched, and nobody gets a second copy of something
+ * they finished. With `fresh`, who the task is for has changed shape (a
+ * different subteam, pool instead of people, and so on): everything live
+ * closes and the task is handed out anew.
+ *
+ * Call it inside a transaction that holds lockTask().
+ */
+async function reconcile(tx: Db, task: Task, options: { fresh: boolean }): Promise<void> {
+  const now = new Date();
+  const rows = await tx.select().from(assignments).where(eq(assignments.taskId, task.id));
+  const live = rows.filter(isLive);
+  const done = options.fresh ? [] : rows.filter((r) => r.state === 'done');
+  const keep = new Set<string>();
+  const add: (typeof assignments.$inferInsert)[] = [];
+
+  const perMember = task.audience === 'person' || (task.audience === 'subteam' && task.completion === 'each');
+  if (perMember) {
+    let wanted = task.memberIds;
+    if (task.audience === 'subteam') {
+      const people = task.subteamId
+        ? await tx
+            .select({ id: members.id })
+            .from(members)
+            .where(and(eq(members.subteamId, task.subteamId), eq(members.active, true)))
+        : [];
+      wanted = people.map((p) => p.id);
+    }
+    const wantedSet = new Set(wanted);
+    const have = new Set<string>();
+    if (!options.fresh) {
+      for (const row of live) {
+        if (row.memberId && !row.day && wantedSet.has(row.memberId) && !have.has(row.memberId)) {
+          keep.add(row.id);
+          have.add(row.memberId);
+        }
+      }
+    }
+    for (const row of done) if (row.memberId) have.add(row.memberId);
+    // "Done once for the group" and already done: nobody gets it again.
+    const finishedOnce = task.audience === 'person' && task.completion === 'once' && done.length > 0;
+    if (!finishedOnce) {
+      for (const memberId of wanted) if (!have.has(memberId)) add.push({ taskId: task.id, memberId });
+    }
+  } else if (task.audience === 'subteam') {
+    const row = options.fresh ? undefined : live.find((r) => !r.memberId && r.subteamId === task.subteamId);
+    if (row) keep.add(row.id);
+    else if (done.length === 0 && task.subteamId) add.push({ taskId: task.id, subteamId: task.subteamId });
+  } else if (task.standing) {
+    // A standing task gets a row only when someone takes or finishes it that day.
+    if (!options.fresh) for (const row of live) if (row.day) keep.add(row.id);
+  } else {
+    const row = options.fresh ? undefined : live.find((r) => !r.subteamId && !r.day);
+    if (row) keep.add(row.id);
+    else if (done.length === 0) add.push({ taskId: task.id });
+  }
+
+  const stale = live.filter((r) => !keep.has(r.id)).map((r) => r.id);
+  if (stale.length) {
+    await tx.update(assignments).set({ state: 'closed', closedAt: now }).where(inArray(assignments.id, stale));
+  }
+  if (add.length) await tx.insert(assignments).values(add);
+}
+
+const shapeOf = (task: Pick<Task, 'audience' | 'subteamId' | 'completion' | 'standing'>) =>
+  `${task.audience}|${task.subteamId ?? ''}|${task.completion}|${task.standing}`;
+
 export async function updateTask(db: Db, taskId: string, input: TaskInput, actorId: string | null): Promise<void> {
   const values = clean(input);
-  const [task] = await db
-    .update(tasks)
-    .set({ ...values, updatedAt: new Date() })
-    .where(eq(tasks.id, taskId))
-    .returning();
-  if (!task) throw new UserError(copy.errors.taskMissing);
-  await logChange(db, { actorId, action: 'task.edit', entity: 'task', entityId: taskId });
-  if (task.state === 'published') await handOut(db, task);
+  await db.transaction(async (tx) => {
+    const before = await lockTask(tx, taskId);
+    if (!before) throw new UserError('taskMissing');
+    const [task] = await tx
+      .update(tasks)
+      .set({ ...values, updatedAt: new Date() })
+      .where(eq(tasks.id, taskId))
+      .returning();
+    await logChange(tx, { actorId, action: 'task.edit', entity: 'task', entityId: taskId });
+    if (task.state === 'published') await reconcile(tx, task, { fresh: shapeOf(before) !== shapeOf(task) });
+  });
 }
 
-/** Makes the hand-outs a published task should have and does not have yet. */
-async function handOut(db: Db, task: Task): Promise<void> {
-  const existing = await db.select().from(assignments).where(eq(assignments.taskId, task.id));
-  const haveMember = new Set(existing.map((a) => a.memberId).filter(Boolean));
-  const rows: (typeof assignments.$inferInsert)[] = [];
-  if (task.audience === 'person') {
-    for (const memberId of task.memberIds) {
-      if (!haveMember.has(memberId)) rows.push({ taskId: task.id, memberId });
-    }
-  } else if (task.audience === 'subteam' && task.subteamId) {
-    if (task.completion === 'each') {
-      const people = await db
-        .select({ id: members.id })
-        .from(members)
-        .where(and(eq(members.subteamId, task.subteamId), eq(members.active, true)));
-      for (const person of people) {
-        if (!haveMember.has(person.id)) rows.push({ taskId: task.id, memberId: person.id });
-      }
-    } else if (existing.length === 0) {
-      rows.push({ taskId: task.id, subteamId: task.subteamId });
-    }
-  } else if (task.audience === 'pool' && !task.standing && existing.length === 0) {
-    rows.push({ taskId: task.id });
-  }
-  // A standing task gets a row only when someone takes or finishes it that day.
-  if (rows.length) await db.insert(assignments).values(rows);
-}
-
+/**
+ * Publishes a task and hands it out, as one step: if the hand-out fails the
+ * task stays as it was. Publishing twice, or two leads publishing at the
+ * same moment, hands it out once.
+ */
 export async function publishTask(db: Db, taskId: string, actorId: string | null): Promise<void> {
-  const [task] = await db
-    .update(tasks)
-    .set({ state: 'published', publishedAt: new Date(), closedAt: null, updatedAt: new Date() })
-    .where(eq(tasks.id, taskId))
-    .returning();
-  if (!task) throw new UserError(copy.errors.taskMissing);
-  await handOut(db, task);
-  await logChange(db, { actorId, action: 'task.publish', entity: 'task', entityId: taskId });
+  await db.transaction(async (tx) => {
+    const before = await lockTask(tx, taskId);
+    if (!before) throw new UserError('taskMissing');
+    const [task] = await tx
+      .update(tasks)
+      .set({ state: 'published', publishedAt: before.publishedAt ?? new Date(), closedAt: null, updatedAt: new Date() })
+      .where(eq(tasks.id, taskId))
+      .returning();
+    await reconcile(tx, task, { fresh: false });
+    await logChange(tx, { actorId, action: 'task.publish', entity: 'task', entityId: taskId });
+  });
 }
 
 /** A lead closes a task. Whatever was still open leaves every list. */
 export async function closeTask(db: Db, taskId: string, actorId: string | null): Promise<void> {
   const now = new Date();
-  await db.update(tasks).set({ state: 'closed', closedAt: now, updatedAt: now }).where(eq(tasks.id, taskId));
-  await db
-    .update(assignments)
-    .set({ state: 'closed', closedAt: now })
-    .where(and(eq(assignments.taskId, taskId), inArray(assignments.state, LIVE)));
-  await logChange(db, { actorId, action: 'task.close', entity: 'task', entityId: taskId });
+  await db.transaction(async (tx) => {
+    await lockTask(tx, taskId);
+    await tx.update(tasks).set({ state: 'closed', closedAt: now, updatedAt: now }).where(eq(tasks.id, taskId));
+    await tx
+      .update(assignments)
+      .set({ state: 'closed', closedAt: now })
+      .where(and(eq(assignments.taskId, taskId), inArray(assignments.state, LIVE)));
+    await logChange(tx, { actorId, action: 'task.close', entity: 'task', entityId: taskId });
+  });
+}
+
+/**
+ * Brings one member's hand-outs in line after they are added, moved to
+ * another subteam, deactivated or reactivated: they get their subteam's
+ * "everyone does their own" tasks, lose the old subteam's, and a pool task
+ * held by someone who was deactivated goes back to the pool.
+ */
+export async function syncMember(db: Db, memberId: string): Promise<void> {
+  await db.transaction(async (tx) => {
+    const [member] = await tx.select().from(members).where(eq(members.id, memberId));
+    if (!member) return;
+    const now = new Date();
+    if (!member.active) {
+      const held = await tx
+        .select({ row: assignments, task: tasks })
+        .from(assignments)
+        .innerJoin(tasks, eq(assignments.taskId, tasks.id))
+        .where(and(eq(assignments.memberId, memberId), eq(assignments.state, 'claimed'), eq(tasks.audience, 'pool')));
+      for (const { row } of held) {
+        if (row.day) await tx.delete(assignments).where(eq(assignments.id, row.id));
+        else {
+          await tx
+            .update(assignments)
+            .set({ memberId: null, state: 'open', claimedAt: null, stepsDone: [] })
+            .where(eq(assignments.id, row.id));
+        }
+      }
+    }
+    const each = await tx
+      .select()
+      .from(tasks)
+      .where(and(eq(tasks.state, 'published'), eq(tasks.audience, 'subteam'), eq(tasks.completion, 'each')));
+    for (const task of each) {
+      await lockTask(tx, task.id);
+      const mine = await tx
+        .select()
+        .from(assignments)
+        .where(and(eq(assignments.taskId, task.id), eq(assignments.memberId, memberId)));
+      const belongs = member.active && member.subteamId !== null && member.subteamId === task.subteamId;
+      if (belongs) {
+        if (!mine.some((r) => isLive(r) || r.state === 'done')) {
+          await tx.insert(assignments).values({ taskId: task.id, memberId });
+        }
+      } else {
+        const stale = mine.filter(isLive).map((r) => r.id);
+        if (stale.length) {
+          await tx.update(assignments).set({ state: 'closed', closedAt: now }).where(inArray(assignments.id, stale));
+        }
+      }
+    }
+  });
 }
 
 function toHandout(task: Task, row: Assignment | null, memberId: string, today: string): Handout {
@@ -176,6 +297,7 @@ function toHandout(task: Task, row: Assignment | null, memberId: string, today: 
     stepsDone: row?.stepsDone ?? [],
     group,
     state: row?.state === 'claimed' ? 'claimed' : 'open',
+    canGiveBack: task.audience === 'pool' && claimedByMe && row?.state === 'claimed',
     dueDay: task.dueDay,
     overdue: task.dueDay !== null && task.dueDay < today,
     standing: task.standing,
@@ -235,42 +357,62 @@ export async function claim(
   db: Db,
   input: { taskId: string; memberId: string; today: string },
 ): Promise<{ ok: boolean }> {
+  const [member] = await db.select().from(members).where(eq(members.id, input.memberId));
   const [task] = await db.select().from(tasks).where(eq(tasks.id, input.taskId));
-  if (!task || task.state !== 'published' || task.audience !== 'pool') return { ok: false };
+  if (!member || !member.active || !task || task.state !== 'published' || task.audience !== 'pool') return { ok: false };
   const now = new Date();
   if (task.standing) {
     const made = await db
       .insert(assignments)
-      .values({ taskId: task.id, memberId: input.memberId, day: input.today, state: 'claimed', claimedAt: now })
+      .values({ taskId: task.id, memberId: member.id, day: input.today, state: 'claimed', claimedAt: now })
       .onConflictDoNothing()
       .returning({ id: assignments.id });
     return { ok: made.length === 1 };
   }
+  // One row at most, picked and held in the same statement.
+  const free = sql`(select ${assignments.id} from ${assignments}
+    where ${assignments.taskId} = ${task.id} and ${assignments.memberId} is null and ${assignments.subteamId} is null
+      and ${assignments.day} is null and ${assignments.state} = 'open'
+    limit 1 for update skip locked)`;
   const taken = await db
     .update(assignments)
-    .set({ memberId: input.memberId, state: 'claimed', claimedAt: now })
-    .where(and(eq(assignments.taskId, task.id), isNull(assignments.memberId), eq(assignments.state, 'open')))
+    .set({ memberId: member.id, state: 'claimed', claimedAt: now })
+    .where(and(sql`${assignments.id} = ${free}`, eq(assignments.state, 'open')))
     .returning({ id: assignments.id });
   return { ok: taken.length === 1 };
 }
 
-/** A lead takes a pool task back from whoever claimed it. */
-export async function release(db: Db, assignmentId: string, actorId: string | null): Promise<void> {
+/** Puts a claimed pool hand-out back. False if it was not claimed any more. */
+async function unclaim(db: Db, row: Assignment, task: Task): Promise<boolean> {
+  if (task.standing) {
+    // A standing claim is only a marker for that day. Removing it frees the task.
+    const gone = await db
+      .delete(assignments)
+      .where(and(eq(assignments.id, row.id), eq(assignments.state, 'claimed')))
+      .returning({ id: assignments.id });
+    return gone.length === 1;
+  }
+  const freed = await db
+    .update(assignments)
+    .set({ memberId: null, state: 'open', claimedAt: null, stepsDone: [] })
+    .where(and(eq(assignments.id, row.id), eq(assignments.state, 'claimed')))
+    .returning({ id: assignments.id });
+  return freed.length === 1;
+}
+
+async function claimedPoolRow(db: Db, assignmentId: string) {
   const [found] = await db
     .select({ row: assignments, task: tasks })
     .from(assignments)
     .innerJoin(tasks, eq(assignments.taskId, tasks.id))
     .where(eq(assignments.id, assignmentId));
-  if (!found || found.task.audience !== 'pool' || found.row.state !== 'claimed') return;
-  if (found.task.standing) {
-    // A standing claim is only a marker for that day. Removing it frees the task.
-    await db.delete(assignments).where(eq(assignments.id, assignmentId));
-  } else {
-    await db
-      .update(assignments)
-      .set({ memberId: null, state: 'open', claimedAt: null, stepsDone: [] })
-      .where(eq(assignments.id, assignmentId));
-  }
+  return found && found.task.audience === 'pool' && found.row.state === 'claimed' ? found : null;
+}
+
+/** A lead takes a pool task back from whoever claimed it. */
+export async function release(db: Db, assignmentId: string, actorId: string | null): Promise<void> {
+  const found = await claimedPoolRow(db, assignmentId);
+  if (!found || !(await unclaim(db, found.row, found.task))) return;
   await logChange(db, {
     actorId,
     action: 'assignment.release',
@@ -278,6 +420,16 @@ export async function release(db: Db, assignmentId: string, actorId: string | nu
     entityId: assignmentId,
     detail: { taskId: found.task.id },
   });
+}
+
+/** A member puts back a pool task they took. */
+export async function giveBack(
+  db: Db,
+  input: { assignmentId: string; memberId: string },
+): Promise<{ ok: boolean }> {
+  const found = await claimedPoolRow(db, input.assignmentId);
+  if (!found || found.row.memberId !== input.memberId) return { ok: false };
+  return { ok: await unclaim(db, found.row, found.task) };
 }
 
 /** May this member act on this hand-out? */
@@ -289,61 +441,64 @@ function isFor(row: Assignment, task: Task, member: { id: string; subteamId: str
 
 /**
  * The plain "Done" tap. The hand-out leaves the member's list and lands on
- * the leads' Finished list.
+ * the leads' Finished list. Two people finishing a "done once" task at the
+ * same moment take turns: the first one finishes it, the second is told no.
  */
 export async function markDone(
   db: Db,
   input: { taskId: string; assignmentId?: string; memberId: string; via: DoneVia; today: string },
 ): Promise<{ ok: boolean }> {
-  const [member] = await db.select().from(members).where(eq(members.id, input.memberId));
-  const [task] = await db.select().from(tasks).where(eq(tasks.id, input.taskId));
-  if (!member || !member.active || !task || task.state !== 'published') return { ok: false };
-  const now = new Date();
-  const done = { state: 'done' as const, doneById: member.id, doneAt: now, doneVia: input.via };
+  return db.transaction(async (tx) => {
+    const task = await lockTask(tx, input.taskId);
+    const [member] = await tx.select().from(members).where(eq(members.id, input.memberId));
+    if (!member || !member.active || !task || task.state !== 'published') return { ok: false };
+    const now = new Date();
+    const done = { state: 'done' as const, doneById: member.id, doneAt: now, doneVia: input.via };
 
-  if (!input.assignmentId) {
-    // Only a standing task can be finished without a hand-out row.
-    if (!task.standing) return { ok: false };
-    const made = await db
-      .insert(assignments)
-      .values({ taskId: task.id, memberId: member.id, day: input.today, ...done })
-      .onConflictDoNothing()
-      .returning({ id: assignments.id });
-    if (made.length === 1) return { ok: true };
-    const mine = await db
-      .update(assignments)
-      .set(done)
-      .where(
-        and(
-          eq(assignments.taskId, task.id),
-          eq(assignments.day, input.today),
-          eq(assignments.memberId, member.id),
-          eq(assignments.state, 'claimed'),
-        ),
-      )
-      .returning({ id: assignments.id });
-    return { ok: mine.length === 1 };
-  }
+    if (!input.assignmentId) {
+      // Only a standing task can be finished without a hand-out row.
+      if (!task.standing) return { ok: false };
+      const made = await tx
+        .insert(assignments)
+        .values({ taskId: task.id, memberId: member.id, day: input.today, ...done })
+        .onConflictDoNothing()
+        .returning({ id: assignments.id });
+      if (made.length === 1) return { ok: true };
+      const mine = await tx
+        .update(assignments)
+        .set(done)
+        .where(
+          and(
+            eq(assignments.taskId, task.id),
+            eq(assignments.day, input.today),
+            eq(assignments.memberId, member.id),
+            eq(assignments.state, 'claimed'),
+          ),
+        )
+        .returning({ id: assignments.id });
+      return { ok: mine.length === 1 };
+    }
 
-  const [row] = await db
-    .select()
-    .from(assignments)
-    .where(and(eq(assignments.id, input.assignmentId), eq(assignments.taskId, task.id)));
-  if (!row || !isFor(row, task, member)) return { ok: false };
-  const changed = await db
-    .update(assignments)
-    .set({ ...done, memberId: row.memberId ?? (task.audience === 'pool' ? member.id : null) })
-    .where(and(eq(assignments.id, row.id), inArray(assignments.state, LIVE)))
-    .returning({ id: assignments.id });
-  if (changed.length !== 1) return { ok: false };
-  if (task.audience === 'person' && task.completion === 'once') {
-    // Done once for the group: the others' copies close at the same moment.
-    await db
+    const [row] = await tx
+      .select()
+      .from(assignments)
+      .where(and(eq(assignments.id, input.assignmentId), eq(assignments.taskId, task.id)));
+    if (!row || !isFor(row, task, member)) return { ok: false };
+    const changed = await tx
       .update(assignments)
-      .set({ state: 'closed', closedAt: now })
-      .where(and(eq(assignments.taskId, task.id), inArray(assignments.state, LIVE)));
-  }
-  return { ok: true };
+      .set({ ...done, memberId: row.memberId ?? (task.audience === 'pool' ? member.id : null) })
+      .where(and(eq(assignments.id, row.id), inArray(assignments.state, LIVE)))
+      .returning({ id: assignments.id });
+    if (changed.length !== 1) return { ok: false };
+    if (task.audience === 'person' && task.completion === 'once') {
+      // Done once for the group: the others' copies close at the same moment.
+      await tx
+        .update(assignments)
+        .set({ state: 'closed', closedAt: now })
+        .where(and(eq(assignments.taskId, task.id), inArray(assignments.state, LIVE)));
+    }
+    return { ok: true };
+  });
 }
 
 /** Saves which steps a member has ticked. */
@@ -359,8 +514,10 @@ export async function setStepsDone(
     .where(eq(assignments.id, input.assignmentId));
   if (!member || !found) return { ok: false };
   // Ticks are kept only on a hand-out that is this member's or their subteam's.
-  const theirs = found.row.memberId === member.id || (!found.row.memberId && found.row.subteamId === member.subteamId && found.row.subteamId !== null);
-  if (!theirs || !LIVE.includes(found.row.state as (typeof LIVE)[number])) return { ok: false };
+  const theirs =
+    found.row.memberId === member.id ||
+    (!found.row.memberId && found.row.subteamId !== null && found.row.subteamId === member.subteamId);
+  if (!theirs || !isLive(found.row)) return { ok: false };
   const count = found.task.steps.length;
   const stepsDone = [...new Set(input.stepsDone.filter((i) => Number.isInteger(i) && i >= 0 && i < count))].sort(
     (x, y) => x - y,
@@ -369,38 +526,33 @@ export async function setStepsDone(
   return { ok: true };
 }
 
-/** A lead puts finished work back on the member's list. */
+/** A lead puts finished work back on the member's list. Only while the task is still published. */
 export async function reopen(db: Db, assignmentId: string, actorId: string | null): Promise<void> {
-  const [found] = await db
-    .select({ row: assignments, task: tasks })
-    .from(assignments)
-    .innerJoin(tasks, eq(assignments.taskId, tasks.id))
-    .where(eq(assignments.id, assignmentId));
-  if (!found || found.row.state !== 'done') return;
-  const back = found.task.audience === 'pool' ? ('claimed' as const) : ('open' as const);
-  await db
-    .update(assignments)
-    .set({ state: back, doneById: null, doneAt: null, doneVia: null })
-    .where(eq(assignments.id, assignmentId));
-  if (found.task.audience === 'person' && found.task.completion === 'once' && found.row.doneAt) {
-    // The copies that closed with it come back too.
-    await db
+  await db.transaction(async (tx) => {
+    const [first] = await tx.select().from(assignments).where(eq(assignments.id, assignmentId));
+    if (!first) return;
+    const task = await lockTask(tx, first.taskId);
+    const [row] = await tx.select().from(assignments).where(eq(assignments.id, assignmentId));
+    if (!task || task.state !== 'published' || !row || row.state !== 'done') return;
+    const back = task.audience === 'pool' ? ('claimed' as const) : ('open' as const);
+    await tx
       .update(assignments)
-      .set({ state: 'open', closedAt: null })
-      .where(
-        and(
-          eq(assignments.taskId, found.task.id),
-          eq(assignments.state, 'closed'),
-          eq(assignments.closedAt, found.row.doneAt),
-        ),
-      );
-  }
-  await logChange(db, {
-    actorId,
-    action: 'assignment.reopen',
-    entity: 'assignment',
-    entityId: assignmentId,
-    detail: { taskId: found.task.id },
+      .set({ state: back, doneById: null, doneAt: null, doneVia: null })
+      .where(eq(assignments.id, assignmentId));
+    if (task.audience === 'person' && task.completion === 'once' && row.doneAt) {
+      // The copies that closed with it come back too.
+      await tx
+        .update(assignments)
+        .set({ state: 'open', closedAt: null })
+        .where(and(eq(assignments.taskId, task.id), eq(assignments.state, 'closed'), eq(assignments.closedAt, row.doneAt)));
+    }
+    await logChange(tx, {
+      actorId,
+      action: 'assignment.reopen',
+      entity: 'assignment',
+      entityId: assignmentId,
+      detail: { taskId: task.id },
+    });
   });
 }
 
@@ -424,6 +576,7 @@ export async function finished(db: Db, options: { limit: number }): Promise<Fini
     doneVia: r.row.doneVia ?? 'lead',
     needsCheck: r.task.needsCheck,
     standing: r.task.standing,
+    canReopen: r.task.state === 'published',
   }));
 }
 

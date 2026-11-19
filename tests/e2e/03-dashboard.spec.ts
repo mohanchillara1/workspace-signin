@@ -4,7 +4,7 @@ import { copy } from '@/lib/copy';
 import { chicagoDay } from '@/lib/day';
 import { assignments, members, tasks } from '@/lib/db/schema';
 import { addMember } from '@/lib/members';
-import { closeDb, db, feed, logIn, pairByCookie, state, watchConsole } from './helpers';
+import { closeDb, db, feed, logIn, pairByCookie, state, tapDone, watchConsole } from './helpers';
 
 test.use({ viewport: { width: 1440, height: 900 } });
 test.afterAll(closeDb);
@@ -74,7 +74,7 @@ test('a lead adds a member and tasks, sees who is here, corrects by hand, export
   for (const title of ['Dash own job', 'Build crew job', 'Dashboard pool job']) {
     await expect(kiosk.getByText(title)).toBeVisible();
   }
-  await kiosk.locator('article[data-testid="task"]', { hasText: 'Dash own job' }).getByRole('button', { name: copy.kiosk.done }).click();
+  await tapDone(kiosk.locator('article[data-testid="task"]', { hasText: 'Dash own job' }));
   await expect(kiosk.getByText('Dash own job')).toHaveCount(0);
   await expect(kiosk.getByTestId('kiosk')).toHaveAttribute('data-phase', 'idle', { timeout: 7000 });
   await feed(kiosk, idle.scanCode);
@@ -90,7 +90,7 @@ test('a lead adds a member and tasks, sees who is here, corrects by hand, export
 
   // Tasks: the line about members with no open task.
   await page.goto('/dashboard/tasks');
-  await expect(page.getByTestId('no-task-line')).toContainText(/\d+ active members? ha(s|ve) no open task\./);
+  await expect(page.getByTestId('no-task-line')).toContainText(/\d+ active members? ha(s|ve) no task\./);
   await expect(page.getByText('Dashboard pool job')).toBeVisible();
 
   // Attendance: a by-hand row shows who made it.
@@ -132,7 +132,7 @@ test('members: deactivate, new code, roster paste, print sheet', async ({ page }
 
   await page.getByLabel(copy.members.rosterTitle).fill('Paste One, Build\nPaste Two, Brand New Crew\n,nope');
   await page.getByRole('button', { name: copy.members.rosterSubmit }).click();
-  await expect(page.getByText(copy.members.rosterResult(2, 1))).toBeVisible();
+  await expect(page.getByText(copy.members.rosterResult(2, 1, 0))).toBeVisible();
   await expect(page.locator('[data-member-name="Paste Two"]')).toContainText('Brand New Crew');
 
   await page.goto('/dashboard/members/print');
@@ -171,11 +171,27 @@ test('a captain makes an invite link and the lead sets a password and gets in', 
 
 test('the dashboard has no sideways scroll at 1440 or 390', async ({ page }) => {
   await logIn(page);
+  const wide: string[] = [];
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const path of ['/dashboard', '/dashboard/tasks', '/dashboard/tasks/new', '/dashboard/finished', '/dashboard/members', '/dashboard/attendance', '/dashboard/kiosk']) {
+    for (const path of ['/dashboard', '/dashboard/tasks', '/dashboard/tasks/new', '/dashboard/finished', '/dashboard/members', '/dashboard/members/print', '/dashboard/attendance', '/dashboard/kiosk']) {
       await page.goto(path);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), `${path} at ${width}`).toBe(true);
+      const widest = await page.evaluate(() => {
+        if (document.documentElement.scrollWidth <= window.innerWidth) return null;
+        // Name the element that sticks out furthest, to make the fault easy to find.
+        let worst: Element | null = null;
+        let right = window.innerWidth;
+        for (const el of document.querySelectorAll('body *')) {
+          const r = el.getBoundingClientRect();
+          if (r.right > right + 0.5) {
+            right = r.right;
+            worst = el;
+          }
+        }
+        return worst ? `${worst.tagName.toLowerCase()}.${String(worst.className).slice(0, 60)} to ${Math.round(right)}px` : 'unknown';
+      });
+      if (widest) wide.push(`${path} at ${width}: ${widest}`);
     }
   }
+  expect(wide).toEqual([]);
 });
