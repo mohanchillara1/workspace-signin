@@ -13,8 +13,11 @@
     "invite-captain": "tsx scripts/invite-captain.ts",
     "copy:md": "tsx scripts/copy-md.ts",
     "test": "vitest run",
-    "test:e2e": "playwright test",
-    "screenshots": "tsx scripts/screenshots.ts"
+    "test:e2e": "next build && playwright test",
+    "screenshots": "tsx scripts/screenshots.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "test:all": "vitest run && next build && playwright test",
+    "review": "tsx scripts/review-server.ts"
   },
   "dependencies": {
     "@node-rs/argon2": "^2.2.2",

@@ -8,7 +8,10 @@ import { shortName } from './names';
 
 export type BoardRow = {
   memberId: string;
+  /** First name and last initial, for shared screens. */
   name: string;
+  /** The whole name, for the leads' dashboard only. */
+  fullName: string;
   subteam: string | null;
   firstScanAt: Date | null;
   source: 'kiosk' | 'manual' | null;
@@ -152,6 +155,7 @@ export async function todayBoard(db: Db, day: string): Promise<{ here: BoardRow[
   const board = rows.map((r) => ({
     memberId: r.memberId,
     name: shortName(r.firstName, r.lastName),
+    fullName: `${r.firstName} ${r.lastName}`.trim(),
     subteam: r.subteam,
     firstScanAt: r.firstScanAt,
     source: r.source,
@@ -202,6 +206,6 @@ export async function attendanceRows(db: Db, range: { from: string; to: string }
     subteam: r.subteam ?? '',
     firstScanAt: r.firstScanAt,
     source: r.source,
-    recordedBy: r.recorderFirst ? shortName(r.recorderFirst, r.recorderLast ?? '') : '',
+    recordedBy: r.recorderFirst ? `${r.recorderFirst} ${r.recorderLast ?? ''}`.trim() : '',
   }));
 }

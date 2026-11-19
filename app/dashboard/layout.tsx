@@ -5,7 +5,6 @@ import { logOut } from '@/app/login/actions';
 import { NavLinks } from '@/components/dashboard/NavLinks';
 import { requireLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
-import { shortName } from '@/lib/names';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: copy.app.title };
@@ -21,7 +20,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
           </Link>
           <NavLinks />
           <div className="flex items-center gap-3">
-            <p className="text-sm text-paper/70">{copy.nav.loggedInAs(shortName(lead.firstName, lead.lastName))}</p>
+            <p className="text-sm text-paper/70">{copy.nav.loggedInAs(`${lead.firstName} ${lead.lastName}`.trim())}</p>
             <form action={logOut}>
               <button type="submit" className="btn-small">{copy.nav.logout}</button>
             </form>

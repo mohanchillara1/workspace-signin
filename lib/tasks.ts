@@ -1,7 +1,9 @@
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
+import { copy } from './copy';
 import type { Db } from './db/client';
 import { assignments, members, subteams, tasks, type Assignment, type Task } from './db/schema';
 import { isDay } from './day';
+import { UserError } from './errors';
 import { logChange } from './log';
 import { shortName } from './names';
 
@@ -40,7 +42,10 @@ export type FinishedRow = {
   assignmentId: string;
   taskId: string;
   title: string;
+  /** First name and last initial. */
   doneBy: string;
+  /** The whole name, for the leads' dashboard only. */
+  doneByFull: string;
   doneAt: Date;
   doneVia: DoneVia;
   needsCheck: boolean;
@@ -55,22 +60,22 @@ const LIVE = ['open', 'claimed'] as const;
 
 function clean(input: TaskInput) {
   const title = input.title.replace(/\s+/g, ' ').trim();
-  if (!title) throw new Error('The task needs a title');
-  if (title.length > TITLE_MAX) throw new Error(`The title is longer than ${TITLE_MAX} characters`);
+  if (!title) throw new UserError(copy.errors.taskTitle);
+  if (title.length > TITLE_MAX) throw new UserError(copy.errors.taskTitleLong(TITLE_MAX));
   const description = (input.description ?? '').trim();
-  if (description.length > TEXT_MAX) throw new Error(`The description is longer than ${TEXT_MAX} characters`);
+  if (description.length > TEXT_MAX) throw new UserError(copy.errors.taskDescriptionLong(TEXT_MAX));
   const steps = (input.steps ?? []).map((s) => s.replace(/\s+/g, ' ').trim()).filter(Boolean);
-  if (steps.length > STEPS_MAX) throw new Error(`A task has at most ${STEPS_MAX} steps`);
-  if (steps.some((s) => s.length > STEP_MAX)) throw new Error(`A step is longer than ${STEP_MAX} characters`);
+  if (steps.length > STEPS_MAX) throw new UserError(copy.errors.taskStepsMany(STEPS_MAX));
+  if (steps.some((s) => s.length > STEP_MAX)) throw new UserError(copy.errors.taskStepLong(STEP_MAX));
   const standing = input.standing ?? false;
   // A standing task (clean the bench) always lives in the pool.
   const audience = standing ? 'pool' : input.audience;
   const memberIds = audience === 'person' ? [...new Set(input.memberIds ?? [])] : [];
   const subteamId = audience === 'subteam' ? (input.subteamId ?? null) : null;
-  if (audience === 'person' && memberIds.length === 0) throw new Error('Pick at least one person');
-  if (audience === 'subteam' && !subteamId) throw new Error('Pick a subteam');
+  if (audience === 'person' && memberIds.length === 0) throw new UserError(copy.errors.taskNoPeople);
+  if (audience === 'subteam' && !subteamId) throw new UserError(copy.errors.taskNoSubteam);
   const dueDay = input.dueDay || null;
-  if (dueDay && !isDay(dueDay)) throw new Error('The due day is not a date');
+  if (dueDay && !isDay(dueDay)) throw new UserError(copy.errors.taskBadDue);
   return {
     title,
     description,
@@ -102,7 +107,7 @@ export async function updateTask(db: Db, taskId: string, input: TaskInput, actor
     .set({ ...values, updatedAt: new Date() })
     .where(eq(tasks.id, taskId))
     .returning();
-  if (!task) throw new Error('No such task');
+  if (!task) throw new UserError(copy.errors.taskMissing);
   await logChange(db, { actorId, action: 'task.edit', entity: 'task', entityId: taskId });
   if (task.state === 'published') await handOut(db, task);
 }
@@ -141,7 +146,7 @@ export async function publishTask(db: Db, taskId: string, actorId: string | null
     .set({ state: 'published', publishedAt: new Date(), closedAt: null, updatedAt: new Date() })
     .where(eq(tasks.id, taskId))
     .returning();
-  if (!task) throw new Error('No such task');
+  if (!task) throw new UserError(copy.errors.taskMissing);
   await handOut(db, task);
   await logChange(db, { actorId, action: 'task.publish', entity: 'task', entityId: taskId });
 }
@@ -414,6 +419,7 @@ export async function finished(db: Db, options: { limit: number }): Promise<Fini
     taskId: r.task.id,
     title: r.task.title,
     doneBy: r.first ? shortName(r.first, r.last ?? '') : '',
+    doneByFull: r.first ? `${r.first} ${r.last ?? ''}`.trim() : '',
     doneAt: r.row.doneAt ?? r.row.createdAt,
     doneVia: r.row.doneVia ?? 'lead',
     needsCheck: r.task.needsCheck,
@@ -464,7 +470,7 @@ export async function listTasks(db: Db): Promise<TaskListRow[]> {
     .from(assignments)
     .groupBy(assignments.taskId, assignments.state);
   const names = new Map(
-    (await db.select().from(members)).map((m) => [m.id, shortName(m.firstName, m.lastName)] as const),
+    (await db.select().from(members)).map((m) => [m.id, `${m.firstName} ${m.lastName}`.trim()] as const),
   );
   return all.map(({ task, subteamName }) => {
     const mine = counts.filter((c) => c.taskId === task.id);
@@ -497,7 +503,7 @@ export async function handoutsOf(db: Db, taskId: string): Promise<TaskHandoutRow
   return rows.map((r) => ({
     assignmentId: r.row.id,
     state: r.row.state,
-    who: r.first ? shortName(r.first, r.last ?? '') : (r.subteam ?? ''),
+    who: r.first ? `${r.first} ${r.last ?? ''}`.trim() : (r.subteam ?? ''),
     day: r.row.day,
   }));
 }

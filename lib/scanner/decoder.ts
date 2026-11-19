@@ -56,7 +56,7 @@ async function nativeDecoder(): Promise<Omit<Decoder, 'skipped'>> {
   const detector = new Detector({ formats: ['qr_code'] });
   return {
     key: 'native',
-    name: 'the browser’s own reader',
+    name: 'built-in reader',
     async read(video) {
       const found = await detector.detect(video);
       return found.length ? found[0].rawValue : null;

@@ -1,5 +1,7 @@
 import { and, eq, gt, isNull, ne, sql } from 'drizzle-orm';
+import { copy } from '../copy';
 import type { Db } from '../db/client';
+import { UserError } from '../errors';
 import { invites, leadLogins, members, type Member } from '../db/schema';
 import { newToken, sha256 } from '../ids';
 import { logChange } from '../log';
@@ -33,12 +35,12 @@ export async function createInvite(
 ): Promise<string> {
   if (input.actorId) {
     const [actor] = await db.select().from(members).where(eq(members.id, input.actorId));
-    if (!actor || !actor.active || actor.role !== 'captain') throw new Error('Only a captain can invite a lead');
+    if (!actor || !actor.active || actor.role !== 'captain') throw new UserError(copy.errors.captainOnly);
   } else if (!input.bootstrap) {
-    throw new Error('Only a captain can invite a lead');
+    throw new UserError(copy.errors.captainOnly);
   }
   const [member] = await db.select().from(members).where(eq(members.id, input.memberId));
-  if (!isLead(member)) throw new Error('Only a lead or a captain can have a login');
+  if (!isLead(member)) throw new UserError(copy.errors.notALead);
 
   const token = newToken();
   await db.insert(invites).values({

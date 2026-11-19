@@ -25,7 +25,7 @@ export default async function FinishedPage() {
               <div className="min-w-0">
                 <h2 className="font-sans text-xl font-bold tracking-normal">{row.title}</h2>
                 <p className="mt-1 text-sm text-paper/70">
-                  {f.by(row.doneBy, `${dayLabel(chicagoDay(row.doneAt))} ${chicagoTime(row.doneAt)}`)}, {via[row.doneVia]}
+                  {f.by(row.doneByFull, `${dayLabel(chicagoDay(row.doneAt))} ${chicagoTime(row.doneAt)}`)}, {via[row.doneVia]}
                 </p>
               </div>
               <div className="flex items-center gap-3">

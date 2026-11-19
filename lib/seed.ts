@@ -70,7 +70,7 @@ export async function seedDemo(db: Db, options: { captainPassword: string; today
     {
       title: 'Sort the bolt bins by size',
       description: 'The bins are on the shelf by the door. Mixed sizes go in the tray on top.',
-      steps: ['Empty one bin onto the mat', 'Sort by length', 'Put each size back in its labelled bin', 'Repeat for the next bin'],
+      steps: ['Empty one bin onto the mat', 'Sort by length', 'Put each size back in its labeled bin', 'Repeat for the next bin'],
       audience: 'person',
       memberIds: [m.A.id],
       dueDay: plusDays(2),

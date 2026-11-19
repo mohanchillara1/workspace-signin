@@ -46,6 +46,8 @@ export function Kiosk({
   const [lastRead, setLastRead] = useState<Date | null>(null);
   const [note, setNote] = useState('');
   const [acting, setActing] = useState(false);
+  // True once this screen is listening for codes. Tests wait for it.
+  const [ready, setReady] = useState(false);
 
   // The scan callback runs outside React's render cycle, so what it needs to
   // know about the screen lives in refs.
@@ -56,6 +58,8 @@ export function Kiosk({
   const shownCodeRef = useRef<string | null>(null);
   const suppressRef = useRef<{ code: string; until: number } | null>(null);
   const cameraRef = useRef<ScanSource | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const [moreBelow, setMoreBelow] = useState(false);
 
   const setPhase = useCallback((next: Phase) => {
     phaseRef.current = next;
@@ -159,6 +163,7 @@ export function Kiosk({
     void startCamera();
     const feed = testFeed ? testSource() : null;
     void feed?.start(onCode);
+    setReady(true);
     return () => {
       cameraRef.current?.stop();
       feed?.stop();
@@ -200,6 +205,17 @@ export function Kiosk({
       clearInterval(timer);
     };
   }, [goOffline, toIdle]);
+
+  // Tell people when the task list runs past the bottom of the screen.
+  const measure = useCallback(() => {
+    const list = listRef.current;
+    setMoreBelow(!!list && list.scrollHeight - list.scrollTop - list.clientHeight > 24);
+  }, []);
+  useEffect(() => {
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, [measure, hello, phase]);
 
   const touched = () => {
     if (phaseRef.current === 'hello') startClock(idleSeconds);
@@ -252,14 +268,15 @@ export function Kiosk({
     <main
       data-testid="kiosk"
       data-phase={phase}
+      data-ready={ready ? '1' : '0'}
       onPointerDown={touched}
       className="grid h-dvh grid-rows-[minmax(0,1fr)_auto] overflow-hidden"
     >
       <div
         className={
           showCameraBig
-            ? 'grid min-h-0 items-center gap-8 p-8 landscape:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] portrait:grid-rows-[auto_minmax(0,1fr)] portrait:justify-items-center'
-            : 'grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-6 p-8'
+            ? 'grid min-h-0 gap-8 p-8 pb-12 landscape:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] landscape:items-center portrait:grid-rows-[auto_minmax(0,1fr)]'
+            : 'grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-6 p-8 pb-0'
         }
       >
         {/* The camera view stays mounted in every state, so the next person
@@ -267,11 +284,11 @@ export function Kiosk({
         <div
           className={
             showCameraBig
-              ? 'relative w-full max-w-3xl -rotate-1 portrait:order-2 portrait:self-start'
+              ? 'relative h-full min-h-0 w-full -rotate-1 portrait:order-2 landscape:max-h-[46rem]'
               : 'flex items-start gap-6'
           }
         >
-          <div className={`sticker-frame relative overflow-hidden ${showCameraBig ? 'aspect-[4/3] w-full' : 'aspect-[4/3] w-44 shrink-0 -rotate-2'}`}>
+          <div className={`sticker-frame relative overflow-hidden ${showCameraBig ? 'h-full w-full' : 'aspect-[4/3] w-44 shrink-0 -rotate-2'}`}>
             <video ref={videoRef} playsInline muted autoPlay className="h-full w-full -scale-x-100 rounded-md bg-ink object-cover" />
             {camera !== 'on' && showCameraBig && (
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 rounded-md bg-ink p-6 text-center text-paper">
@@ -318,7 +335,7 @@ export function Kiosk({
         )}
 
         {phase === 'hello' && hello && (
-          <div className="min-h-0 overflow-y-auto pb-2 pr-2">
+          <div ref={listRef} onScroll={measure} className="relative min-h-0 overflow-y-auto pb-6 pr-2">
             {hello.tasks === null ? (
               <div className="card max-w-3xl p-6">
                 <h2 className="text-3xl">{k.tasksFailedTitle}</h2>
@@ -348,6 +365,13 @@ export function Kiosk({
               />
             )}
             {note && <p className="mt-4 text-xl font-bold text-arcade-fuel">{note}</p>}
+            {moreBelow && (
+              <p className="pointer-events-none sticky bottom-2 mt-2 flex justify-center">
+                <span className="rounded-full border-2 border-ink bg-paper px-4 py-1 text-base font-extrabold text-ink shadow-hard-purple">
+                  {k.moreBelow}
+                </span>
+              </p>
+            )}
           </div>
         )}
       </div>

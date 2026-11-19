@@ -76,6 +76,7 @@ describe('tasks and hand-outs', () => {
     const done = (await finished(getDb(), { limit: 50 })).filter((f) => f.title === 'Once for two');
     expect(done).toHaveLength(1);
     expect(done[0].doneBy).toBe('Test M.');
+    expect(done[0].doneByFull).toBe('Test Member B');
     expect(done[0].doneVia).toBe('member_page');
   });
 

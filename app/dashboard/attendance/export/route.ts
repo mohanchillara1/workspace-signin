@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const from = url.searchParams.get('from') ?? '';
   const to = url.searchParams.get('to') ?? '';
-  if (!isDay(from) || !isDay(to) || from > to) return new Response('Pick a from day and a to day.', { status: 400 });
+  if (!isDay(from) || !isDay(to) || from > to) return new Response(copy.errors.exportDays, { status: 400 });
   const a = copy.attendance;
   const rows = await attendanceRows(getDb(), { from, to });
   const csv = toCsv(

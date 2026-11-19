@@ -106,6 +106,7 @@ describe('attendance', () => {
     expect(board.notHere.map((r) => r.memberId)).toContain(away.id);
     expect([...board.here, ...board.notHere].map((r) => r.memberId)).not.toContain(gone.id);
     expect(board.here.find((r) => r.memberId === here.id)?.name).toBe('Here P.');
+    expect(board.here.find((r) => r.memberId === here.id)?.fullName).toBe('Here Person');
   });
 
   it('lists rows for the export with full names and how each was recorded', async () => {

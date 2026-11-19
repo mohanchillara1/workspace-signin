@@ -5,7 +5,9 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createInvite } from '@/lib/auth/leads';
 import { isHttps, requireLead } from '@/lib/auth/session';
+import { copy } from '@/lib/copy';
 import { getDb } from '@/lib/db/client';
+import { UserError } from '@/lib/errors';
 import {
   addMember,
   addSubteam,
@@ -20,7 +22,7 @@ import {
 
 const ROLES: Role[] = ['member', 'lead', 'captain'];
 const text = (form: FormData, name: string) => String(form.get(name) ?? '');
-const problem = (error: unknown) => encodeURIComponent(error instanceof Error ? error.message : 'Something went wrong');
+const problem = (error: unknown) => encodeURIComponent(error instanceof UserError ? error.message : copy.errors.generic);
 
 export async function addMemberAction(form: FormData): Promise<void> {
   const lead = await requireLead();
@@ -107,6 +109,6 @@ export async function makeInvite(_previous: InviteLinkState, form: FormData): Pr
     const host = (await headers()).get('host') ?? 'localhost';
     return { link: `${(await isHttps()) ? 'https' : 'http'}://${host}/invite/${token}` };
   } catch (error) {
-    return { problem: error instanceof Error ? error.message : 'Something went wrong' };
+    return { problem: error instanceof UserError ? error.message : copy.errors.generic };
   }
 }

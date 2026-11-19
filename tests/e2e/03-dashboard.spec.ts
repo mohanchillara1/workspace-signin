@@ -83,10 +83,10 @@ test('a lead adds a member and tasks, sees who is here, corrects by hand, export
 
   // Today: here, here with nothing to do, not here.
   await page.goto('/dashboard');
-  await expect(page.locator('section[data-list="here"]')).toContainText('Dash B.');
-  await expect(page.locator('section[data-list="here-nothing"]')).toContainText('Idle H.');
-  await expect(page.locator('section[data-list="here-nothing"]')).not.toContainText('Dash B.');
-  await expect(page.locator('section[data-list="not-here"]')).toContainText('Away T.');
+  await expect(page.locator('section[data-list="here"]')).toContainText('Dash Board');
+  await expect(page.locator('section[data-list="here-nothing"]')).toContainText('Idle Hands');
+  await expect(page.locator('section[data-list="here-nothing"]')).not.toContainText('Dash Board');
+  await expect(page.locator('section[data-list="not-here"]')).toContainText('Away Today');
 
   // Tasks: the line about members with no open task.
   await page.goto('/dashboard/tasks');
@@ -96,7 +96,7 @@ test('a lead adds a member and tasks, sees who is here, corrects by hand, export
   // Attendance: a by-hand row shows who made it.
   await page.goto('/dashboard/attendance');
   await page.locator('[data-member-name="Away Today"]').getByRole('button', { name: copy.attendance.markHere }).click();
-  await expect(page.locator('[data-member-name="Away Today"]')).toContainText(copy.attendance.byHand('Test C.'));
+  await expect(page.locator('[data-member-name="Away Today"]')).toContainText(copy.attendance.byHand('Test Captain'));
 
   // The CSV has the header and the member's row.
   const today = chicagoDay(new Date());
@@ -105,12 +105,12 @@ test('a lead adds a member and tasks, sees who is here, corrects by hand, export
   const text = await csv.text();
   expect(text.split('\r\n')[0]).toBe(copy.attendance.csvHeaders.join(','));
   expect(text).toMatch(new RegExp(`${today},Dash,Board,Build,[^,]+,kiosk,\\r\\n`));
-  expect(text).toMatch(new RegExp(`${today},Away,Today,,[^,]+,by hand,Test C\\.\\r\\n`));
+  expect(text).toMatch(new RegExp(`${today},Away,Today,,[^,]+,by hand,Test Captain\\r\\n`));
 
   // Finished lists the done task; Reopen puts it back.
   await page.goto('/dashboard/finished');
   const row = page.getByTestId('finished-row').filter({ hasText: 'Dash own job' });
-  await expect(row).toContainText('Dash B.');
+  await expect(row).toContainText('Dash Board');
   await row.getByRole('button', { name: copy.finished.reopen }).click();
   await expect(page.getByTestId('finished-row').filter({ hasText: 'Dash own job' })).toHaveCount(0);
   const [task] = await db().select().from(tasks).where(eq(tasks.title, 'Dash own job'));
@@ -159,7 +159,7 @@ test('a captain makes an invite link and the lead sets a password and gets in', 
   await leadPage.getByLabel(copy.invite.password).fill('a long enough password');
   await leadPage.getByRole('button', { name: copy.invite.submit }).click();
   await leadPage.waitForURL('**/dashboard');
-  await expect(leadPage.getByText(copy.nav.loggedInAs('Test L.'))).toBeVisible();
+  await expect(leadPage.getByText(copy.nav.loggedInAs('Test Lead'))).toBeVisible();
   // A lead who is not a captain sees no invite buttons.
   await leadPage.goto('/dashboard/members');
   await expect(leadPage.getByRole('button', { name: copy.members.invite })).toHaveCount(0);

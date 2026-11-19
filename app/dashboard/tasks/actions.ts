@@ -3,7 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { requireLead } from '@/lib/auth/session';
+import { copy } from '@/lib/copy';
 import { getDb } from '@/lib/db/client';
+import { UserError } from '@/lib/errors';
 import { closeTask, createTask, publishTask, release, reopen, updateTask, type TaskInput } from '@/lib/tasks';
 
 export type TaskFormState = { problem?: string };
@@ -40,7 +42,7 @@ export async function saveTask(_previous: TaskFormState, form: FormData): Promis
       if (intent === 'publish') await publishTask(db, id, lead.id);
     }
   } catch (error) {
-    return { problem: error instanceof Error ? error.message : 'Something went wrong' };
+    return { problem: error instanceof UserError ? error.message : copy.errors.generic };
   }
   revalidatePath('/dashboard/tasks');
   const note = intent === 'publish' ? 'published' : intent === 'close' ? 'closed' : 'saved';

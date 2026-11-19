@@ -39,6 +39,8 @@ export async function pairByCookie(context: BrowserContext, name = 'Test kiosk')
 
 /** What the camera would do: hand the kiosk a code it has just read. */
 export async function feed(page: Page, code: string): Promise<void> {
+  // Wait until the kiosk screen is listening, or the code would be lost.
+  await page.locator('[data-testid="kiosk"][data-ready="1"]').waitFor();
   await page.evaluate((text) => window.dispatchEvent(new CustomEvent('kiosk:test-scan', { detail: text })), code);
 }
 

@@ -48,7 +48,7 @@ export function TaskCard({
   return (
     <article
       data-testid="task"
-      className={`rounded-xl border-2 border-ink text-ink shadow-hard ${FILL[handout.group]} ${big ? 'p-5' : 'p-4'}`}
+      className={`rounded-xl border-2 border-ink text-ink ${handout.group === 'yours' ? 'shadow-hard-purple' : 'shadow-hard'} ${FILL[handout.group]} ${big ? 'p-5' : 'p-4'}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <button
@@ -57,7 +57,7 @@ export function TaskCard({
           onClick={() => setOpen((value) => !value)}
           className="min-w-0 flex-1 text-left"
         >
-          <h3 className={`font-display leading-tight ${big ? 'text-3xl' : 'text-xl'}`}>{handout.title}</h3>
+          <h3 className={`font-display leading-tight ${big ? 'text-3xl landscape:text-2xl' : 'text-xl'}`}>{handout.title}</h3>
         </button>
         <div className="flex flex-wrap items-center gap-2">
           {handout.standing && <span className="chip">{k.standing}</span>}
@@ -143,12 +143,29 @@ export function TaskGroups({
   const groups = (['yours', 'subteam', 'pool'] as const)
     .map((group) => ({ group, items: tasks.filter((t) => t.group === group) }))
     .filter((g) => g.items.length > 0);
+  if (size === 'phone') {
+    return (
+      <div className="space-y-6">
+        {groups.map(({ group, items }) => (
+          <section key={group} data-group={group}>
+            <h2 className="mb-2 font-display text-lg">{GROUP_TITLE[group]}</h2>
+            <div className="space-y-3">{items.map(render)}</div>
+          </section>
+        ))}
+      </div>
+    );
+  }
+  // On the kiosk the groups stack when the iPad is upright and sit side by
+  // side when it is on its side, so the width is used either way. A card that
+  // is alone in its group takes the full row.
+  const across = groups.length === 3 ? 'landscape:grid-cols-3' : groups.length === 2 ? 'landscape:grid-cols-2' : '';
+  const inside = groups.length === 1 ? 'grid-cols-2 landscape:grid-cols-3' : 'grid-cols-2 landscape:grid-cols-1';
   return (
-    <div className={size === 'kiosk' ? 'space-y-8' : 'space-y-6'}>
+    <div className={`grid gap-8 landscape:items-start landscape:gap-6 ${across}`}>
       {groups.map(({ group, items }) => (
-        <section key={group} data-group={group}>
-          <h2 className={`font-display ${size === 'kiosk' ? 'mb-3 text-2xl' : 'mb-2 text-lg'}`}>{GROUP_TITLE[group]}</h2>
-          <div className={size === 'kiosk' ? 'grid gap-4 lg:grid-cols-2' : 'space-y-3'}>{items.map(render)}</div>
+        <section key={group} data-group={group} className="min-w-0">
+          <h2 className="mb-3 font-display text-2xl">{GROUP_TITLE[group]}</h2>
+          <div className={`grid items-start gap-4 [&>*:only-child]:col-span-full ${inside}`}>{items.map(render)}</div>
         </section>
       ))}
     </div>

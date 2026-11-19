@@ -13,7 +13,7 @@ function Person({ row, children }: { row: BoardRow; children?: React.ReactNode }
   return (
     <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2">
       <span>
-        <span className="font-bold">{row.name}</span>
+        <span className="font-bold">{row.fullName}</span>
         {row.subteam && <span className="ml-2 text-sm opacity-70">{row.subteam}</span>}
       </span>
       <span className="flex items-center gap-2 text-sm">{children}</span>

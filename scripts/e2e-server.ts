@@ -28,7 +28,7 @@ async function main() {
   mkdirSync('.e2e', { recursive: true });
   writeFileSync('.e2e/state.json', JSON.stringify({ dbUrl, baseUrl, captain: { loginName: 'testcaptain', password } }));
 
-  const app = spawn('npx', ['next', 'start', '-p', String(APP_PORT), '-H', '127.0.0.1'], {
+  const app = spawn(process.execPath, ['node_modules/next/dist/bin/next', 'start', '-p', String(APP_PORT), '-H', '127.0.0.1'], {
     stdio: 'inherit',
     env: {
       ...process.env,

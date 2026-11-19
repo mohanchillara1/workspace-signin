@@ -1,6 +1,8 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
+import { copy } from './copy';
 import type { Db } from './db/client';
 import { leadLogins, members, subteams, type Member, type Subteam } from './db/schema';
+import { UserError } from './errors';
 import { newPageKey, newScanCode, SCAN_CODE_PATTERN } from './ids';
 import { logChange } from './log';
 
@@ -11,10 +13,10 @@ export type MemberListRow = Member & { subteamName: string | null; hasLogin: boo
 const NAME_MAX = 60;
 const PAGE_KEY_PATTERN = /^[A-Za-z0-9_-]{32}$/;
 
-function cleanName(text: string | undefined, what: string, required: boolean): string {
+function cleanName(text: string | undefined, emptyMessage: string | null): string {
   const name = (text ?? '').replace(/\s+/g, ' ').trim();
-  if (required && !name) throw new Error(`${what} is empty`);
-  if (name.length > NAME_MAX) throw new Error(`${what} is longer than ${NAME_MAX} characters`);
+  if (emptyMessage && !name) throw new UserError(emptyMessage);
+  if (name.length > NAME_MAX) throw new UserError(copy.errors.nameLong(NAME_MAX));
   return name;
 }
 
@@ -22,8 +24,8 @@ export async function addMember(db: Db, input: NewMember, actorId: string | null
   const [member] = await db
     .insert(members)
     .values({
-      firstName: cleanName(input.firstName, 'The first name', true),
-      lastName: cleanName(input.lastName, 'The last name', false),
+      firstName: cleanName(input.firstName, copy.errors.firstNameEmpty),
+      lastName: cleanName(input.lastName, null),
       subteamId: input.subteamId ?? null,
       role: input.role ?? 'member',
       scanCode: newScanCode(),
@@ -41,8 +43,8 @@ export async function updateMember(
   actorId: string | null,
 ): Promise<void> {
   const set: Partial<typeof members.$inferInsert> = {};
-  if (patch.firstName !== undefined) set.firstName = cleanName(patch.firstName, 'The first name', true);
-  if (patch.lastName !== undefined) set.lastName = cleanName(patch.lastName, 'The last name', false);
+  if (patch.firstName !== undefined) set.firstName = cleanName(patch.firstName, copy.errors.firstNameEmpty);
+  if (patch.lastName !== undefined) set.lastName = cleanName(patch.lastName, null);
   if (patch.subteamId !== undefined) set.subteamId = patch.subteamId;
   if (patch.role !== undefined) set.role = patch.role;
   if (Object.keys(set).length === 0) return;
@@ -120,7 +122,7 @@ export async function listMembers(db: Db): Promise<MemberListRow[]> {
 }
 
 export async function addSubteam(db: Db, name: string): Promise<Subteam> {
-  const clean = cleanName(name, 'The subteam name', true);
+  const clean = cleanName(name, copy.errors.subteamEmpty);
   const [existing] = await db
     .select()
     .from(subteams)
