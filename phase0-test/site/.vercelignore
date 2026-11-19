@@ -1,0 +1,5 @@
+# Never upload local settings or tokens with the pages.
+.env
+.env.*
+.gitignore
+.vercelignore
