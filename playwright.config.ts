@@ -1,6 +1,9 @@
 import { defineConfig } from '@playwright/test';
 
 const chrome = process.env.CHROME ?? '/usr/bin/google-chrome';
+// E2E_APP_PORT and E2E_DB_PORT let several copies of this repo run their browser
+// tests at the same time. scripts/e2e-server.ts reads the same two.
+const appUrl = `http://127.0.0.1:${process.env.E2E_APP_PORT ?? 4321}`;
 
 // One worker, files in name order: the tests share one database and some
 // depend on what earlier ones left behind (an empty pool, for one).
@@ -14,7 +17,7 @@ export default defineConfig({
   reporter: [['list']],
   globalSetup: './tests/e2e/global-setup.ts',
   use: {
-    baseURL: 'http://127.0.0.1:4321',
+    baseURL: appUrl,
     viewport: { width: 1024, height: 1366 },
     launchOptions: { executablePath: chrome },
     trace: 'retain-on-failure',
@@ -38,7 +41,7 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npx tsx scripts/e2e-server.ts',
-    url: 'http://127.0.0.1:4321/api/health',
+    url: `${appUrl}/api/health`,
     reuseExistingServer: false,
     timeout: 120_000,
     stdout: 'ignore',

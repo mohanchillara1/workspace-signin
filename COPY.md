@@ -217,7 +217,11 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `handoutClaimed` | Taken |
 | `handoutDone` | Done |
 | `handoutClosed` | Closed |
+| `handoutSubmitted` | Waiting for a lead's check |
+| `handoutSentBack` | Sent back |
+| `handoutApproved` | Approved |
 | `handoutPool` | Up for grabs |
+| `waitingCount` | 1 waiting for a check<br>3 waiting for a check |
 | `takeBack` | Put back up for grabs |
 | `saved` | Saved. |
 | `published` | Published. |
@@ -319,6 +323,21 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `csvHeaders` | day<br>first name<br>last name<br>subteam<br>first scan (Central time)<br>how recorded<br>recorded by |
 | `csvKiosk` | kiosk |
 | `csvManual` | by hand |
+
+## submit
+
+| Key | Text |
+|---|---|
+
+## review
+
+| Key | Text |
+|---|---|
+
+## drafts
+
+| Key | Text |
+|---|---|
 
 ## kioskAdmin
 

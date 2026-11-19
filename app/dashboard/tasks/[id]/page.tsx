@@ -32,7 +32,15 @@ export default async function TaskPage({
     .map((m) => ({ id: m.id, name: `${m.firstName} ${m.lastName}`.trim() }));
   const t = copy.tasks;
   const noteText = note === 'published' ? t.published : note === 'closed' ? t.closed : note === 'saved' ? t.saved : '';
-  const stateLabel = { open: t.handoutOpen, claimed: t.handoutClaimed, done: t.handoutDone, closed: t.handoutClosed };
+  const stateLabel = {
+    open: t.handoutOpen,
+    claimed: t.handoutClaimed,
+    done: t.handoutDone,
+    closed: t.handoutClosed,
+    submitted: t.handoutSubmitted,
+    sent_back: t.handoutSentBack,
+    approved: t.handoutApproved,
+  };
 
   return (
     <>

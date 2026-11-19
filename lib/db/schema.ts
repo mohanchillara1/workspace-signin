@@ -18,7 +18,18 @@ export const roleEnum = pgEnum('role', ['member', 'lead', 'captain']);
 export const audienceEnum = pgEnum('audience', ['person', 'subteam', 'pool']);
 export const completionEnum = pgEnum('completion', ['once', 'each']);
 export const taskStateEnum = pgEnum('task_state', ['draft', 'published', 'closed']);
-export const assignmentStateEnum = pgEnum('assignment_state', ['open', 'claimed', 'done', 'closed']);
+// open, claimed, sent_back: on someone's list. submitted: waiting for a lead's
+// check. done (no check needed) and approved: finished. closed: taken off.
+export const assignmentStateEnum = pgEnum('assignment_state', [
+  'open',
+  'claimed',
+  'done',
+  'closed',
+  'submitted',
+  'sent_back',
+  'approved',
+]);
+export const decisionEnum = pgEnum('decision', ['approved', 'sent_back']);
 export const sourceEnum = pgEnum('source', ['kiosk', 'manual']);
 export const doneViaEnum = pgEnum('done_via', ['kiosk', 'member_page', 'lead']);
 
@@ -131,6 +142,28 @@ export const assignments = pgTable(
   ],
 );
 
+// Each time a member sends finished work in for a lead's check. A hand-out
+// that is sent back and sent in again has two rows, so the history is kept.
+// AI never reads these rows.
+export const submissions = pgTable(
+  'submissions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    assignmentId: uuid('assignment_id').notNull().references(() => assignments.id),
+    memberId: uuid('member_id').notNull().references(() => members.id),
+    note: text('note').notNull().default(''),
+    link: text('link').notNull().default(''),
+    via: doneViaEnum('via').notNull(),
+    createdAt: at('created_at').notNull().defaultNow(),
+    // The lead's answer. All null while it waits.
+    decision: decisionEnum('decision'),
+    comment: text('comment').notNull().default(''),
+    reviewedById: uuid('reviewed_by_id').references(() => members.id),
+    reviewedAt: at('reviewed_at'),
+  },
+  (t) => [index('submissions_assignment').on(t.assignmentId)],
+);
+
 export const invites = pgTable('invites', {
   id: uuid('id').primaryKey().defaultRandom(),
   memberId: uuid('member_id').notNull().references(() => members.id),
@@ -190,3 +223,4 @@ export type Task = typeof tasks.$inferSelect;
 export type Assignment = typeof assignments.$inferSelect;
 export type Kiosk = typeof kiosks.$inferSelect;
 export type AttendanceRow = typeof attendance.$inferSelect;
+export type Submission = typeof submissions.$inferSelect;

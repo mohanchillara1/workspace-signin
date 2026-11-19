@@ -1,6 +1,6 @@
 import { and, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import type { Db } from './db/client';
-import { assignments, members, subteams, tasks, type Assignment, type Task } from './db/schema';
+import { assignments, members, submissions, subteams, tasks, type Assignment, type Task } from './db/schema';
 import { isDay } from './day';
 import { UserError } from './errors';
 import { logChange } from './log';
@@ -29,7 +29,12 @@ export type Handout = {
   steps: string[];
   stepsDone: number[];
   group: 'yours' | 'subteam' | 'pool';
-  state: 'open' | 'claimed';
+  /** sent_back: a lead looked at it and wants it redone. */
+  state: 'open' | 'claimed' | 'sent_back';
+  /** Whether finishing it sends it to a lead first. */
+  needsCheck: boolean;
+  /** What the lead wrote when sending it back. */
+  sentBackComment: string | null;
   /** A pool task this member took and may put back. */
   canGiveBack: boolean;
   dueDay: string | null;
@@ -59,7 +64,12 @@ const TITLE_MAX = 120;
 const TEXT_MAX = 2000;
 const STEP_MAX = 200;
 const STEPS_MAX = 12;
-const LIVE = ['open', 'claimed'] as const;
+// On someone's list.
+const LIVE = ['open', 'claimed', 'sent_back'] as const;
+// Finished by the member: waiting for a check, or through.
+const SETTLED = ['done', 'submitted', 'approved'] as const;
+// Finished for good: shown on the leads' Finished list.
+const FINISHED = ['done', 'approved'] as const;
 
 function clean(input: TaskInput) {
   const title = input.title.replace(/\s+/g, ' ').trim();
@@ -110,7 +120,8 @@ async function lockTask(tx: Db, taskId: string): Promise<Task | null> {
   return task ?? null;
 }
 
-const isLive = (row: Assignment) => row.state === 'open' || row.state === 'claimed';
+const isLive = (row: Assignment) => (LIVE as readonly string[]).includes(row.state);
+const isSettled = (row: Assignment) => (SETTLED as readonly string[]).includes(row.state);
 
 /**
  * Makes a published task's hand-outs match what the task now says.
@@ -128,7 +139,7 @@ async function reconcile(tx: Db, task: Task, options: { fresh: boolean }): Promi
   const now = new Date();
   const rows = await tx.select().from(assignments).where(eq(assignments.taskId, task.id));
   const live = rows.filter(isLive);
-  const done = options.fresh ? [] : rows.filter((r) => r.state === 'done');
+  const done = options.fresh ? [] : rows.filter(isSettled);
   const keep = new Set<string>();
   const add: (typeof assignments.$inferInsert)[] = [];
 
@@ -270,7 +281,7 @@ export async function syncMember(db: Db, memberId: string): Promise<void> {
         .where(and(eq(assignments.taskId, task.id), eq(assignments.memberId, memberId)));
       const belongs = member.active && member.subteamId !== null && member.subteamId === task.subteamId;
       if (belongs) {
-        if (!mine.some((r) => isLive(r) || r.state === 'done')) {
+        if (!mine.some((r) => isLive(r) || isSettled(r))) {
           await tx.insert(assignments).values({ taskId: task.id, memberId });
         }
       } else {
@@ -283,7 +294,7 @@ export async function syncMember(db: Db, memberId: string): Promise<void> {
   });
 }
 
-function toHandout(task: Task, row: Assignment | null, memberId: string, today: string): Handout {
+function toHandout(task: Task, row: Assignment | null, memberId: string, today: string, comment: string | null = null): Handout {
   const claimedByMe = row?.memberId === memberId;
   const group: Handout['group'] =
     task.audience === 'subteam' ? 'subteam' : task.audience === 'pool' && !claimedByMe ? 'pool' : 'yours';
@@ -296,7 +307,9 @@ function toHandout(task: Task, row: Assignment | null, memberId: string, today: 
     steps: task.steps,
     stepsDone: row?.stepsDone ?? [],
     group,
-    state: row?.state === 'claimed' ? 'claimed' : 'open',
+    state: row?.state === 'claimed' ? 'claimed' : row?.state === 'sent_back' ? 'sent_back' : 'open',
+    needsCheck: task.needsCheck,
+    sentBackComment: row?.state === 'sent_back' ? comment : null,
     canGiveBack: task.audience === 'pool' && claimedByMe && row?.state === 'claimed',
     dueDay: task.dueDay,
     overdue: task.dueDay !== null && task.dueDay < today,
@@ -339,8 +352,22 @@ export async function openFor(db: Db, memberId: string, today: string): Promise<
     .select()
     .from(tasks)
     .where(and(eq(tasks.state, 'published'), eq(tasks.standing, true), sql`${tasks.id} not in ${takenToday}`));
+  // What the lead wrote on each hand-out that was sent back.
+  const sentBack = rows.filter((r) => r.row.state === 'sent_back').map((r) => r.row.id);
+  const comments = new Map<string, string>();
+  if (sentBack.length) {
+    const notes = await db
+      .select({ assignmentId: submissions.assignmentId, comment: submissions.comment })
+      .from(submissions)
+      .where(and(inArray(submissions.assignmentId, sentBack), eq(submissions.decision, 'sent_back')))
+      .orderBy(submissions.reviewedAt);
+    for (const note of notes) comments.set(note.assignmentId, note.comment);
+  }
   const list = [
-    ...rows.map((r) => ({ handout: toHandout(r.task, r.row, memberId, today), createdAt: r.task.createdAt })),
+    ...rows.map((r) => ({
+      handout: toHandout(r.task, r.row, memberId, today, comments.get(r.row.id) ?? null),
+      createdAt: r.task.createdAt,
+    })),
     ...standing.map((task) => ({ handout: toHandout(task, null, memberId, today), createdAt: task.createdAt })),
   ];
   list.sort(
@@ -439,66 +466,109 @@ function isFor(row: Assignment, task: Task, member: { id: string; subteamId: str
   return task.audience === 'pool';
 }
 
+export type FinishInput = {
+  taskId: string;
+  assignmentId?: string;
+  memberId: string;
+  via: DoneVia;
+  today: string;
+  /** True: a task that needs a lead's check goes to "submitted". False: always "done". */
+  check: boolean;
+};
+
 /**
- * The plain "Done" tap. The hand-out leaves the member's list and lands on
- * the leads' Finished list. Two people finishing a "done once" task at the
- * same moment take turns: the first one finishes it, the second is told no.
+ * A member finishes a hand-out. This is the only place that happens. With
+ * `check`, a task that needs a lead's check goes to "submitted" and waits;
+ * otherwise it is "done". Either way it leaves the member's list, and a
+ * "done once for the group" task closes for the others at the same moment.
+ * Two people finishing at once take turns: the second is told no.
+ *
+ * Runs inside the caller's transaction, so the caller can save a note in the
+ * same step. Returns the hand-out's id for that.
  */
+export async function finishHandout(
+  tx: Db,
+  input: FinishInput,
+): Promise<{ ok: boolean; state?: 'done' | 'submitted'; assignmentId?: string }> {
+  const task = await lockTask(tx, input.taskId);
+  const [member] = await tx.select().from(members).where(eq(members.id, input.memberId));
+  if (!member || !member.active || !task || task.state !== 'published') return { ok: false };
+  const now = new Date();
+  const state = input.check && task.needsCheck ? ('submitted' as const) : ('done' as const);
+  const finish = { state, doneById: member.id, doneAt: now, doneVia: input.via };
+
+  if (!input.assignmentId) {
+    // Only a standing task can be finished without a hand-out row.
+    if (!task.standing) return { ok: false };
+    const made = await tx
+      .insert(assignments)
+      .values({ taskId: task.id, memberId: member.id, day: input.today, ...finish })
+      .onConflictDoNothing()
+      .returning({ id: assignments.id });
+    if (made.length === 1) return { ok: true, state, assignmentId: made[0].id };
+    const mine = await tx
+      .update(assignments)
+      .set(finish)
+      .where(
+        and(
+          eq(assignments.taskId, task.id),
+          eq(assignments.day, input.today),
+          eq(assignments.memberId, member.id),
+          inArray(assignments.state, ['claimed', 'sent_back']),
+        ),
+      )
+      .returning({ id: assignments.id });
+    return mine.length === 1 ? { ok: true, state, assignmentId: mine[0].id } : { ok: false };
+  }
+
+  const [row] = await tx
+    .select()
+    .from(assignments)
+    .where(and(eq(assignments.id, input.assignmentId), eq(assignments.taskId, task.id)));
+  if (!row || !isFor(row, task, member)) return { ok: false };
+  const changed = await tx
+    .update(assignments)
+    .set({ ...finish, memberId: row.memberId ?? (task.audience === 'pool' ? member.id : null) })
+    .where(and(eq(assignments.id, row.id), inArray(assignments.state, LIVE)))
+    .returning({ id: assignments.id });
+  if (changed.length !== 1) return { ok: false };
+  if (task.audience === 'person' && task.completion === 'once') {
+    // Done once for the group: the others' copies close at the same moment.
+    await tx
+      .update(assignments)
+      .set({ state: 'closed', closedAt: now })
+      .where(and(eq(assignments.taskId, task.id), inArray(assignments.state, LIVE)));
+  }
+  return { ok: true, state, assignmentId: row.id };
+}
+
+/** The plain "Done" with no lead's check, whatever the task says. Phase 1's behaviour. */
 export async function markDone(
   db: Db,
   input: { taskId: string; assignmentId?: string; memberId: string; via: DoneVia; today: string },
 ): Promise<{ ok: boolean }> {
-  return db.transaction(async (tx) => {
-    const task = await lockTask(tx, input.taskId);
-    const [member] = await tx.select().from(members).where(eq(members.id, input.memberId));
-    if (!member || !member.active || !task || task.state !== 'published') return { ok: false };
-    const now = new Date();
-    const done = { state: 'done' as const, doneById: member.id, doneAt: now, doneVia: input.via };
+  const result = await db.transaction((tx) => finishHandout(tx, { ...input, check: false }));
+  return { ok: result.ok };
+}
 
-    if (!input.assignmentId) {
-      // Only a standing task can be finished without a hand-out row.
-      if (!task.standing) return { ok: false };
-      const made = await tx
-        .insert(assignments)
-        .values({ taskId: task.id, memberId: member.id, day: input.today, ...done })
-        .onConflictDoNothing()
-        .returning({ id: assignments.id });
-      if (made.length === 1) return { ok: true };
-      const mine = await tx
-        .update(assignments)
-        .set(done)
-        .where(
-          and(
-            eq(assignments.taskId, task.id),
-            eq(assignments.day, input.today),
-            eq(assignments.memberId, member.id),
-            eq(assignments.state, 'claimed'),
-          ),
-        )
-        .returning({ id: assignments.id });
-      return { ok: mine.length === 1 };
-    }
-
-    const [row] = await tx
-      .select()
-      .from(assignments)
-      .where(and(eq(assignments.id, input.assignmentId), eq(assignments.taskId, task.id)));
-    if (!row || !isFor(row, task, member)) return { ok: false };
-    const changed = await tx
-      .update(assignments)
-      .set({ ...done, memberId: row.memberId ?? (task.audience === 'pool' ? member.id : null) })
-      .where(and(eq(assignments.id, row.id), inArray(assignments.state, LIVE)))
-      .returning({ id: assignments.id });
-    if (changed.length !== 1) return { ok: false };
-    if (task.audience === 'person' && task.completion === 'once') {
-      // Done once for the group: the others' copies close at the same moment.
-      await tx
-        .update(assignments)
-        .set({ state: 'closed', closedAt: now })
-        .where(and(eq(assignments.taskId, task.id), inArray(assignments.state, LIVE)));
-    }
-    return { ok: true };
-  });
+/**
+ * A lead's answer on work that is waiting: approved finishes it; sent back
+ * puts it on the member's list again. Only moves the hand-out. The caller
+ * records who decided and the comment, in the same transaction.
+ */
+export async function settleReview(
+  tx: Db,
+  input: { assignmentId: string; decision: 'approved' | 'sent_back' },
+): Promise<{ ok: boolean; taskId?: string }> {
+  const [first] = await tx.select().from(assignments).where(eq(assignments.id, input.assignmentId));
+  if (!first) return { ok: false };
+  await lockTask(tx, first.taskId);
+  const changed = await tx
+    .update(assignments)
+    .set({ state: input.decision })
+    .where(and(eq(assignments.id, input.assignmentId), eq(assignments.state, 'submitted')))
+    .returning({ id: assignments.id });
+  return changed.length === 1 ? { ok: true, taskId: first.taskId } : { ok: false };
 }
 
 /** Saves which steps a member has ticked. */
@@ -533,7 +603,7 @@ export async function reopen(db: Db, assignmentId: string, actorId: string | nul
     if (!first) return;
     const task = await lockTask(tx, first.taskId);
     const [row] = await tx.select().from(assignments).where(eq(assignments.id, assignmentId));
-    if (!task || task.state !== 'published' || !row || row.state !== 'done') return;
+    if (!task || task.state !== 'published' || !row || !(FINISHED as readonly string[]).includes(row.state)) return;
     const back = task.audience === 'pool' ? ('claimed' as const) : ('open' as const);
     await tx
       .update(assignments)
@@ -563,7 +633,7 @@ export async function finished(db: Db, options: { limit: number }): Promise<Fini
     .from(assignments)
     .innerJoin(tasks, eq(assignments.taskId, tasks.id))
     .leftJoin(members, eq(assignments.doneById, members.id))
-    .where(eq(assignments.state, 'done'))
+    .where(inArray(assignments.state, FINISHED))
     .orderBy(desc(assignments.doneAt))
     .limit(options.limit);
   return rows.map((r) => ({
@@ -609,7 +679,16 @@ export async function membersWithNothing(
     .map((p) => ({ memberId: p.member.id, name: shortName(p.member.firstName, p.member.lastName), subteam: p.subteam }));
 }
 
-export type TaskListRow = Task & { subteamName: string | null; open: number; done: number; people: string[] };
+export type TaskListRow = Task & {
+  subteamName: string | null;
+  /** On someone's list. */
+  open: number;
+  /** Sent in, waiting for a lead's check. */
+  waiting: number;
+  /** Finished. */
+  done: number;
+  people: string[];
+};
 
 /** Every task with who it is for and how its hand-outs stand, newest first. */
 export async function listTasks(db: Db): Promise<TaskListRow[]> {
@@ -630,8 +709,9 @@ export async function listTasks(db: Db): Promise<TaskListRow[]> {
     return {
       ...task,
       subteamName,
-      open: mine.filter((c) => c.state === 'open' || c.state === 'claimed').reduce((sum, c) => sum + c.n, 0),
-      done: mine.filter((c) => c.state === 'done').reduce((sum, c) => sum + c.n, 0),
+      open: mine.filter((c) => (LIVE as readonly string[]).includes(c.state)).reduce((sum, c) => sum + c.n, 0),
+      waiting: mine.filter((c) => c.state === 'submitted').reduce((sum, c) => sum + c.n, 0),
+      done: mine.filter((c) => (FINISHED as readonly string[]).includes(c.state)).reduce((sum, c) => sum + c.n, 0),
       people: task.memberIds.map((id) => names.get(id) ?? '').filter(Boolean),
     };
   });

@@ -47,7 +47,12 @@ export default async function TasksPage() {
                   {task.state === 'published' && task.open > 0 && task.dueDay !== null && task.dueDay < today && (
                     <span className="chip !border-arcade-bumper !bg-arcade-bumper !text-paper">{t.overdue}</span>
                   )}
-                  {task.state !== 'draft' && <span className="text-sm text-paper/70">{t.openCount(task.open)}, {t.doneCount(task.done)}</span>}
+                  {task.state !== 'draft' && (
+                    <span className="text-sm text-paper/70">
+                      {t.openCount(task.open)}, {task.waiting > 0 && `${t.waitingCount(task.waiting)}, `}
+                      {t.doneCount(task.done)}
+                    </span>
+                  )}
                   <Link href={`/dashboard/tasks/${task.id}`} className="btn-small">{t.edit}</Link>
                 </div>
               </div>

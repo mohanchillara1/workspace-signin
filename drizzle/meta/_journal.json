@@ -15,6 +15,13 @@
       "when": 1795071768683,
       "tag": "0001_living_jack_power",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1795072739691,
+      "tag": "0002_redundant_giant_girl",
+      "breakpoints": true
     }
   ]
 }

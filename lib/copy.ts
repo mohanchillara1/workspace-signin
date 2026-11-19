@@ -5,6 +5,10 @@
 // One name per thing. Members read "iPad"; leads read "kiosk" for the paired
 // device. A task anyone can take is "up for grabs" everywhere.
 
+import { draftsCopy } from './copy/drafts';
+import { reviewCopy } from './copy/review';
+import { submitCopy } from './copy/submit';
+
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 export const copy = {
@@ -205,7 +209,11 @@ export const copy = {
     handoutClaimed: 'Taken',
     handoutDone: 'Done',
     handoutClosed: 'Closed',
+    handoutSubmitted: "Waiting for a lead's check",
+    handoutSentBack: 'Sent back',
+    handoutApproved: 'Approved',
     handoutPool: 'Up for grabs',
+    waitingCount: (n: number) => `${n} waiting for a check`,
     takeBack: 'Put back up for grabs',
     saved: 'Saved.',
     published: 'Published.',
@@ -311,6 +319,11 @@ export const copy = {
     csvKiosk: 'kiosk',
     csvManual: 'by hand',
   },
+
+  // Phase 2. Each lives in its own file under lib/copy/.
+  submit: submitCopy,
+  review: reviewCopy,
+  drafts: draftsCopy,
 
   kioskAdmin: {
     title: 'Kiosk',
