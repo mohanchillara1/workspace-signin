@@ -3,6 +3,7 @@ import { requireLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
 import { getDb } from '@/lib/db/client';
 import { listMembers, listSubteams } from '@/lib/members';
+import { draftsAvailable } from '@/lib/step-drafts';
 import { EMPTY_TASK } from '@/lib/task-form';
 
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ export default async function NewTaskPage() {
   return (
     <>
       <h1 className="mb-6 text-5xl">{copy.tasks.formNewTitle}</h1>
-      <TaskForm initial={EMPTY_TASK} people={people} subteams={subteams} />
+      <TaskForm initial={EMPTY_TASK} people={people} subteams={subteams} canDraft={draftsAvailable()} />
     </>
   );
 }
