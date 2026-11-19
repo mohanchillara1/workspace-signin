@@ -328,16 +328,83 @@ Strings with a name or a number in them are shown with sample values, once for o
 
 | Key | Text |
 |---|---|
+| `formTitle` | Tell a lead what you did |
+| `noteLabel` | What did you do? |
+| `noteHelp` | A sentence or two helps the lead check it. You can skip this. |
+| `linkLabel` | Link to your work (optional) |
+| `linkHelp` | It has to start with https://. A shared doc or folder works. |
+| `send` | Send it in |
+| `sending` | Sending |
+| `cancel` | Never mind |
+| `sentIn` | Sent in. A lead will check it. It isn't finished until they approve it. |
+| `kioskWaiting` | Sent to a lead to check. It isn't finished until they approve it. |
+| `sentBackChip` | Sent back |
+| `sentBackTitle` | A lead sent this back |
+| `sentBackHint` | Fix it, then send it in again. |
+| `listTitle` | Sent in |
+| `listNone` | Nothing sent in yet. When you finish a task that needs a lead's check, it shows up here. |
+| `waiting` | Waiting for a lead's check |
+| `approved` | Approved |
+| `sentBack` | Sent back |
+| `yourNote` | Your note |
+| `yourLink` | Your link |
+| `leadComment` | A lead's comment |
+| `noteLong` | Your note is too long. Cut it to 500 characters or fewer. |
+| `linkBad` | The link has to start with https:// and have no spaces. Fix it or leave it blank. |
+| `linkLong` | That link is too long. Use one that is 300 characters or fewer. |
+| `gone` | That didn't go through. It may not be on your list anymore. Reload the page and look again. |
+| `failed` | That didn't send. Try again. |
 
 ## review
 
 | Key | Text |
 |---|---|
+| `navLabel` | Review |
+| `title` | Review |
+| `help` | Work that members sent in for a lead's check. Approve it, or send it back with a note on what to fix. |
+| `waitingCount` | 1 waiting<br>3 waiting |
+| `emptyTitle` | Nothing is waiting. |
+| `emptyBody` | When a member finishes a task that needs a lead's check, it shows up here. |
+| `sentBy` | Sent by Test M. on Wed, Nov 18 at 4:32 PM |
+| `viaKiosk` | from the kiosk |
+| `viaMemberPage` | from their own page |
+| `viaLead` | by a lead |
+| `noteLabel` | Their note |
+| `noNote` | No note. |
+| `linkLabel` | Their link |
+| `noLink` | No link. |
+| `linkUnsafe` | This link doesn't start with https://, so it isn't tappable. Copy it by hand if you trust it. |
+| `commentLabel` | Comment for the member |
+| `commentHelp` | Needed to send it back. The member sees it on their list. |
+| `commentPlaceholder` | What should they change? |
+| `approve` | Approve |
+| `sendBack` | Send back |
+| `commentNeeded` | Write what to change before you send it back. |
+| `commentLong` | Shorten the comment to 500 characters or fewer. |
+| `gone` | Someone already answered this one, or it is no longer waiting. Reload the page to see what is left. |
+| `notAllowed` | That didn't go through. Try again, or log in again if it keeps happening. |
+| `approvedBy` | Approved by Test M. on Wed, Nov 18 at 4:32 PM |
+| `approvedByLead` | Approved by a lead |
+| `approvedChip` | Approved |
 
 ## drafts
 
 | Key | Text |
 |---|---|
+| `button` | Draft steps |
+| `working` | Drafting |
+| `notice` | A computer drafts these from the title and detail. Read every step and fix it before you publish. |
+| `replaceAsk` | The Steps box already has text. Replace it with a new draft? |
+| `replaceYes` | Replace it |
+| `replaceNo` | Keep my steps |
+| `filled` | Drafted. Read each step and fix what is wrong. Nothing is saved yet. |
+| `changedWhileWaiting` | You changed the Steps box while the draft was coming, so it was left alone. Press Draft steps to try again. |
+| `needTitle` | Fill in "What needs doing" first, so the draft knows what the task is |
+| `empty` | The draft came back with no steps. Try again, or type the steps yourself |
+| `failed` | Couldn't draft steps right now. Try again in a minute, or type them yourself |
+| `slow` | The draft took too long. Try again in a minute, or type the steps yourself |
+| `unavailable` | Drafting is not turned on. Type the steps yourself |
+| `tooMany` | That was a lot of drafts. Wait a minute, then try again |
 
 ## kioskAdmin
 
