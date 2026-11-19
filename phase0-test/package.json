@@ -1,0 +1,19 @@
+{
+  "name": "qr-camera-test",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Throwaway phase 0 test: read a QR with the front camera in a browser, and hand over one test Wallet pass.",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "serve": "node test/serve.mjs",
+    "test": "node test/run.mjs"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "jsqr": "^1.4.0",
+    "puppeteer-core": "^25.18.1",
+    "qrcode": "^1.5.4",
+    "zxing-wasm": "^3.1.7"
+  }
+}

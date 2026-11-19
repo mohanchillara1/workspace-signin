@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="data:,">
+  <title>Camera test</title>
+  <link rel="stylesheet" href="/assets/site.css">
+</head>
+<body class="camera-page">
+  <main class="split">
+    <div class="view">
+      <video id="video" playsinline muted autoplay></video>
+      <p class="hint">Hold your code up to the camera</p>
+    </div>
+    <section id="panel" class="panel" data-kind="wait">
+      <p id="status" class="status">Starting…</p>
+      <p id="code" class="code" data-read="0">Nothing read yet</p>
+      <p id="match" class="line"></p>
+      <p id="first" class="line"></p>
+      <p id="last" class="line"></p>
+      <p id="decoder" class="line small">Decoder: starting…</p>
+      <p id="stats" class="line small"></p>
+      <button id="start" class="button" type="button" hidden>Turn the camera on</button>
+      <p class="line small links">
+        Try another decoder:
+        <a href="/camera">automatic</a>
+        <a href="/camera?decoder=zxing">zxing</a>
+        <a href="/camera?decoder=jsqr">jsQR</a>
+        <a href="/camera?decoder=native">built in</a>
+      </p>
+    </section>
+  </main>
+  <script type="module" src="/assets/camera.js"></script>
+</body>
+</html>
