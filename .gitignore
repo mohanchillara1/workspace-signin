@@ -8,3 +8,8 @@ node_modules/
 .DS_Store
 # local-only test output
 phase0-test/test/out/
+.data/
+next-env.d.ts
+test-results/
+playwright-report/
+tsconfig.tsbuildinfo

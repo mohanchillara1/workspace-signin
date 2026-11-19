@@ -1,0 +1,13 @@
+import { join } from 'node:path';
+import { migrate } from 'drizzle-orm/node-postgres/migrator';
+import { makeDb } from './client';
+
+/** Brings a database up to the newest migration in drizzle/. */
+export async function migrateUrl(url: string): Promise<void> {
+  const { db, pool } = makeDb(url);
+  try {
+    await migrate(db, { migrationsFolder: join(process.cwd(), 'drizzle') });
+  } finally {
+    await pool.end();
+  }
+}

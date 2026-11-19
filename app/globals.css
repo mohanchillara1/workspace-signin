@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: var(--font-manrope), sans-serif;
+    /* Manrope turns "(c)" into a copyright sign. Off, as on the team site. */
+    font-variant-ligatures: none;
+    font-feature-settings: "liga" 0, "calt" 0;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  /* The same rem scale as the team site: every size follows the root. */
+  html { font-size: 16px; }
+  @media (min-width: 640px) { html { font-size: 17px; } }
+  @media (min-width: 1024px) { html { font-size: 18px; } }
+  @media (min-width: 1440px) { html { font-size: 20px; } }
+
+  body {
+    background: #050507;
+    color: #fff8ee;
+  }
+
+  ::selection {
+    background: #ffd23f;
+    color: #151515;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-bricolage), sans-serif;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    font-variation-settings: "opsz" 96;
+  }
+
+  /* The hidden attribute has to win over any display utility. */
+  [hidden] { display: none !important; }
+
+  :focus-visible {
+    outline: 3px solid #ffd23f;
+    outline-offset: 2px;
+  }
+}
+
+/* Arcade tokens from the team site: hard offset shadow, sticker frames, pill
+   buttons. Flat fills only. */
+.shadow-hard { box-shadow: 4px 4px 0 0 #fff8ee; }
+.shadow-hard-sm { box-shadow: 2px 2px 0 0 #fff8ee; }
+.shadow-hard-purple { box-shadow: 4px 4px 0 0 #6b2fd6; }
+
+.btn-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  border: 2px solid currentColor;
+  padding: 0.75rem 1.5rem;
+  font-weight: 600;
+  box-shadow: 4px 4px 0 0 #fff8ee;
+  transition: transform 150ms ease, box-shadow 150ms ease;
+  white-space: nowrap;
+}
+.btn-pill:hover { transform: translate(-2px, -2px); box-shadow: 6px 6px 0 0 #fff8ee; }
+.btn-pill:active { transform: translate(0, 0); box-shadow: 2px 2px 0 0 #fff8ee; }
+.btn-pill:disabled { opacity: 0.55; transform: none; box-shadow: 2px 2px 0 0 #fff8ee; cursor: default; }
+
+.btn-small {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 2px solid #151515;
+  background: #fff8ee;
+  color: #151515;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.btn-small:hover { background: #ffd23f; }
+
+.sticker-frame {
+  background: #fff8ee;
+  border: 6px solid #fff8ee;
+  border-radius: 12px;
+  box-shadow: 4px 4px 0 0 #6b2fd6;
+}
+
+/* App pieces built from the same tokens. */
+.card {
+  border-radius: 0.75rem;
+  border: 2px solid #151515;
+  background: #fff8ee;
+  color: #151515;
+  box-shadow: 4px 4px 0 0 #fff8ee;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 2px solid #151515;
+  background: #fff8ee;
+  color: #151515;
+  padding: 0.1rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.field {
+  width: 100%;
+  border-radius: 0.6rem;
+  border: 2px solid #151515;
+  background: #ffffff;
+  color: #151515;
+  padding: 0.6rem 0.8rem;
+  font: inherit;
+}
+.field::placeholder { color: #15151580; }
+
+.label {
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
