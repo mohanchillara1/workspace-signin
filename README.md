@@ -72,12 +72,27 @@ One browser test plays a video of a QR code as Chrome's camera, so the camera an
 - Logging out ends that session on the server. Deactivating or demoting a lead, or sending them a new invite, ends all of theirs.
 - "Done" takes two taps, because only a lead can bring a finished task back.
 
-## Setting up the iPad (later, when it is deployed)
+## Setting up the iPad
 
-1. Open the site in Safari and add it to the Home Screen.
-2. Open it from the Home Screen, log in as a lead, open Kiosk, and choose "Make this the kiosk". Pair it inside the Home Screen app: it keeps its own cookies, separate from Safari's.
-3. Turn on Guided Access so it stays on the scan page.
-4. Set Auto-Lock to Never and keep it on the charger.
+The steps are on the leads' Kiosk page, and those are the ones to follow. In short: open `/kiosk` in Safari on the iPad, add it to the Home Screen, open that icon, log in there and choose "Make this the kiosk", allow the camera, set Auto-Lock to Never, and lock the iPad to the app with Guided Access. Pair it inside the Home Screen app: it keeps its own logins, separate from Safari's.
+
+What the kiosk does by itself:
+
+- It asks the browser to keep the screen on (the Screen Wake Lock API, where the browser has it).
+- It dims after `KIOSK_DIM_MINUTES` with no scan and no touch (60 unless set; 0 turns dimming off). The camera keeps reading, so a code held up to it wakes the screen.
+- It starts the camera again if the camera is taken away.
+- It says so when the connection drops, and carries on when it is back.
+- It reloads itself when the site has a newer build and nobody is using the screen. It asks the server first, so it never reloads into a browser error page.
+- If the scan screen itself breaks, it shows a short message and reloads.
+
+Only a real iPad can prove the following, and none has been tried yet:
+
+- that the Home Screen app opens full screen and keeps its pairing between launches;
+- that iPadOS lets a Home Screen app keep the screen on;
+- whether the iPad asks for the camera again after a reload. If it does, the reload after an update leaves the kiosk waiting for someone to tap Allow;
+- how the dimmed screen looks on the iPad's display.
+
+The Home Screen icons are drawn from `app/icon.svg` by `npx tsx scripts/make-icons.ts`.
 
 ## A new database (later)
 

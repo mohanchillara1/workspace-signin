@@ -98,6 +98,11 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `dueOn` | Due Wed, Nov 18 |
 | `overdue` | Overdue |
 | `standing` | Every day |
+| `homeScreenName` | Workspace kiosk |
+| `homeScreenShortName` | Kiosk |
+| `wakeOff` | This screen can go to sleep. Set Auto-Lock to Never. |
+| `crashTitle` | Starting again |
+| `crashBody` | Something went wrong on this screen. It will reload in a few seconds. |
 
 ## member
 
@@ -449,4 +454,6 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `unpaired` | Turned off |
 | `unpair` | Turn off Test M. |
 | `setupTitle` | On the iPad, once |
-| `setup` | Open this site in Safari and add it to the Home Screen.<br>Open it from the Home Screen, log in, and make it the kiosk.<br>Turn on Guided Access so it stays on this page.<br>Set Auto-Lock to Never and keep it on the charger. |
+| `setup` | Open Safari on the iPad and go to this site, with /kiosk on the end of the address.<br>Tap Share, then Add to Home Screen. Open the new icon. The page fills the screen, with no Safari bars.<br>In that app, tap Log in, open Kiosk and choose "Make this the kiosk". Do it there, not in Safari: the two keep separate logins.<br>Allow the camera when the iPad asks.<br>In Settings, under Display & Brightness, set Auto-Lock to Never. Keep the iPad on its charger.<br>In Settings, under Accessibility, turn on Guided Access and set its Display Auto-Lock to Never. Then open the kiosk and triple-click the top button (the Home button on an older iPad) to lock the iPad to it. |
+| `byItselfTitle` | What the kiosk does by itself |
+| `byItself` | It asks the iPad to keep the screen on. Not every iPad allows that, which is why Auto-Lock is set to Never.<br>After an hour with no scan it dims. A scan or a touch brings it back.<br>If the connection drops it says so, and carries on when the connection is back.<br>After the site is updated it reloads itself when nobody is using it. If the iPad then asks for the camera again, tap Allow.<br>After 20 minutes with no scan it dims. A scan or a touch brings it back. |

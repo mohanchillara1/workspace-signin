@@ -1,11 +1,22 @@
 import type { Metadata } from 'next';
 import { Kiosk } from '@/components/kiosk/Kiosk';
 import { currentKiosk } from '@/lib/auth/session';
+import { BUILD } from '@/lib/build';
 import { copy } from '@/lib/copy';
+import { kioskDimMinutes } from '@/lib/kiosk-wall';
 import { isTestCopy } from '@/lib/test-copy';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: copy.kiosk.idleTitle };
+// The manifest and the touch icon are on this page only, paired or not: a
+// lead adds it to the iPad's Home Screen first and pairs it from inside that
+// app. The older Apple tag is spelled out for iPads that do not read the manifest.
+export const metadata: Metadata = {
+  title: copy.kiosk.idleTitle,
+  manifest: '/kiosk/manifest.webmanifest',
+  icons: { apple: [{ url: '/icons/kiosk-180.png', sizes: '180x180', type: 'image/png' }] },
+  appleWebApp: { capable: true, title: copy.kiosk.homeScreenShortName, statusBarStyle: 'black-translucent' },
+  other: { 'apple-mobile-web-app-capable': 'yes' },
+};
 
 export default async function KioskPage() {
   const kiosk = await currentKiosk();
@@ -32,6 +43,8 @@ export default async function KioskPage() {
       testFeed={testFeed}
       kioskName={kiosk.name}
       testCopy={isTestCopy()}
+      build={BUILD}
+      dimAfterSeconds={kioskDimMinutes() * 60}
     />
   );
 }

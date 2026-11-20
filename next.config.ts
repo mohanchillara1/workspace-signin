@@ -25,6 +25,8 @@ const nextConfig: NextConfig = {
   // Native or server-only packages that must not be bundled.
   serverExternalPackages: ['@node-rs/argon2', 'pg', 'embedded-postgres'],
   turbopack: { root: process.cwd() },
+  // A new value on every build, written into the code. See lib/build.ts.
+  env: { BUILD_STAMP: Date.now().toString(36) },
   poweredByHeader: false,
   async headers() {
     return [
