@@ -7,7 +7,9 @@
 
 import { draftsCopy } from './copy/drafts';
 import { reviewCopy } from './copy/review';
+import { slackCopy } from './copy/slack';
 import { submitCopy } from './copy/submit';
+import { walletCopy } from './copy/wallet';
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
@@ -236,6 +238,7 @@ export const copy = {
     viaKiosk: 'on the kiosk',
     viaMemberPage: 'on their own page',
     viaLead: 'by a lead',
+    viaSlack: 'in Slack',
     needsCheck: "Needs a lead's check",
     reopen: 'Reopen',
     help: 'Reopening puts a task back on the list of whoever finished it.',
@@ -332,6 +335,8 @@ export const copy = {
   submit: submitCopy,
   review: reviewCopy,
   drafts: draftsCopy,
+  wallet: walletCopy,
+  slack: slackCopy,
 
   kioskAdmin: {
     title: 'Kiosk',

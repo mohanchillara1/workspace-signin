@@ -31,7 +31,7 @@ export const assignmentStateEnum = pgEnum('assignment_state', [
 ]);
 export const decisionEnum = pgEnum('decision', ['approved', 'sent_back']);
 export const sourceEnum = pgEnum('source', ['kiosk', 'manual']);
-export const doneViaEnum = pgEnum('done_via', ['kiosk', 'member_page', 'lead']);
+export const doneViaEnum = pgEnum('done_via', ['kiosk', 'member_page', 'lead', 'slack']);
 
 const at = (name: string) => timestamp(name, { withTimezone: true });
 
@@ -51,6 +51,9 @@ export const members = pgTable('members', {
   active: boolean('active').notNull().default(true),
   scanCode: text('scan_code').notNull().unique(),
   pageKey: text('page_key').notNull().unique(),
+  // The member's id in the team's Slack, when a lead has recorded it. It lets
+  // them check a task off from Slack. Not a name and not an email address.
+  slackUserId: text('slack_user_id').unique(),
   createdAt: at('created_at').notNull().defaultNow(),
   deactivatedAt: at('deactivated_at'),
 });

@@ -37,6 +37,10 @@ async function main() {
       KIOSK_TEST_FEED: '1',
       KIOSK_IDLE_SECONDS: '3',
       STEP_DRAFTS_STAND_IN: '1',
+      // Wallet passes come from a built-in stand-in, and Slack requests are
+      // signed with this made-up secret. Neither service is ever called.
+      WALLET_STAND_IN: '1',
+      SLACK_SIGNING_SECRET: 'test-signing-secret-not-a-real-one',
       // The tests run as a test copy, so every screen is checked with its tag showing.
       TEST_COPY: '1',
     },

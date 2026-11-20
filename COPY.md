@@ -246,6 +246,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `viaKiosk` | on the kiosk |
 | `viaMemberPage` | on their own page |
 | `viaLead` | by a lead |
+| `viaSlack` | in Slack |
 | `needsCheck` | Needs a lead's check |
 | `reopen` | Reopen |
 | `help` | Reopening puts a task back on the list of whoever finished it. |
@@ -379,6 +380,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `viaKiosk` | from the kiosk |
 | `viaMemberPage` | from their own page |
 | `viaLead` | by a lead |
+| `viaSlack` | from Slack |
 | `noteLabel` | Their note |
 | `noNote` | No note. |
 | `linkLabel` | Their link |
@@ -418,6 +420,16 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `slow` | The draft took too long. Try again in a minute, or type the steps yourself |
 | `unavailable` | Drafting is not turned on. Type the steps yourself |
 | `tooMany` | That was a lot of drafts. Wait a minute, then try again |
+
+## wallet
+
+| Key | Text |
+|---|---|
+
+## slack
+
+| Key | Text |
+|---|---|
 
 ## kioskAdmin
 

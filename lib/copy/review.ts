@@ -12,6 +12,7 @@ export const reviewCopy = {
   viaKiosk: 'from the kiosk',
   viaMemberPage: 'from their own page',
   viaLead: 'by a lead',
+  viaSlack: 'from Slack',
   noteLabel: 'Their note',
   noNote: 'No note.',
   linkLabel: 'Their link',

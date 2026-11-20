@@ -42,7 +42,7 @@ export type Handout = {
   standing: boolean;
 };
 
-export type DoneVia = 'kiosk' | 'member_page' | 'lead';
+export type DoneVia = 'kiosk' | 'member_page' | 'lead' | 'slack';
 
 export type FinishedRow = {
   assignmentId: string;

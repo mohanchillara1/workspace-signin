@@ -18,7 +18,7 @@ export default async function FinishedPage() {
   const r = copy.review;
   const approvedLine = (a: { by: string; at: Date | null }) =>
     a.by && a.at ? r.approvedBy(a.by, dayLabel(chicagoDay(a.at)), chicagoTime(a.at)) : r.approvedByLead;
-  const via = { kiosk: f.viaKiosk, member_page: f.viaMemberPage, lead: f.viaLead };
+  const via = { kiosk: f.viaKiosk, member_page: f.viaMemberPage, lead: f.viaLead, slack: f.viaSlack };
   return (
     <>
       <h1 className="text-5xl">{f.title}</h1>
