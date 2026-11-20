@@ -42,7 +42,7 @@ export type Handout = {
   standing: boolean;
 };
 
-export type DoneVia = 'kiosk' | 'member_page' | 'lead';
+export type DoneVia = 'kiosk' | 'member_page' | 'lead' | 'slack';
 
 export type FinishedRow = {
   assignmentId: string;
@@ -149,6 +149,18 @@ async function reconcile(tx: Db, task: Task, options: { fresh: boolean }): Promi
   const perMember = task.audience === 'person' || (task.audience === 'subteam' && task.completion === 'each');
   if (perMember) {
     let wanted = task.memberIds;
+    if (task.audience === 'person' && wanted.length) {
+      // Someone who has been deactivated cannot see or finish a task, so they
+      // hold none. They get it back if they are reactivated.
+      // Only people known to be inactive are left out. A name that matches
+      // nobody still fails below, so a task for nobody is never published.
+      const away = await tx
+        .select({ id: members.id })
+        .from(members)
+        .where(and(inArray(members.id, wanted), eq(members.active, false)));
+      const awayIds = new Set(away.map((p) => p.id));
+      wanted = wanted.filter((id) => !awayIds.has(id));
+    }
     if (task.audience === 'subteam') {
       const people = task.subteamId
         ? await tx
@@ -275,6 +287,21 @@ export async function syncMember(db: Db, memberId: string): Promise<void> {
           ),
         );
       for (const { row, task } of held) await unclaim(tx, row, task);
+    }
+    // Tasks given to this person by name follow them out and back in.
+    const own = await tx
+      .select({ id: tasks.id })
+      .from(tasks)
+      .where(
+        and(
+          eq(tasks.state, 'published'),
+          eq(tasks.audience, 'person'),
+          sql`${tasks.memberIds} @> ${JSON.stringify([memberId])}::jsonb`,
+        ),
+      );
+    for (const { id } of own) {
+      const task = await lockTask(tx, id);
+      if (task && task.state === 'published') await reconcile(tx, task, { fresh: false });
     }
     const each = await tx
       .select()

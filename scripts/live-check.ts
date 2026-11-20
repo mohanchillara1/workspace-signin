@@ -26,7 +26,7 @@ import { assignments, attendance, kiosks, members, rateHits, submissions, tasks 
 import { isTestCopy } from '../lib/test-copy';
 import { writeQrVideo } from '../tests/e2e/fake-camera';
 import { databaseUrl, describeDatabase, isLocal } from './env';
-import { isChallenge, isLoginWall, isOurAnswer } from './live-rules';
+import { isChallenge, isLoginWall, isOurAnswer, plan, verdict } from './live-rules';
 
 const args = process.argv.slice(2);
 const base = new URL(args.find((a) => !a.startsWith('--')) ?? '').origin;
@@ -34,8 +34,10 @@ const flag = (name: string) => args.includes(`--${name}`);
 const valueOf = (name: string) => (args.includes(`--${name}`) ? args[args.indexOf(`--${name}`) + 1] : undefined);
 const chrome = process.env.CHROME ?? '/usr/bin/google-chrome';
 
+let ran = 0;
 let failed = 0;
 function check(ok: boolean, what: string, detail = ''): boolean {
+  ran++;
   if (!ok) failed++;
   console.log(`${ok ? 'ok  ' : 'FAIL'} ${what}${detail ? ` | ${detail}` : ''}`);
   return ok;
@@ -58,7 +60,7 @@ async function get(path: string, init: RequestInit = {}): Promise<Response> {
 }
 
 /** What a visitor with no login and no paired device gets. */
-async function signedOut(hasDb: boolean) {
+async function signedOut(hasDb: boolean, privateFiles: boolean) {
   console.log(`\nSigned out, plain requests to ${base}`);
 
   // Every kind of page: reachable without a Vercel login, and never indexed.
@@ -79,6 +81,7 @@ async function signedOut(hasDb: boolean) {
   check(/default-src 'self'/.test(headers.get('content-security-policy') ?? ''), 'pages are sent with the content policy');
   check(!headers.get('x-powered-by'), 'no framework banner');
 
+  if (privateFiles) {
   // Controls: a file that should be served is served.
   check((await get('/wordmark.png')).status === 200, 'control: the wordmark picture is served (so a 404 below means something)');
   check((await get('/zxing_reader.wasm')).status === 200, 'control: the QR decoder file is served');
@@ -95,6 +98,9 @@ async function signedOut(hasDb: boolean) {
   for (const path of mustBeMissing) {
     const response = await get(path);
     check(response.status === 404, `${path} cannot be fetched`, `status ${response.status}`);
+  }
+  } else {
+    skip('whether private files can be fetched', 'not asked for (--no-private). Nothing here says they cannot be');
   }
 
   if (!hasDb) {
@@ -209,7 +215,8 @@ async function loop(shots: string | undefined) {
       await kiosk.goto('/dashboard/kiosk');
       await kiosk.getByLabel(copy.kioskAdmin.name).fill(kioskName);
       await kiosk.getByRole('button', { name: copy.kioskAdmin.pair }).click();
-      await kiosk.waitForURL('**/kiosk');
+      // Not '**/kiosk': that also matches /dashboard/kiosk, the page the button is on, and so waits for nothing.
+      await kiosk.waitForURL((url) => url.pathname === '/kiosk');
       const paired = await cookieNamed(wall, 'kiosk');
       const days = paired ? (paired.expires - Date.now() / 1000) / 86_400 : 0;
       check(!!paired && paired.secure && paired.httpOnly && days > 390, 'pairing sets a kiosk cookie that is Secure, HttpOnly and lasts about 400 days', paired ? `secure ${paired.secure}, httpOnly ${paired.httpOnly}, ${Math.round(days)} days` : 'no cookie');
@@ -294,14 +301,17 @@ async function expectVisible(locator: ReturnType<Page['locator']>, what: string)
 }
 
 async function main() {
-  await signedOut(!flag('no-db'));
-  if (flag('loop')) {
+  const doing = plan(args);
+  if (doing.pages) await signedOut(!flag('no-db'), doing.privateFiles);
+  else console.log('\nNo signed-out request was sent (--loop-only). Nothing here says anything about signed-out visitors.');
+  if (doing.loop) {
     const shots = valueOf('shots');
     if (shots) mkdirSync(resolve(shots), { recursive: true });
     await loop(shots ? resolve(shots) : undefined);
   }
-  console.log(failed ? `\n${failed} check(s) FAILED` : '\nEvery check passed');
-  process.exit(failed ? 1 : 0);
+  const end = verdict(ran, failed);
+  console.log(`\n${end.text}`);
+  process.exit(end.ok ? 0 : 1);
 }
 
 main().catch((error) => {

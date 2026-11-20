@@ -16,7 +16,7 @@ export type SubmitInput = {
   memberId: string;
   note: string;
   link: string;
-  via: 'kiosk' | 'member_page';
+  via: 'kiosk' | 'member_page' | 'slack';
   today: string;
 };
 

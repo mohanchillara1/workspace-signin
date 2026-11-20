@@ -4,6 +4,7 @@ import { copy } from '@/lib/copy';
 import { chicagoDay, chicagoTime, dayLabel } from '@/lib/day';
 import { getDb } from '@/lib/db/client';
 import { listKiosks } from '@/lib/kiosk';
+import { kioskDimMinutes } from '@/lib/kiosk-wall';
 
 export const dynamic = 'force-dynamic';
 
@@ -36,6 +37,15 @@ export default async function KioskAdminPage() {
           </ol>
         </section>
       </div>
+
+      <section className="card mt-6 max-w-3xl p-5">
+        <h2 className="text-2xl">{c.byItselfTitle}</h2>
+        <ul className="mt-3 list-disc space-y-2 pl-6">
+          {c.byItself(kioskDimMinutes()).map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      </section>
 
       <h2 className="mt-10 text-3xl">{c.listTitle}</h2>
       {kiosks.length === 0 ? (

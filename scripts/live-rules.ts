@@ -23,3 +23,25 @@ export function isLoginWall(status: number, headers: Headers): boolean {
 export function isOurAnswer(status: number, headers: Headers): boolean {
   return !isChallenge(headers) && !isLoginWall(status, headers) && /noindex/.test(headers.get('x-robots-tag') ?? '');
 }
+
+/**
+ * Which parts of the live check run.
+ *   (nothing)       the signed-out pages and a few private files
+ *   --no-private    the signed-out pages, and no private-looking address at all.
+ *                   For a copy built from the repository: nothing local was
+ *                   uploaded, and a run of such requests looks like a scanner.
+ *   --loop          as above, then the whole loop in a browser
+ *   --loop-only     the loop, with no signed-out request before it
+ */
+export function plan(args: string[]): { pages: boolean; privateFiles: boolean; loop: boolean } {
+  const has = (name: string) => args.includes(`--${name}`);
+  const pages = !has('loop-only');
+  return { pages, privateFiles: pages && !has('no-private'), loop: has('loop') || has('loop-only') };
+}
+
+/** The last line of a run. A run in which nothing was checked is not a pass. */
+export function verdict(ran: number, failed: number): { ok: boolean; text: string } {
+  if (ran === 0) return { ok: false, text: 'No check ran, so nothing was shown' };
+  if (failed > 0) return { ok: false, text: `${failed} of ${ran} checks FAILED` };
+  return { ok: true, text: `${ran} checks ran. All passed` };
+}

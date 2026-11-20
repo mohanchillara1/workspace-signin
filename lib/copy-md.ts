@@ -16,6 +16,7 @@ const SAMPLE: Record<string, unknown[]> = {
   max: [120],
   n: [1, 3],
   seconds: [1, 12],
+  dimMinutes: [60, 20],
 };
 const NUMBER_PAIRS: Record<string, [number[], number[]]> = {
   'attended,meetings,since': [[1, 1], [7, 9]],
@@ -44,18 +45,19 @@ const KEY_SAMPLE: Record<string, unknown[]> = {
 
 function examples(fn: (...args: never[]) => unknown, path: string): string[] {
   const names = paramNames(fn);
-  const call = fn as unknown as (...args: unknown[]) => string;
-  if (KEY_SAMPLE[path]) return [call(...KEY_SAMPLE[path])];
+  const call = fn as unknown as (...args: unknown[]) => string | string[];
+  if (KEY_SAMPLE[path]) return [call(...KEY_SAMPLE[path])].flat();
   const pair = NUMBER_PAIRS[names.join(',')];
   if (pair) {
-    return pair.map((numbers) => call(...names.map((name, i) => (i < numbers.length ? numbers[i] : SAMPLE[name]?.[0]))));
+    return pair.map((numbers) => call(...names.map((name, i) => (i < numbers.length ? numbers[i] : SAMPLE[name]?.[0])))).flat();
   }
   const variants = Math.max(...names.map((name) => SAMPLE[name]?.length ?? 1));
-  const out: string[] = [];
+  const out: (string | string[])[] = [];
   for (let v = 0; v < variants; v++) {
     out.push(call(...names.map((name) => (SAMPLE[name] ?? [`{${name}}`])[Math.min(v, (SAMPLE[name]?.length ?? 1) - 1)])));
   }
-  return [...new Set(out)];
+  // A string that is really a short list (set-up steps, say) comes back as an array.
+  return [...new Set(out.flat())];
 }
 
 const cell = (text: string) => text.replace(/\|/g, '\\|').replace(/\n/g, ' ');

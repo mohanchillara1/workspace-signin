@@ -16,7 +16,7 @@ export default async function ReviewPage() {
   await requireLead();
   const rows = await reviewQueue(getDb());
   const r = copy.review;
-  const via = { kiosk: r.viaKiosk, member_page: r.viaMemberPage, lead: r.viaLead };
+  const via = { kiosk: r.viaKiosk, member_page: r.viaMemberPage, lead: r.viaLead, slack: r.viaSlack };
   return (
     <>
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">

@@ -7,7 +7,9 @@
 
 import { draftsCopy } from './copy/drafts';
 import { reviewCopy } from './copy/review';
+import { slackCopy } from './copy/slack';
 import { submitCopy } from './copy/submit';
+import { walletCopy } from './copy/wallet';
 
 const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
@@ -101,6 +103,14 @@ export const copy = {
     dueOn: (day: string) => `Due ${day}`,
     overdue: 'Overdue',
     standing: 'Every day',
+    // The name under the icon when the scan page is put on the iPad's Home Screen.
+    homeScreenName: 'Workspace kiosk',
+    homeScreenShortName: 'Kiosk',
+    // In the footer, only when the browser will not keep the screen on.
+    wakeOff: 'This screen can go to sleep. Set Auto-Lock to Never.',
+    // When the scan screen itself breaks. It reloads by itself.
+    crashTitle: 'Starting again',
+    crashBody: 'Something went wrong on this screen. It will reload in a few seconds.',
   },
 
   member: {
@@ -262,6 +272,7 @@ export const copy = {
     viaKiosk: 'on the kiosk',
     viaMemberPage: 'on their own page',
     viaLead: 'by a lead',
+    viaSlack: 'in Slack',
     needsCheck: "Needs a lead's check",
     reopen: 'Reopen',
     help: 'Reopening puts a task back on the list of whoever finished it.',
@@ -358,6 +369,8 @@ export const copy = {
   submit: submitCopy,
   review: reviewCopy,
   drafts: draftsCopy,
+  wallet: walletCopy,
+  slack: slackCopy,
 
   kioskAdmin: {
     title: 'Kiosk',
@@ -375,10 +388,21 @@ export const copy = {
     unpair: (name: string) => `Turn off ${name}`,
     setupTitle: 'On the iPad, once',
     setup: [
-      'Open this site in Safari and add it to the Home Screen.',
-      'Open it from the Home Screen, log in, and make it the kiosk.',
-      'Turn on Guided Access so it stays on this page.',
-      'Set Auto-Lock to Never and keep it on the charger.',
+      'Open Safari on the iPad and go to this site, with /kiosk on the end of the address.',
+      'Tap Share, then Add to Home Screen. Open the new icon. The page fills the screen, with no Safari bars.',
+      'In that app, tap Log in, open Kiosk and choose "Make this the kiosk". Do it there, not in Safari: the two keep separate logins.',
+      'Allow the camera when the iPad asks.',
+      'In Settings, under Display & Brightness, set Auto-Lock to Never. Keep the iPad on its charger.',
+      'In Settings, under Accessibility, turn on Guided Access and set its Display Auto-Lock to Never. Then open the kiosk and triple-click the top button (the Home button on an older iPad) to lock the iPad to it.',
+    ],
+    byItselfTitle: 'What the kiosk does by itself',
+    byItself: (dimMinutes: number) => [
+      'It asks the iPad to keep the screen on. Not every iPad allows that, which is why Auto-Lock is set to Never.',
+      dimMinutes > 0
+        ? `After ${dimMinutes === 60 ? 'an hour' : `${dimMinutes} minutes`} with no scan it dims. A scan or a touch brings it back.`
+        : 'It does not dim.',
+      'If the connection drops it says so, and carries on when the connection is back.',
+      'After the site is updated it reloads itself when nobody is using it. If the iPad then asks for the camera again, tap Allow.',
     ],
   },
 } as const;

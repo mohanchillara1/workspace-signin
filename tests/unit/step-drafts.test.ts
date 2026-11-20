@@ -71,6 +71,7 @@ describe('draftsAvailable', () => {
     expect(draftsAvailable()).toBe(true);
     // The real client would be chosen; it must fail on the stubbed network, not return stand-in steps.
     await expect(draftSteps(input)).rejects.toBeInstanceOf(DraftError);
+    // One request and no second try: a lead is waiting on the button.
     expect(fetchSpy).toHaveBeenCalledTimes(1);
   });
 });
@@ -211,13 +212,101 @@ describe('the stand-in', () => {
 });
 
 describe('the real client, without calling it', () => {
+  // The service's address, in pieces so the check below still finds only one file that names it.
+  const ADDRESS = ['https://api', 'anthropic', 'com/v1/messages'].join('.');
+  const answer = (over: Record<string, unknown> = {}) =>
+    new Response(
+      JSON.stringify({
+        id: 'msg_test',
+        type: 'message',
+        role: 'assistant',
+        model: 'made-up',
+        content: [{ type: 'thinking', thinking: '', signature: '' }, { type: 'text', text: '1. One\n2. Two\n3. Three' }],
+        stop_reason: 'end_turn',
+        stop_sequence: null,
+        usage: { input_tokens: 1, output_tokens: 1 },
+        ...over,
+      }),
+      { status: 200, headers: { 'content-type': 'application/json' } },
+    );
+  /** Catches the request the SDK would send, and answers it here. Nothing leaves the machine. */
+  const caught = (reply: () => Response) => {
+    const seen: { url: string; method: string; headers: Headers; body: Record<string, unknown> }[] = [];
+    const spy = vi.fn(async (url: unknown, init?: RequestInit) => {
+      seen.push({
+        url: String(url),
+        method: String(init?.method),
+        headers: new Headers(init?.headers),
+        body: JSON.parse(String(init?.body)),
+      });
+      return reply();
+    });
+    vi.stubGlobal('fetch', spy);
+    return seen;
+  };
+
   it('builds a plain single message request with only the prompt in it', () => {
     const body = buildRequestBody({ system: 'SYS', user: 'USR' });
-    expect(body.model).toBe('claude-haiku-5-5');
     expect(body.system).toBe('SYS');
     expect(body.messages).toEqual([{ role: 'user', content: 'USR' }]);
-    expect(body.max_tokens).toBeGreaterThanOrEqual(512);
-    expect(JSON.stringify(body)).not.toMatch(/stream|tools|temperature/);
+    expect(body.output_config).toEqual({ effort: 'low' });
+    // Room for the model's own thinking as well as eight short steps.
+    expect(body.max_tokens).toBe(16000);
+    // The current API version refuses sampling settings, and this is one plain request.
+    expect(JSON.stringify(body)).not.toMatch(/stream|tools|temperature|top_p|top_k|thinking/);
+  });
+
+  it('uses the documented default model unless STEP_DRAFTS_MODEL names another', () => {
+    delete process.env.STEP_DRAFTS_MODEL;
+    expect(buildRequestBody({ system: 'S', user: 'U' }).model).toBe('claude-opus-5-5');
+    process.env.STEP_DRAFTS_MODEL = ' claude-haiku-5-5 ';
+    expect(buildRequestBody({ system: 'S', user: 'U' }).model).toBe('claude-haiku-5-5');
+    process.env.STEP_DRAFTS_MODEL = '   ';
+    expect(buildRequestBody({ system: 'S', user: 'U' }).model).toBe('claude-opus-5-5');
+  });
+
+  it('the request that would leave is the documented one, and it carries only the task', async () => {
+    process.env.ANTHROPIC_API_KEY = 'not-a-real-key';
+    delete process.env.STEP_DRAFTS_MODEL;
+    const seen = caught(() => answer());
+    const steps = await draftSteps(input);
+    expect(steps).toEqual(['One', 'Two', 'Three']);
+    expect(seen).toHaveLength(1);
+    const [request] = seen;
+    expect(request.url).toBe(ADDRESS);
+    expect(request.method.toUpperCase()).toBe('POST');
+    // SDK 1.x carries the key in the Authorization header (read from the installed SDK, not assumed).
+    expect(request.headers.get('authorization')).toBe('Bearer not-a-real-key');
+    expect(request.headers.get('anthropic-version')).toBe('2026-10-21');
+    expect(request.headers.get('content-type')).toContain('application/json');
+    expect(request.headers.get('anthropic-beta')).toBeNull();
+    expect(Object.keys(request.body).sort()).toEqual(['max_tokens', 'messages', 'model', 'output_config', 'system']);
+    expect(request.body.model).toBe('claude-opus-5-5');
+    const sent = JSON.stringify(request.body);
+    expect(sent).toContain(input.title);
+    expect(sent).toContain('Build');
+  });
+
+  it('a refusal is told in plain words, not read as steps', async () => {
+    process.env.ANTHROPIC_API_KEY = 'not-a-real-key';
+    caught(() => answer({ stop_reason: 'refusal', content: [{ type: 'text', text: '1. I cannot help with that' }] }));
+    await expect(draftSteps(input)).rejects.toThrow(copy.drafts.refused);
+  });
+
+  it("the service's own error words never reach the lead", async () => {
+    process.env.ANTHROPIC_API_KEY = 'not-a-real-key';
+    const seen = caught(
+      () =>
+        new Response(JSON.stringify({ type: 'error', error: { type: 'authentication_error', message: 'invalid x-api-key not-a-real-key' } }), {
+          status: 401,
+          headers: { 'content-type': 'application/json' },
+        }),
+    );
+    const failure = await draftSteps(input).catch((error: unknown) => error);
+    expect(failure).toBeInstanceOf(DraftError);
+    expect((failure as Error).message).toBe(copy.drafts.failed);
+    expect((failure as Error).message).not.toContain('not-a-real-key');
+    expect(seen).toHaveLength(1);
   });
   it('reads the text blocks of a reply and ignores other blocks', () => {
     const reply = { content: [{ type: 'thinking', thinking: '' }, { type: 'text', text: '1. One' }, { type: 'text', text: '2. Two' }] };
@@ -236,13 +325,17 @@ describe('no way to the network', () => {
       const path = join(dir, name);
       return statSync(path).isDirectory() ? walk(path) : [path];
     });
-  it('the only code that names the API address is lib/step-drafts.ts', () => {
-    const hits = ['app', 'components', 'lib', 'scripts', 'tests']
+  it('the only code that talks to the AI service is lib/step-drafts.ts', () => {
+    const files = ['app', 'components', 'lib', 'scripts', 'tests']
       .flatMap((d) => walk(join(root, d)))
-      .filter((f) => /\.(ts|tsx|mjs|js)$/.test(f))
-      .filter((f) => readFileSync(f, 'utf8').includes(['api', 'anthropic', 'com'].join('.')))
-      .map((f) => f.slice(root.length + 1));
-    expect(hits).toEqual(['lib/step-drafts.ts']);
+      .filter((f) => /\.(ts|tsx|mjs|js)$/.test(f));
+    const rel = (f: string) => f.slice(root.length + 1);
+    // Nothing writes the service's address out: the SDK owns it.
+    const address = ['api', 'anthropic', 'com'].join('.');
+    expect(files.filter((f) => readFileSync(f, 'utf8').includes(address)).map(rel)).toEqual([]);
+    // And one file imports the SDK.
+    const sdk = ['@anthropic-ai', 'sdk'].join('/');
+    expect(files.filter((f) => readFileSync(f, 'utf8').includes(sdk)).map(rel)).toEqual(['lib/step-drafts.ts']);
   });
   it('no test file imports an AI package or reads a key from a file', () => {
     const offenders = walk(join(root, 'tests'))

@@ -19,7 +19,7 @@ export type ReviewRow = {
   member: string;
   note: string;
   link: string;
-  via: 'kiosk' | 'member_page' | 'lead';
+  via: 'kiosk' | 'member_page' | 'lead' | 'slack';
   at: Date;
   /** 1 the first time it is sent in, 2 after one send-back, and so on. */
   round: number;

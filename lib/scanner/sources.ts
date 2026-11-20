@@ -6,8 +6,12 @@ import { createDecoder, type DecoderKey } from './decoder';
 export interface ScanSource {
   /** What is doing the reading, for the status line. */
   label: string;
-  /** Starts reading. Calls onCode every time a code is seen, many times a second. */
-  start(onCode: (code: string) => void, video?: HTMLVideoElement | null): Promise<void>;
+  /**
+   * Starts reading. Calls onCode every time a code is seen, many times a
+   * second. Calls onLost once if the source stops by itself (the camera was
+   * taken away, say), so the screen can start it again.
+   */
+  start(onCode: (code: string) => void, video?: HTMLVideoElement | null, onLost?: () => void): Promise<void>;
   stop(): void;
 }
 
@@ -17,7 +21,7 @@ export function cameraSource(pick: DecoderKey | 'auto' = 'auto'): ScanSource {
   let running = false;
   const source: ScanSource = {
     label: '',
-    async start(onCode, video) {
+    async start(onCode, video, onLost) {
       if (!video) throw new Error('The camera view is missing');
       if (!navigator.mediaDevices?.getUserMedia) throw new Error('This browser gives the page no camera');
       const decoder = await createDecoder(pick);
@@ -26,6 +30,15 @@ export function cameraSource(pick: DecoderKey | 'auto' = 'auto'): ScanSource {
         video: { facingMode: { ideal: 'user' }, width: { ideal: 1280 }, height: { ideal: 720 } },
       });
       video.srcObject = stream;
+      // A camera can end without being asked to: another app takes it, or the
+      // device wakes from sleep without it. Stopping it ourselves does not fire this.
+      for (const track of stream.getVideoTracks()) {
+        track.addEventListener('ended', () => {
+          if (!running) return;
+          running = false;
+          onLost?.();
+        });
+      }
       await video.play();
       source.label = decoder.name;
       running = true;

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { TaskCard, TaskGroups } from '@/components/TaskCard';
 import { copy } from '@/lib/copy';
 import { chicagoTime } from '@/lib/day';
+import { DIM_BRIGHTNESS, dimShift, shouldDim, shouldReload } from '@/lib/kiosk-wall';
 import { cameraSource, testSource, type ScanSource } from '@/lib/scanner/sources';
 import type { Handout } from '@/lib/tasks';
 
@@ -20,6 +21,16 @@ const SHORT_MESSAGE_SECONDS = 5;
 // A request that has not answered by now is treated as no connection, so the
 // kiosk can never sit waiting for good.
 const REQUEST_TIMEOUT_MS = 8000;
+// How often an idle kiosk asks whether the site has a newer build.
+const BUILD_CHECK_MS = 60_000;
+// Where the time of the last self-reload is kept, so a reload cannot loop.
+const RELOADED_AT = 'kiosk-reloaded-at';
+// The note about the screen going to sleep is for the lead setting the iPad
+// up, so it shows for the first two minutes only.
+const WAKE_NOTE_MS = 120_000;
+
+type Wake = 'on' | 'off' | 'none';
+type WakeLock = { released: boolean; release(): Promise<void>; addEventListener(type: 'release', listener: () => void): void };
 
 const k = copy.kiosk;
 
@@ -44,11 +55,17 @@ export function Kiosk({
   testFeed,
   kioskName,
   testCopy = false,
+  build = '',
+  dimAfterSeconds = 3600,
 }: {
   idleSeconds: number;
   testFeed: boolean;
   kioskName: string;
   testCopy?: boolean;
+  /** The build of the site this screen was drawn with. */
+  build?: string;
+  /** Seconds with no scan and no touch before the idle screen dims. 0 means never. */
+  dimAfterSeconds?: number;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [phase, setPhaseState] = useState<Phase>('idle');
@@ -72,6 +89,24 @@ export function Kiosk({
   const cameraRef = useRef<ScanSource | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const [moreBelow, setMoreBelow] = useState(false);
+  // A wall device: awake, dim when quiet, and back by itself after trouble.
+  const [wake, setWake] = useState<Wake>('off');
+  const [wakeNote, setWakeNote] = useState(true);
+  const [dim, setDim] = useState(false);
+  const [shift, setShift] = useState({ x: 0, y: 0 });
+  const [crashed, setCrashed] = useState(false);
+  const lastActivityRef = useRef(Date.now());
+  const reloadedRef = useRef(0);
+  const cameraStateRef = useRef<Camera>('starting');
+  const setCameraState = useCallback((next: Camera) => {
+    cameraStateRef.current = next;
+    setCamera(next);
+  }, []);
+  /** Someone is here: a code in view or a touch. The screen comes out of dim at once. */
+  const active = useCallback(() => {
+    lastActivityRef.current = Date.now();
+    setDim(false);
+  }, []);
 
   const setPhase = useCallback((next: Phase) => {
     phaseRef.current = next;
@@ -163,6 +198,7 @@ export function Kiosk({
 
   const onCode = useCallback(
     (code: string) => {
+      active();
       const now = Date.now();
       const suppressed = suppressRef.current;
       if (suppressed && suppressed.code === code && now < suppressed.until) {
@@ -179,21 +215,28 @@ export function Kiosk({
       }
       void submit(code);
     },
-    [idleSeconds, startClock, submit],
+    [active, idleSeconds, startClock, submit],
   );
 
   const startCamera = useCallback(async () => {
-    setCamera('starting');
+    setCameraState('starting');
     cameraRef.current?.stop();
     const source = cameraSource();
     cameraRef.current = source;
     try {
-      await source.start(onCode, videoRef.current);
-      setCamera('on');
+      // If the camera is taken away later, start it again after a moment.
+      await source.start(onCode, videoRef.current, () => {
+        if (cameraRef.current !== source) return;
+        setCameraState('starting');
+        setTimeout(() => void startCameraRef.current(), 1000);
+      });
+      setCameraState('on');
     } catch {
-      setCamera('blocked');
+      setCameraState('blocked');
     }
-  }, [onCode]);
+  }, [onCode, setCameraState]);
+  const startCameraRef = useRef(startCamera);
+  startCameraRef.current = startCamera;
 
   // Start reading once. In a test run the test feed listens alongside the camera.
   useEffect(() => {
@@ -201,10 +244,20 @@ export function Kiosk({
     void startCamera();
     const feed = testFeed ? testSource() : null;
     void feed?.start(onCode);
+    // A test-only door, like the test feed: makes this screen throw, to prove it comes back.
+    const crash = () => setCrashed(true);
+    if (testFeed) window.addEventListener('kiosk:test-crash', crash);
+    // Back in view with no camera running (the iPad was locked, say): start it again.
+    const seen = () => {
+      if (document.visibilityState === 'visible' && cameraStateRef.current === 'blocked') void startCameraRef.current();
+    };
+    document.addEventListener('visibilitychange', seen);
     setReady(true);
     return () => {
       cameraRef.current?.stop();
       feed?.stop();
+      window.removeEventListener('kiosk:test-crash', crash);
+      document.removeEventListener('visibilitychange', seen);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -244,6 +297,101 @@ export function Kiosk({
     };
   }, [goOffline, toIdle]);
 
+  // Keep the screen on, where the browser allows it. The lock is lost when the
+  // page is hidden, so it is asked for again when the page is back, on a touch
+  // (some browsers only grant it then), and once a minute.
+  useEffect(() => {
+    const locks = (navigator as Navigator & { wakeLock?: { request(type: 'screen'): Promise<WakeLock> } }).wakeLock;
+    const noteTimer = setTimeout(() => setWakeNote(false), WAKE_NOTE_MS);
+    if (!locks) {
+      setWake('none');
+      return () => clearTimeout(noteTimer);
+    }
+    let lock: WakeLock | null = null;
+    let asking = false;
+    let gone = false;
+    const ask = async () => {
+      if (gone || asking || document.visibilityState !== 'visible' || (lock && !lock.released)) return;
+      asking = true;
+      try {
+        const got = await locks.request('screen');
+        lock = got;
+        got.addEventListener('release', () => {
+          if (lock === got && !gone) setWake('off');
+        });
+        if (!gone) setWake('on');
+      } catch {
+        if (!gone) setWake('off');
+      } finally {
+        asking = false;
+      }
+    };
+    const again = () => void ask();
+    void ask();
+    document.addEventListener('visibilitychange', again);
+    window.addEventListener('pointerdown', again);
+    const timer = setInterval(again, 60_000);
+    return () => {
+      gone = true;
+      clearTimeout(noteTimer);
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', again);
+      window.removeEventListener('pointerdown', again);
+      void lock?.release().catch(() => {});
+    };
+  }, []);
+
+  // Dim the idle screen after a quiet stretch. The camera keeps reading, so a
+  // code held up to it wakes the screen like a touch does.
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Date.now();
+      const next = shouldDim({ phase: phaseRef.current, quietForMs: now - lastActivityRef.current, dimAfterMs: dimAfterSeconds * 1000 });
+      setDim(next);
+      if (next) setShift(dimShift(now));
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [dimAfterSeconds]);
+
+  // After the site is updated, an idle kiosk reloads itself. It asks the
+  // server first, so it never reloads into a browser error page.
+  useEffect(() => {
+    const check = async () => {
+      if (phaseRef.current !== 'idle') return;
+      try {
+        const response = await fetch('/api/health', { cache: 'no-store' });
+        const body = response.ok ? ((await response.json()) as { build?: unknown }) : null;
+        let last = 0;
+        try {
+          last = Number(sessionStorage.getItem(RELOADED_AT) ?? 0) || 0;
+        } catch {
+          // No storage: reload at most once, then leave it to a person.
+          last = reloadedRef.current;
+        }
+        const go = shouldReload({
+          healthOk: response.ok,
+          serverBuild: typeof body?.build === 'string' ? body.build : '',
+          ownBuild: build,
+          phase: phaseRef.current,
+          lastReloadAt: last,
+          now: Date.now(),
+        });
+        if (!go) return;
+        reloadedRef.current = Date.now();
+        try {
+          sessionStorage.setItem(RELOADED_AT, String(Date.now()));
+        } catch {
+          // Kept in memory above.
+        }
+        window.location.reload();
+      } catch {
+        // No connection. The check below says so on the screen.
+      }
+    };
+    const timer = setInterval(() => void check(), BUILD_CHECK_MS);
+    return () => clearInterval(timer);
+  }, [build]);
+
   // Tell people when the task list runs past the bottom of the screen.
   const measure = useCallback(() => {
     const list = listRef.current;
@@ -256,6 +404,7 @@ export function Kiosk({
   }, [measure, hello, phase]);
 
   const touched = () => {
+    active();
     if (phaseRef.current === 'hello') startClock(idleSeconds);
   };
 
@@ -279,6 +428,9 @@ export function Kiosk({
       setActing(false);
     }
   };
+
+  // Thrown while drawing, so the page's error screen takes over and reloads.
+  if (crashed) throw new Error('The kiosk screen was made to fail by a test');
 
   const showCameraBig = phase === 'idle' || phase === 'loading';
   const trouble = phase === 'unknown' || phase === 'slow' || phase === 'error' || phase === 'offline';
@@ -306,8 +458,14 @@ export function Kiosk({
       data-testid="kiosk"
       data-phase={phase}
       data-ready={ready ? '1' : '0'}
+      data-wake={wake}
+      data-dim={dim ? '1' : '0'}
+      data-camera={camera}
+      data-build={build}
       onPointerDown={touched}
-      className="grid h-dvh grid-rows-[minmax(0,1fr)_auto] overflow-hidden"
+      // Dim is dimmer, not dark: "Scan your code" can still be read.
+      style={dim ? { filter: `brightness(${DIM_BRIGHTNESS})` } : undefined}
+      className="grid h-dvh grid-rows-[minmax(0,1fr)_auto] overflow-hidden transition-[filter] duration-700"
     >
       <div
         className={
@@ -370,7 +528,11 @@ export function Kiosk({
         </div>
 
         {showCameraBig && (
-          <div className="portrait:order-1 portrait:text-center">
+          <div
+            className="portrait:order-1 portrait:text-center"
+            // While dim the words move a few pixels now and then, so they do not rest on one spot.
+            style={dim ? { transform: `translate(${shift.x}px, ${shift.y}px)` } : undefined}
+          >
             <h1 className="text-7xl leading-[0.95] landscape:text-8xl">{phase === 'loading' ? k.reading : k.idleTitle}</h1>
             <p className="mt-5 text-3xl text-paper/80">{k.idleHint}</p>
           </div>
@@ -425,6 +587,11 @@ export function Kiosk({
         <p data-testid="kiosk-status" className="text-lg text-paper/75">
           {status}
         </p>
+        {wake !== 'on' && wakeNote && (
+          <p data-testid="kiosk-wake" className="text-lg text-paper/75">
+            {k.wakeOff}
+          </p>
+        )}
         {testCopy && (
           <p data-testid="test-copy" className="flex items-center gap-3 text-lg text-paper/75">
             <span className="chip chip-kiosk !bg-arcade-fuel">{copy.testCopy.tag}</span>
