@@ -14,7 +14,7 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 export const copy = {
   app: {
     title: 'Singularity workspace',
-    shortTitle: 'Workspace',
+    shortTitle: 'Singularity',
     notFoundTitle: 'Nothing here',
     notFoundBody: "This link doesn't open anything. Check it, or ask a lead for a new one.",
     tooManyTitle: 'Slow down',

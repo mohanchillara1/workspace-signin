@@ -9,7 +9,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | Key | Text |
 |---|---|
 | `title` | Singularity workspace |
-| `shortTitle` | Workspace |
+| `shortTitle` | Singularity |
 | `notFoundTitle` | Nothing here |
 | `notFoundBody` | This link doesn't open anything. Check it, or ask a lead for a new one. |
 | `tooManyTitle` | Slow down |

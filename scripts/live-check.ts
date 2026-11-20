@@ -62,7 +62,7 @@ async function signedOut(hasDb: boolean) {
   console.log(`\nSigned out, plain requests to ${base}`);
 
   // Every kind of page: reachable without a Vercel login, and never indexed.
-  const pages = ['/', '/login', '/kiosk', '/dashboard', '/dashboard/members', '/m/not-a-real-page-key', '/invite/not-a-real-invite-token-0000', '/api/health', '/robots.txt', '/icon.svg', '/wordmark.png', '/no-such-page'];
+  const pages = ['/', '/login', '/kiosk', '/dashboard', '/dashboard/members', '/m/not-a-real-page-key', '/invite/not-a-real-invite-token-0000', '/api/health', '/robots.txt', '/icon.png', '/wordmark.png', '/no-such-page'];
   for (const path of pages) {
     const response = await get(path);
     const robots = response.headers.get('x-robots-tag') ?? '';
