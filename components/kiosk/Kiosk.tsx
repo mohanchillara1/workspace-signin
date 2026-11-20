@@ -43,10 +43,12 @@ export function Kiosk({
   idleSeconds,
   testFeed,
   kioskName,
+  testCopy = false,
 }: {
   idleSeconds: number;
   testFeed: boolean;
   kioskName: string;
+  testCopy?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [phase, setPhaseState] = useState<Phase>('idle');
@@ -423,6 +425,12 @@ export function Kiosk({
         <p data-testid="kiosk-status" className="text-lg text-paper/75">
           {status}
         </p>
+        {testCopy && (
+          <p data-testid="test-copy" className="flex items-center gap-3 text-lg text-paper/75">
+            <span className="chip chip-kiosk !bg-arcade-fuel">{copy.testCopy.tag}</span>
+            <span>{copy.testCopy.kiosk}</span>
+          </p>
+        )}
         {/* In the bar, not over the list, so it never covers a task. */}
         {phase === 'hello' && moreBelow && (
           <p data-testid="more-below" className="rounded-full border-2 border-ink bg-arcade-fuel px-4 py-1 text-lg font-bold text-ink">

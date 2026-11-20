@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { acceptInvite, checkLogin, createInvite, leadForSession } from '@/lib/auth/leads';
+import { acceptInvite, checkLogin, createInvite, leadByLoginName, leadForSession } from '@/lib/auth/leads';
 import { leadLogins, type Member } from '@/lib/db/schema';
 import { addMember, setActive, updateMember } from '@/lib/members';
 import { useTestDb } from '../setup/db';
@@ -114,5 +114,16 @@ describe('lead logins', () => {
     expect(await leadForSession(db, session)).toBeNull();
     // The old password stops working the moment a new invite goes out.
     expect((await checkLogin(db, { loginName: 'testlead', password: GOOD, ip: '10.3.0.3', now: later(204) })).ok).toBe(false);
+  });
+
+  it('finds a lead by login name for the invite script, and nobody for an unknown name or someone who is no longer a lead', async () => {
+    const db = getDb();
+    const other = await addMember(db, { firstName: 'Test', lastName: 'Finder', role: 'lead' }, null);
+    const token = await createInvite(db, { memberId: other.id, actorId: captain.id, now: later(300) });
+    expect((await acceptInvite(db, { token, loginName: 'finder', password: GOOD, now: later(300) })).ok).toBe(true);
+    expect((await leadByLoginName(db, ' Finder '))?.id).toBe(other.id);
+    expect(await leadByLoginName(db, 'nobody-here')).toBeNull();
+    await updateMember(db, other.id, { role: 'member' }, captain.id);
+    expect(await leadByLoginName(db, 'finder')).toBeNull();
   });
 });

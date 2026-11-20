@@ -201,7 +201,9 @@ test('on a phone the dashboard links fold behind one Menu button', async ({ page
   await page.getByRole('link', { name: copy.nav.members }).click();
   await page.waitForURL('**/dashboard/members');
   await expect(page.getByRole('link', { name: copy.nav.members })).toHaveCount(0);
-  expect(await page.evaluate(() => document.querySelector('header')!.getBoundingClientRect().height)).toBeLessThan(90);
+  // The bar itself stays one row tall. (The test server is a test copy, so
+  // its tag sits in a row of its own above the bar; 09-test-copy checks that.)
+  expect(await page.evaluate(() => document.querySelector('[data-testid="nav-bar"]')!.getBoundingClientRect().height)).toBeLessThan(90);
 });
 
 test('security headers: no framework banner, a content policy and strict transport', async ({ request }) => {

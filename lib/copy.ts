@@ -21,6 +21,14 @@ export const copy = {
     tooManyBody: 'This page was opened too many times in a minute. Wait a minute and try again.',
   },
 
+  // Shown only on a copy that holds made-up names (TEST_COPY=1): in the
+  // dashboard header and in the kiosk's footer.
+  testCopy: {
+    tag: 'Test copy',
+    dashboard: "Every name here is made up. Don't add real people.",
+    kiosk: 'The names are made up.',
+  },
+
   // Reasons something was refused. Each is shown after "Not saved." and gets
   // its full stop there, so none ends in one (except the last, shown alone).
   errors: {

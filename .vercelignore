@@ -1,0 +1,20 @@
+# What a deploy must not upload. The Vercel CLI reads this file, not
+# .gitignore, so everything local is named here.
+
+# Settings and secrets
+.env
+.env.*
+!.env.example
+
+# Local databases, test output and reviewers' scratch
+.data/
+.e2e/
+.review/
+test-results/
+playwright-report/
+*.log
+/f1.png
+tsconfig.tsbuildinfo
+
+# The throwaway camera test site has its own Vercel project
+phase0-test/

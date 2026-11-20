@@ -22,7 +22,7 @@ const LINKS = [
  * team site. On a phone they fold behind one yellow Menu pill, also as on the
  * team site, so the bar stays one row tall.
  */
-export function DashboardNav({ leadName }: { leadName: string }) {
+export function DashboardNav({ leadName, testCopy = false }: { leadName: string; testCopy?: boolean }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   useEffect(() => setOpen(false), [pathname]);
@@ -38,7 +38,14 @@ export function DashboardNav({ leadName }: { leadName: string }) {
 
   return (
     <header className="border-b-2 border-paper/20 bg-space">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
+      {/* Above the bar, so it is on every lead's screen at any width. */}
+      {testCopy && (
+        <p data-testid="test-copy" className="border-b-2 border-paper/20 bg-deep px-4 py-1.5 text-center text-xs leading-5 text-paper/85 sm:text-sm sm:leading-6">
+          <span className="chip mr-2 align-middle !bg-arcade-fuel">{copy.testCopy.tag}</span>
+          {copy.testCopy.dashboard}
+        </p>
+      )}
+      <div data-testid="nav-bar" className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-4 px-4 sm:px-6">
         <Link href="/dashboard" className="flex shrink-0 items-center">
           <Image src="/wordmark.png" alt={copy.app.title} width={380} height={115} priority className="h-9 w-auto" />
         </Link>

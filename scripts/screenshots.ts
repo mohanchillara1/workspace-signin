@@ -46,6 +46,8 @@ async function shoot(page: Page, name: string, errors: string[], fullPage = true
     sideways: document.documentElement.scrollWidth > window.innerWidth,
     size: `${window.innerWidth}x${window.innerHeight}`,
   }));
+  // This server runs without TEST_COPY, so the test-copy tag must not show.
+  if (await page.getByTestId('test-copy').count()) errors.push('the test-copy tag shows on a copy that is not a test copy');
   await page.screenshot({ path: join(outDir, `${name}.png`), fullPage });
   checks.push({ shot: name, size: info.size, sideways: info.sideways, errors: errors.splice(0) });
 }

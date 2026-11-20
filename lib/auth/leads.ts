@@ -69,6 +69,16 @@ export async function inviteMember(db: Db, token: unknown, now: Date): Promise<M
   return isLead(found?.member) ? found.member : null;
 }
 
+/** The lead who logs in with this name, or null. For the command-line invite script. */
+export async function leadByLoginName(db: Db, loginName: string): Promise<Member | null> {
+  const [found] = await db
+    .select({ member: members })
+    .from(leadLogins)
+    .innerJoin(members, eq(leadLogins.memberId, members.id))
+    .where(eq(leadLogins.loginName, normalLoginName(loginName)));
+  return isLead(found?.member) ? found.member : null;
+}
+
 export type AcceptResult =
   | { ok: true; memberId: string; version: number }
   | { ok: false; reason: 'bad_link' | 'weak_password' | 'bad_name' | 'name_taken' };

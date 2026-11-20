@@ -37,6 +37,8 @@ async function main() {
       KIOSK_TEST_FEED: '1',
       KIOSK_IDLE_SECONDS: '3',
       STEP_DRAFTS_STAND_IN: '1',
+      // The tests run as a test copy, so every screen is checked with its tag showing.
+      TEST_COPY: '1',
     },
   });
   const stop = async () => {

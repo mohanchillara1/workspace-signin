@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { Kiosk } from '@/components/kiosk/Kiosk';
 import { currentKiosk } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
+import { isTestCopy } from '@/lib/test-copy';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: copy.kiosk.idleTitle };
@@ -30,6 +31,7 @@ export default async function KioskPage() {
       idleSeconds={Number.isFinite(idle) && idle >= 2 && idle <= 120 ? idle : 15}
       testFeed={testFeed}
       kioskName={kiosk.name}
+      testCopy={isTestCopy()}
     />
   );
 }

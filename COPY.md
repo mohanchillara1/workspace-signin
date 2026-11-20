@@ -15,6 +15,14 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `tooManyTitle` | Slow down |
 | `tooManyBody` | This page was opened too many times in a minute. Wait a minute and try again. |
 
+## testCopy
+
+| Key | Text |
+|---|---|
+| `tag` | Test copy |
+| `dashboard` | Every name here is made up. Don't add real people. |
+| `kiosk` | The names are made up. |
+
 ## errors
 
 | Key | Text |
