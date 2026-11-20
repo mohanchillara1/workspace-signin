@@ -15,6 +15,7 @@
     "seed": "tsx scripts/seed.ts",
     "invite-captain": "tsx scripts/invite-captain.ts",
     "set-login": "tsx scripts/set-login.ts",
+    "import-attendance": "tsx scripts/import-attendance.ts",
     "copy:md": "tsx scripts/copy-md.ts",
     "test": "vitest run",
     "test:e2e": "next build && playwright test",

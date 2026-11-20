@@ -1,4 +1,5 @@
 import { and, asc, eq, sql } from 'drizzle-orm';
+import { parseCsvLine } from './csv';
 import type { Db } from './db/client';
 import { leadLogins, members, subteams, type Member, type Subteam } from './db/schema';
 import { UserError, type ErrorKey } from './errors';
@@ -111,6 +112,34 @@ export async function reissuePageKey(db: Db, id: string, actorId: string | null)
   return pageKey;
 }
 
+/**
+ * Who the command-line script should invite as the first captain: the person
+ * on the roster with this name (any letter case), made a captain, or a new
+ * captain when nobody has the name. So a captain who is already on the roster
+ * keeps their own row, page link and attendance. A name two people share, or
+ * one that belongs to someone switched off, is refused: the script cannot
+ * tell what is meant.
+ */
+export async function captainNamed(
+  db: Db,
+  input: { firstName: string; lastName?: string },
+): Promise<{ ok: true; memberId: string; added: boolean } | { ok: false; reason: 'two_match' | 'turned_off' }> {
+  const firstName = cleanName(input.firstName, 'firstNameEmpty');
+  const lastName = cleanName(input.lastName, null);
+  const found = await db
+    .select()
+    .from(members)
+    .where(and(eq(sql`lower(${members.firstName})`, firstName.toLowerCase()), eq(sql`lower(${members.lastName})`, lastName.toLowerCase())));
+  if (found.length > 1) return { ok: false, reason: 'two_match' };
+  if (found.length === 0) {
+    const member = await addMember(db, { firstName, lastName, role: 'captain' }, null);
+    return { ok: true, memberId: member.id, added: true };
+  }
+  if (!found[0].active) return { ok: false, reason: 'turned_off' };
+  if (found[0].role !== 'captain') await updateMember(db, found[0].id, { role: 'captain' }, null);
+  return { ok: true, memberId: found[0].id, added: false };
+}
+
 export type ManageAction = 'deactivate' | 'reactivate' | 'new-code' | 'new-link' | 'edit' | 'role';
 
 /**
@@ -205,31 +234,6 @@ export async function removeSubteam(db: Db, id: string, actorId: string | null):
   await logChange(db, { actorId, action: 'subteam.remove', entity: 'subteam', entityId: id, detail: { name: row.name } });
 }
 
-/** One line of CSV into its cells. Handles "quoted, cells" and "" inside quotes. */
-function csvCells(line: string): string[] {
-  const cells: string[] = [];
-  let cell = '';
-  let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (quoted) {
-      if (ch === '"' && line[i + 1] === '"') {
-        cell += '"';
-        i++;
-      } else if (ch === '"') quoted = false;
-      else cell += ch;
-    } else if (ch === '"' && cell.trim() === '') {
-      cell = '';
-      quoted = true;
-    } else if (ch === ',') {
-      cells.push(cell);
-      cell = '';
-    } else cell += ch;
-  }
-  cells.push(cell);
-  return cells.map((c) => c.replace(/\s+/g, ' ').trim());
-}
-
 const HEADER_WORDS = new Set(['name', 'full name', 'first', 'first name', 'last', 'last name', 'subteam', 'team', 'member']);
 
 /**
@@ -256,7 +260,7 @@ export async function importRoster(
   for (const raw of text.replace(/^﻿/, '').split(/\r?\n/)) {
     const line = raw.trim();
     if (!line) continue;
-    const cells = csvCells(line);
+    const cells = parseCsvLine(line);
     if (first) {
       first = false;
       if (cells.every((c) => HEADER_WORDS.has(c.toLowerCase()))) continue;

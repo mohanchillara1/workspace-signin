@@ -2,7 +2,7 @@ import { and, asc, between, eq, inArray, notInArray, or, sql } from 'drizzle-orm
 import { alias } from 'drizzle-orm/pg-core';
 import { chicagoDay } from './day';
 import type { Db } from './db/client';
-import { attendance, changeLog, members, struckDays, subteams } from './db/schema';
+import { attendance, changeLog, members, struckDays, subteams, type AttendanceRow } from './db/schema';
 import { logChange } from './log';
 import { shortName } from './names';
 
@@ -13,8 +13,10 @@ export type BoardRow = {
   /** The whole name, for the leads' dashboard only. */
   fullName: string;
   subteam: string | null;
+  /** Empty for someone who is not here, and for a row from the attendance sheet. */
   firstScanAt: Date | null;
-  source: 'kiosk' | 'manual' | null;
+  /** How their row for the day was made. Empty when they have none. */
+  source: AttendanceRow['source'] | null;
 };
 
 /**
@@ -28,7 +30,7 @@ export async function recordScan(
   const day = chicagoDay(input.at);
   const made = await db
     .insert(attendance)
-    .values({ memberId: input.memberId, day, firstScanAt: input.at, source: 'kiosk', kioskId: input.kioskId })
+    .values({ memberId: input.memberId, day, firstScanAt: input.at, addedAt: input.at, source: 'kiosk', kioskId: input.kioskId })
     .onConflictDoNothing({ target: [attendance.memberId, attendance.day] })
     .returning({ id: attendance.id });
   return { day, firstToday: made.length === 1 };
@@ -46,6 +48,7 @@ export async function setByHand(
         memberId: input.memberId,
         day: input.day,
         firstScanAt: input.at,
+        addedAt: input.at,
         source: 'manual',
         recordedById: input.actorId,
       })
@@ -72,13 +75,13 @@ export async function setByHand(
       action: 'attendance.remove_by_hand',
       entity: 'member',
       entityId: input.memberId,
-      detail: { day: input.day, was: removed[0].source, firstScanAt: removed[0].firstScanAt.toISOString() },
+      detail: { day: input.day, was: removed[0].source, firstScanAt: removed[0].firstScanAt?.toISOString() ?? null },
     });
   }
 }
 
-/** Strikes a day (test scans). It stops counting as a meeting day. */
-export async function strikeDay(db: Db, day: string, actorId: string): Promise<void> {
+/** Strikes a day (test scans). It stops counting as a meeting day. No actor: a script did it. */
+export async function strikeDay(db: Db, day: string, actorId: string | null): Promise<void> {
   const made = await db
     .insert(struckDays)
     .values({ day, struckById: actorId })
@@ -101,7 +104,11 @@ export async function struckDaysIn(db: Db, range: { from: string; to: string }):
   return rows.map((r) => r.day).sort();
 }
 
-/** Days with at least one kiosk scan that no lead has struck. */
+/**
+ * Days with at least one kiosk scan, or one row from the attendance sheet,
+ * that no lead has struck. A row a lead added by hand does not make a day a
+ * meeting day on its own.
+ */
 export async function meetingDays(db: Db, range: { from: string; to: string }): Promise<string[]> {
   const struck = db.select({ day: struckDays.day }).from(struckDays);
   const rows = await db
@@ -109,7 +116,7 @@ export async function meetingDays(db: Db, range: { from: string; to: string }): 
     .from(attendance)
     .where(
       and(
-        eq(attendance.source, 'kiosk'),
+        inArray(attendance.source, ['kiosk', 'sheet']),
         between(attendance.day, range.from, range.to),
         notInArray(attendance.day, struck),
       ),
@@ -118,15 +125,23 @@ export async function meetingDays(db: Db, range: { from: string; to: string }): 
   return rows.map((r) => r.day);
 }
 
-/** A member's own count: meeting days attended out of meeting days since they were added. */
+/**
+ * A member's own count: meeting days attended out of meeting days since they
+ * were added, or since counts_from when the attendance sheet put them on the
+ * team before that.
+ */
 export async function memberCount(
   db: Db,
   memberId: string,
   today: string,
 ): Promise<{ attended: number; meetingDays: number; since: string }> {
-  const [member] = await db.select({ createdAt: members.createdAt }).from(members).where(eq(members.id, memberId));
+  const [member] = await db
+    .select({ createdAt: members.createdAt, countsFrom: members.countsFrom })
+    .from(members)
+    .where(eq(members.id, memberId));
   if (!member) return { attended: 0, meetingDays: 0, since: today };
-  const since = chicagoDay(member.createdAt);
+  const made = chicagoDay(member.createdAt);
+  const since = member.countsFrom && member.countsFrom < made ? member.countsFrom : made;
   const days = await meetingDays(db, { from: since, to: today });
   if (days.length === 0) return { attended: 0, meetingDays: 0, since };
   const [row] = await db
@@ -160,10 +175,11 @@ export async function todayBoard(db: Db, day: string): Promise<{ here: BoardRow[
     firstScanAt: r.firstScanAt,
     source: r.source,
   }));
+  // A row from the sheet has no time. It goes first; the rest are in scan order.
   const here = board
-    .filter((r) => r.firstScanAt !== null)
-    .sort((a, b) => a.firstScanAt!.getTime() - b.firstScanAt!.getTime());
-  return { here, notHere: board.filter((r) => r.firstScanAt === null) };
+    .filter((r) => r.source !== null)
+    .sort((a, b) => (a.firstScanAt?.getTime() ?? 0) - (b.firstScanAt?.getTime() ?? 0));
+  return { here, notHere: board.filter((r) => r.source === null) };
 }
 
 export type ExportRow = {
@@ -172,8 +188,11 @@ export type ExportRow = {
   firstName: string;
   lastName: string;
   subteam: string;
-  firstScanAt: Date;
-  source: 'kiosk' | 'manual';
+  /** Empty for a row from the attendance sheet. */
+  firstScanAt: Date | null;
+  /** When the row was made. */
+  addedAt: Date;
+  source: AttendanceRow['source'];
   recordedBy: string;
 };
 
@@ -188,6 +207,7 @@ export async function attendanceRows(db: Db, range: { from: string; to: string }
       lastName: members.lastName,
       subteam: subteams.name,
       firstScanAt: attendance.firstScanAt,
+      addedAt: attendance.addedAt,
       source: attendance.source,
       recorderFirst: recorder.firstName,
       recorderLast: recorder.lastName,
@@ -197,7 +217,7 @@ export async function attendanceRows(db: Db, range: { from: string; to: string }
     .leftJoin(subteams, eq(members.subteamId, subteams.id))
     .leftJoin(recorder, eq(attendance.recordedById, recorder.id))
     .where(between(attendance.day, range.from, range.to))
-    .orderBy(asc(attendance.day), asc(attendance.firstScanAt));
+    .orderBy(asc(attendance.day), asc(attendance.firstScanAt), asc(members.firstName), asc(members.lastName));
   return rows.map((r) => ({
     memberId: r.memberId,
     day: r.day,
@@ -205,6 +225,7 @@ export async function attendanceRows(db: Db, range: { from: string; to: string }
     lastName: r.lastName,
     subteam: r.subteam ?? '',
     firstScanAt: r.firstScanAt,
+    addedAt: r.addedAt,
     source: r.source,
     recordedBy: r.recorderFirst ? `${r.recorderFirst} ${r.recorderLast ?? ''}`.trim() : '',
   }));

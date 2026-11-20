@@ -30,7 +30,9 @@ export const assignmentStateEnum = pgEnum('assignment_state', [
   'approved',
 ]);
 export const decisionEnum = pgEnum('decision', ['approved', 'sent_back']);
-export const sourceEnum = pgEnum('source', ['kiosk', 'manual']);
+// kiosk: a scan. manual: a lead added it by hand. sheet: brought in from the
+// team's old attendance sheet, which has days and no times.
+export const sourceEnum = pgEnum('source', ['kiosk', 'manual', 'sheet']);
 export const doneViaEnum = pgEnum('done_via', ['kiosk', 'member_page', 'lead', 'slack']);
 
 const at = (name: string) => timestamp(name, { withTimezone: true });
@@ -56,6 +58,10 @@ export const members = pgTable('members', {
   slackUserId: text('slack_user_id').unique(),
   createdAt: at('created_at').notNull().defaultNow(),
   deactivatedAt: at('deactivated_at'),
+  // The first day this member's own count runs from, when that is before the
+  // day their row was made: someone brought in from the attendance sheet was
+  // on the team before the app was.
+  countsFrom: date('counts_from', { mode: 'string' }),
 });
 
 export const kiosks = pgTable('kiosks', {
@@ -76,8 +82,11 @@ export const attendance = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     memberId: uuid('member_id').notNull().references(() => members.id),
     day: date('day', { mode: 'string' }).notNull(),
-    firstScanAt: at('first_scan_at').notNull(),
+    // Empty for a row from the attendance sheet: nobody scanned, so there is no time.
+    firstScanAt: at('first_scan_at'),
     source: sourceEnum('source').notNull(),
+    // When the row itself was made. For a scan that is the scan time.
+    addedAt: at('added_at').notNull().defaultNow(),
     recordedById: uuid('recorded_by_id').references(() => members.id),
     kioskId: uuid('kiosk_id').references(() => kiosks.id),
   },

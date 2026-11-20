@@ -30,7 +30,7 @@ export default async function TodayPage() {
   const hereNothing = board.here.filter((row) => idle.has(row.memberId));
   const t = copy.today;
   const when = (row: BoardRow) =>
-    row.source === 'manual' ? t.byHand : row.firstScanAt ? chicagoTime(row.firstScanAt) : '';
+    row.source === 'manual' ? t.byHand : row.source === 'sheet' ? t.fromSheet : row.firstScanAt ? chicagoTime(row.firstScanAt) : '';
 
   return (
     <>

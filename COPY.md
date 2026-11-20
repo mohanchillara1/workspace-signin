@@ -188,6 +188,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `hereNothingHelp` | They scanned in but have no task of their own, and none from their subteam. |
 | `markHere` | Mark here |
 | `byHand` | added by hand |
+| `fromSheet` | from the attendance sheet |
 | `giveTask` | Write a task |
 
 ## tasks
@@ -344,6 +345,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `none` | Nobody is marked here for this day. |
 | `scanned` | scanned at 4:32 PM |
 | `byHand` | added by hand by Test M. |
+| `fromSheet` | from the attendance sheet, added Wed, Nov 18 |
 | `markHere` | Mark here |
 | `remove` | Unmark |
 | `strike` | Don't count this day |
@@ -352,6 +354,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `strikeHelp` | Use this when the day's scans were only tests. |
 | `meetingNote` | This day counts as a meeting. |
 | `notMeetingNote` | No scan on the kiosk yet, so this day doesn't count as a meeting. |
+| `byScript` | A script |
 | `changesTitle` | Changes made by hand |
 | `changesNone` | Nobody changed this day by hand. |
 | `changeAdded` | {who} marked {member} here at 4:32 PM. |
@@ -365,6 +368,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `csvHeaders` | day<br>first name<br>last name<br>subteam<br>first scan (Central time)<br>how recorded<br>recorded by |
 | `csvKiosk` | kiosk |
 | `csvManual` | by hand |
+| `csvSheet` | attendance sheet |
 
 ## submit
 

@@ -111,7 +111,7 @@ DATABASE_URL=... npm run db:migrate
 DATABASE_URL=... npm run invite-captain -- "First" "Last"
 ```
 
-The second command prints a one-time path where the first captain sets a password. Every other lead gets an invite link from a captain, on the Members screen.
+The second command prints a one-time path where the first captain sets a password. If that person is already on the roster, they become the captain and keep their own row. Every other lead gets an invite link from a captain, on the Members screen.
 
 To give admins a password yourself instead of sending invite links, add them to the roster first (Members, then Paste a roster), then for each one:
 
@@ -120,6 +120,16 @@ DATABASE_URL=... npm run set-login -- "First" "Last" --role captain --login firs
 ```
 
 `--role` is `lead` or `captain`. It asks for the password (5 characters or more), so it never lands in a file or your shell history. Running it again changes the password.
+
+### Attendance from the old sheet
+
+Save the sheet as CSV. The first row is `name` and then one day in each column, written like `2026-09-07`. Each row after it is a person, with `TRUE` or `FALSE` under each day. Then:
+
+```bash
+DATABASE_URL=... npm run import-attendance -- path/to/attendance.csv --hosted
+```
+
+It adds anyone in the file who is not on the roster and one attendance row for each `TRUE`. The Attendance screen shows those rows as "from the attendance sheet" with no scan time, because the sheet has none. Each person's own count then runs from the file's first day. Running it again adds nothing. It prints counts, never names. The file has real names in it, so keep it out of this repo.
 
 ## A test copy on a host
 

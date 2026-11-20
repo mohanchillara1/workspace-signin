@@ -10,3 +10,28 @@ function cell(value: string): string {
 export function toCsv(headers: string[], rows: string[][]): string {
   return [headers, ...rows].map((row) => row.map(cell).join(',') + '\r\n').join('');
 }
+
+/** One line of CSV into its cells. Handles "quoted, cells" and "" inside quotes. */
+export function parseCsvLine(line: string): string[] {
+  const cells: string[] = [];
+  let cell = '';
+  let quoted = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (quoted) {
+      if (ch === '"' && line[i + 1] === '"') {
+        cell += '"';
+        i++;
+      } else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell.trim() === '') {
+      cell = '';
+      quoted = true;
+    } else if (ch === ',') {
+      cells.push(cell);
+      cell = '';
+    } else cell += ch;
+  }
+  cells.push(cell);
+  return cells.map((c) => c.replace(/\s+/g, ' ').trim());
+}

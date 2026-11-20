@@ -23,8 +23,8 @@ export async function GET(request: Request) {
       r.firstName,
       r.lastName,
       r.subteam,
-      chicagoTime(r.firstScanAt),
-      r.source === 'kiosk' ? a.csvKiosk : a.csvManual,
+      r.firstScanAt ? chicagoTime(r.firstScanAt) : '',
+      r.source === 'kiosk' ? a.csvKiosk : r.source === 'sheet' ? a.csvSheet : a.csvManual,
       r.recordedBy,
     ]),
   );

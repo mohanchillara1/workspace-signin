@@ -29,7 +29,7 @@ describe('attendance', () => {
     expect(second).toEqual({ day: '2026-11-18', firstToday: false });
     const rows = await db.select().from(attendance).where(eq(attendance.memberId, member.id));
     expect(rows).toHaveLength(1);
-    expect(rows[0].firstScanAt.toISOString()).toBe(EVENING.toISOString());
+    expect(rows[0].firstScanAt?.toISOString()).toBe(EVENING.toISOString());
     expect(rows[0].source).toBe('kiosk');
   });
 

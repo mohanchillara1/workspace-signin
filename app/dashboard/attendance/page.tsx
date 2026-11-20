@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { markByHand, setStruck } from '@/app/dashboard/attendance/actions';
-import { attendanceRows, changesFor, meetingDays, struckDaysIn, todayBoard } from '@/lib/attendance';
+import { attendanceRows, changesFor, meetingDays, struckDaysIn, todayBoard, type ExportRow } from '@/lib/attendance';
 import { requireLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
 import { addDays, chicagoDay, chicagoTime, dayLabel, isDay } from '@/lib/day';
@@ -27,6 +27,12 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
   const fullName = new Map(members.map((m) => [m.id, `${m.firstName} ${m.lastName}`.trim()]));
   const a = copy.attendance;
   const isStruck = struck.length > 0;
+  const how = (row: ExportRow) =>
+    row.source === 'kiosk' && row.firstScanAt
+      ? a.scanned(chicagoTime(row.firstScanAt))
+      : row.source === 'sheet'
+        ? a.fromSheet(dayLabel(chicagoDay(row.addedAt)))
+        : a.byHand(row.recordedBy);
 
   return (
     <>
@@ -66,7 +72,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
                 <li key={row.memberId} data-member-name={fullName.get(row.memberId)} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2">
                   <span>
                     <span className="font-bold">{fullName.get(row.memberId)}</span>
-                    <span className="ml-2 text-sm">{row.source === 'kiosk' ? a.scanned(chicagoTime(row.firstScanAt)) : a.byHand(row.recordedBy)}</span>
+                    <span className="ml-2 text-sm">{how(row)}</span>
                   </span>
                   <form action={markByHand}>
                     <input type="hidden" name="memberId" value={row.memberId} />
@@ -106,15 +112,16 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
           <ul className="mt-2 space-y-1 text-paper/85">
             {changes.map((change, index) => {
               const time = chicagoTime(change.at);
+              const who = change.who || a.byScript;
               return (
                 <li key={index}>
                   {change.what === 'added'
-                    ? a.changeAdded(change.who, change.member, time)
+                    ? a.changeAdded(who, change.member, time)
                     : change.what === 'removed'
-                      ? a.changeRemoved(change.who, change.member, time)
+                      ? a.changeRemoved(who, change.member, time)
                       : change.what === 'struck'
-                        ? a.changeStruck(change.who, time)
-                        : a.changeUnstruck(change.who, time)}
+                        ? a.changeStruck(who, time)
+                        : a.changeUnstruck(who, time)}
                 </li>
               );
             })}

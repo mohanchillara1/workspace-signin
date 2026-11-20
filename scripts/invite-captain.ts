@@ -1,7 +1,9 @@
 // Sets up the first captain on a new database, since nobody can log in yet to
-// invite them. It adds the captain as a member and prints a one-time link
-// where they pick a login name and a password.
+// invite them. It prints a one-time link where they pick a login name and a
+// password.
 //   npm run invite-captain -- "First" "Last"
+// Someone already on the roster with that name becomes the captain and keeps
+// their own row. If nobody has the name, the captain is added as a member.
 // The name goes into the database only. It is never written to a file.
 //
 // For a lead who is already there (the seeded "Test Captain" on a test copy):
@@ -15,7 +17,7 @@
 import { writeFileSync } from 'node:fs';
 import { createInvite, leadByLoginName } from '../lib/auth/leads';
 import { makeDb } from '../lib/db/client';
-import { addMember } from '../lib/members';
+import { captainNamed } from '../lib/members';
 import { databaseUrl } from './env';
 
 function readArgs(argv: string[]) {
@@ -49,12 +51,16 @@ async function main() {
   const { db, pool } = makeDb(databaseUrl());
   try {
     let memberId: string;
+    let added = false;
     if (flags.login) {
       const lead = await leadByLoginName(db, flags.login);
       if (!lead) throw new Error(`No lead or captain logs in as "${flags.login}".`);
       memberId = lead.id;
     } else {
-      memberId = (await addMember(db, { firstName, lastName, role: 'captain' }, null)).id;
+      const captain = await captainNamed(db, { firstName, lastName });
+      if (!captain.ok) throw new Error(captain.reason === 'two_match' ? 'Two people on the roster have that name.' : 'That member is turned off.');
+      memberId = captain.memberId;
+      added = captain.added;
     }
     const token = await createInvite(db, { memberId, actorId: null, now: new Date(), bootstrap: true });
     const link = `${base}/invite/${token}`;
@@ -63,7 +69,11 @@ async function main() {
       writeFileSync(flags.out, `${link}\n`, { flag: 'wx', mode: 0o600 });
       console.log(`The invite link is in ${flags.out}. It works once, for 7 days.`);
     } else {
-      console.log(flags.login ? 'Open this within 7 days to set a new password:' : 'The captain is added. Open this path on the site within 7 days to set a password:');
+      console.log(
+        flags.login
+          ? 'Open this within 7 days to set a new password:'
+          : `${added ? 'The captain is added.' : 'That person on the roster is now a captain.'} Open this path on the site within 7 days to set a password:`,
+      );
       console.log(link);
     }
   } finally {

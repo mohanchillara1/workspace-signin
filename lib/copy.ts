@@ -202,6 +202,7 @@ export const copy = {
     hereNothingHelp: 'They scanned in but have no task of their own, and none from their subteam.',
     markHere: 'Mark here',
     byHand: 'added by hand',
+    fromSheet: 'from the attendance sheet',
     giveTask: 'Write a task',
   },
 
@@ -359,6 +360,8 @@ export const copy = {
     none: 'Nobody is marked here for this day.',
     scanned: (time: string) => `scanned at ${time}`,
     byHand: (name: string) => `added by hand by ${name}`,
+    // The old sheet has days and no times, so there is no scan time to show.
+    fromSheet: (day: string) => `from the attendance sheet, added ${day}`,
     markHere: 'Mark here',
     remove: 'Unmark',
     strike: "Don't count this day",
@@ -367,6 +370,8 @@ export const copy = {
     strikeHelp: "Use this when the day's scans were only tests.",
     meetingNote: 'This day counts as a meeting.',
     notMeetingNote: "No scan on the kiosk yet, so this day doesn't count as a meeting.",
+    // Who made a change, when it was a script on the command line and not a lead.
+    byScript: 'A script',
     changesTitle: 'Changes made by hand',
     changesNone: 'Nobody changed this day by hand.',
     changeAdded: (who: string, member: string, time: string) => `${who} marked ${member} here at ${time}.`,
@@ -380,6 +385,7 @@ export const copy = {
     csvHeaders: ['day', 'first name', 'last name', 'subteam', 'first scan (Central time)', 'how recorded', 'recorded by'],
     csvKiosk: 'kiosk',
     csvManual: 'by hand',
+    csvSheet: 'attendance sheet',
   },
 
   // Phase 2. Each lives in its own file under lib/copy/.
