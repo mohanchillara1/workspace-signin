@@ -418,6 +418,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `empty` | The draft came back with no steps. Try again, or type the steps yourself |
 | `failed` | Couldn't draft steps right now. Try again in a minute, or type them yourself |
 | `slow` | The draft took too long. Try again in a minute, or type the steps yourself |
+| `refused` | The service wouldn't draft steps for this task. Type them yourself |
 | `unavailable` | Drafting is not turned on. Type the steps yourself |
 | `tooMany` | That was a lot of drafts. Wait a minute, then try again |
 

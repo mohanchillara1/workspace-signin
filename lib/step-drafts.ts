@@ -1,30 +1,36 @@
-// "Draft steps" on the task form: asks a language model for three to eight
-// short steps that a lead then edits. It sees only the task's title, detail and
+// "Draft steps" on the task form: asks a language model for a short list of
+// steps that a lead then edits. It sees only the task's title, detail and
 // subteam name. It never sees a member, a submission or who is here.
 //
-// ---- The service details live here, in one place, so they are easy to fix. ----
-// VERIFIED against the claude-api skill text read on 2026-11-19 (skill "Current
-// Models", cached 2026-10-06; curl/examples.md for the request shape):
-//   model     claude-haiku-5-5 (the smallest current model; the skill lists it at
-//             $0.10 in / $0.50 out per million tokens, 1M context)
-//   endpoint  POST https://api.anthropic.com/v1/messages, non-streaming
-//   headers   content-type: application/json, x-api-key, anthropic-version: 2026-10-21
-//   body      { model, max_tokens, system, messages: [{ role: 'user', content }],
-//               output_config: { effort: 'low' } }
-//   reply     { content: [{ type: 'text', text }, ...] }; thinking blocks may come
-//             too and are ignored.
-// Not used on purpose: temperature/top_p/top_k (the skill says non-default values
-// are refused on this model), prefill (refused), thinking settings (omitted, the
-// model's own default applies at low effort), streaming (the answer is short).
-// UNCHECKED: no call has ever been made from this machine, by design. The first
-// real call is the first test of the request shape.
-// -------------------------------------------------------------------------------
+// The request, in one place:
+//   client   The official SDK, @anthropic-ai/sdk. It owns the address, the
+//            headers and the API version (1.x sends anthropic-version
+//            2026-10-21). One request per draft, not streamed, no retries.
+//   model    STEP_DRAFTS_MODEL, or claude-opus-5-5 when that is not set.
+//            claude-haiku-5-5 is the cheapest current model.
+//   body     { model, max_tokens, system, messages: [{ role: 'user', content }],
+//            output_config: { effort: 'low' } }. No temperature, top_p or
+//            top_k: the current API version refuses them on every model.
+//   reply    A list of content blocks. Only the text blocks are read; thinking
+//            blocks are ignored. stop_reason "refusal" means no draft.
+// Docs: https://platform.claude.com/docs/en/build-with-claude/effort and the
+// SDK's own README at https://github.com/anthropics/anthropic-sdk-typescript.
+//
+// No request has been sent from this code yet: no key exists. The tests catch
+// the request the SDK would send, before it leaves, and check it against the
+// lines above.
+import Anthropic from '@anthropic-ai/sdk';
 import { copy } from './copy';
 
-export const MODEL = 'claude-haiku-5-5';
-export const API_URL = 'https://api.anthropic.com/v1/messages';
-export const API_VERSION = '2026-10-21';
+export const DEFAULT_MODEL = 'claude-opus-5-5';
 export const TIMEOUT_MS = 10_000;
+// Room for the model's own thinking as well as the steps. Only what is used is billed.
+const MAX_TOKENS = 16_000;
+
+/** The model a draft is asked of: STEP_DRAFTS_MODEL when set, else the default. */
+export function draftModel(): string {
+  return (process.env.STEP_DRAFTS_MODEL ?? '').trim() || DEFAULT_MODEL;
+}
 
 const MAX_STEPS = 8;
 const MAX_STEP_CHARS = 200;
@@ -124,8 +130,8 @@ export function parseSteps(text: string): string[] {
 /** The request body for one non-streaming message. Pure, so a test can read it. */
 export function buildRequestBody(prompt: StepPrompt) {
   return {
-    model: MODEL,
-    max_tokens: 1024,
+    model: draftModel(),
+    max_tokens: MAX_TOKENS,
     system: prompt.system,
     messages: [{ role: 'user' as const, content: prompt.user }],
     output_config: { effort: 'low' as const },
@@ -142,18 +148,20 @@ export function readReply(json: unknown): string {
     .join('\n');
 }
 
-/** Calls the real service with plain fetch. Only built when a key is set and the stand-in is off. */
+/**
+ * Calls the real service through the SDK. Only built when a key is set and
+ * the stand-in is off. The key is handed over here and nowhere else, so no
+ * other credential on the machine can be picked up by accident. No retries: a
+ * lead is waiting on the button, and the caller's own timeout ends a slow one.
+ */
 function realClient(key: string): StepClient {
   return {
     async draft(prompt, signal) {
-      const response = await fetch(API_URL, {
-        method: 'POST',
-        signal,
-        headers: { 'content-type': 'application/json', 'x-api-key': key, 'anthropic-version': API_VERSION },
-        body: JSON.stringify(buildRequestBody(prompt)),
-      });
-      if (!response.ok) throw new Error(`service answered ${response.status}`);
-      return readReply(await response.json());
+      const client = new Anthropic({ apiKey: key, maxRetries: 0, timeout: TIMEOUT_MS });
+      const message = await client.messages.create(buildRequestBody(prompt), { signal });
+      // The service can decline a request and still answer 200. That is not a draft.
+      if (message.stop_reason === 'refusal') throw new DraftError(copy.drafts.refused);
+      return readReply(message);
     },
   };
 }
