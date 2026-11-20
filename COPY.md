@@ -459,6 +459,8 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `noteOff` | Wallet passes are off, so members do not see the buttons. They turn on when the pass service key is set. |
 | `noteFree` | On the free plan the pass uses one of six preset colours and the sign-in code, the first name and the team name. A custom colour, logo or picture needs a paid plan. |
 | `noteLimit` | The free plan allows 1,000 passes a month. Each tap on a button makes one new pass. |
+| `noteSent` | When a member taps a button, their sign-in code and first name go to the pass service, WalletWallet, which makes the pass. Nothing else about them is sent. |
+| `noteRekey` | A pass is never updated. If you give a member a new QR code, their old pass stops working at the kiosk and they add a new one from their page. |
 
 ## slack
 

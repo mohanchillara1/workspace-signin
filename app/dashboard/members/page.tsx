@@ -9,6 +9,7 @@ import {
   setSlackIdAction,
 } from '@/app/dashboard/members/actions';
 import { CopyLink, InviteButton } from '@/components/dashboard/MemberBits';
+import { WalletNote } from '@/components/dashboard/WalletNote';
 import { requireLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
 import { getDb } from '@/lib/db/client';
@@ -204,6 +205,10 @@ export default async function MembersPage({
           );
         })}
       </ul>
+
+      <div className="mt-10 max-w-2xl">
+        <WalletNote />
+      </div>
     </>
   );
 }

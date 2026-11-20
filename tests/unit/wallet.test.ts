@@ -325,6 +325,17 @@ describe('the lead note', () => {
     process.env.WALLET_STAND_IN = '1';
     expect(note()).toContain(copy.wallet.noteStandIn);
   });
+  it('tells a lead what goes to the pass service and what a new QR code does to a pass', () => {
+    process.env.WALLETWALLET_API_KEY = 'ww_live_not_a_real_key';
+    const out = note();
+    expect(out).toContain(copy.wallet.noteSent);
+    expect(out).toContain(copy.wallet.noteRekey);
+  });
+  it('says none of that while passes are off', () => {
+    const out = note();
+    expect(out).not.toContain(copy.wallet.noteSent);
+    expect(out).not.toContain(copy.wallet.noteLimit);
+  });
 });
 
 describe('the words', () => {

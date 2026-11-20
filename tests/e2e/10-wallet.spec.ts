@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { copy } from '@/lib/copy';
 import { addMember, setActive } from '@/lib/members';
-import { closeDb, db, watchConsole } from './helpers';
+import { closeDb, db, logIn, watchConsole } from './helpers';
 
 // The test server runs with WALLET_STAND_IN=1 (scripts/e2e-server.ts), so no
 // service is called and no key exists. The stand-in makes a small made-up file.
@@ -76,4 +76,16 @@ test('one address is limited, and the limit is plain words', async ({ request })
   expect(last).toBe(w.tooMany);
   // Another address is not held back.
   expect((await request.get(`/m/${member.pageKey}/pass?platform=apple`, { headers: asCaller() })).status()).toBe(200);
+});
+
+test('the Members screen tells a lead where wallet passes stand', async ({ page }) => {
+  const errors = watchConsole(page);
+  await logIn(page);
+  await page.goto('/dashboard/members');
+  const note = page.getByTestId('wallet-note');
+  await expect(note).toBeVisible();
+  // The test server runs the stand-in, and the note must say so.
+  await expect(note).toContainText(w.noteStandIn);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+  expect(errors).toEqual([]);
 });

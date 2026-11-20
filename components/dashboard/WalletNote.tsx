@@ -1,7 +1,7 @@
 import { copy } from '@/lib/copy';
 import { walletAvailable, walletIsStandIn } from '@/lib/wallet';
 
-/** For a lead: whether wallet passes are on, and what the free plan cannot do. */
+/** For a lead: whether wallet passes are on, what goes to the pass service, and what the free plan cannot do. */
 export function WalletNote() {
   const w = copy.wallet;
   const on = walletAvailable();
@@ -13,7 +13,9 @@ export function WalletNote() {
       {on && !standIn && (
         <>
           <p className="mt-2">{w.noteFree}</p>
+          <p className="mt-2">{w.noteSent}</p>
           <p className="mt-2">{w.noteLimit}</p>
+          <p className="mt-2">{w.noteRekey}</p>
         </>
       )}
     </section>
