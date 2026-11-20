@@ -10,14 +10,16 @@ test.afterAll(closeDb);
 
 const c = copy.login;
 
-test('the main login page has only the members form, with one small link to the admin login', async ({ page }) => {
+test('the main login page has only the members form, and says nothing about the admin login', async ({ page }) => {
   const errors = watchConsole(page);
   await page.goto('/login');
   await expect(page.getByTestId('member-login')).toBeVisible();
   await expect(page.getByTestId('lead-login')).toHaveCount(0);
   await expect(page.getByLabel(c.password)).toHaveCount(0);
-  await page.getByRole('link', { name: c.toAdmin }).click();
-  await page.waitForURL('**/admin');
+  // No link to it and no word about it: leads and captains are told the address.
+  await expect(page.locator('a[href="/admin"]')).toHaveCount(0);
+  await expect(page.getByText(c.leadTitle)).toHaveCount(0);
+  await page.goto('/admin');
   await expect(page.getByTestId('lead-login')).toBeVisible();
   await expect(page.getByTestId('member-login')).toHaveCount(0);
   await expect(page.locator('link[rel="manifest"]')).toHaveCount(0);

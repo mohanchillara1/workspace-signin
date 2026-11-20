@@ -136,7 +136,6 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `memberTwoMatch` | Two people have that name. Ask a lead for your page link. |
 | `memberLocked` | Too many names that are not on the list. Wait 15 minutes, then try again. |
 | `leadTitle` | Leads and captains |
-| `toAdmin` | Leads and captains log in here |
 | `toMembers` | Members open their page here |
 | `name` | Login name |
 | `password` | Password |
