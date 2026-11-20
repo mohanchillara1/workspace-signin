@@ -4,7 +4,9 @@ import { MemberLoginForm } from '@/components/dashboard/MemberLoginForm';
 import { copy } from '@/lib/copy';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: copy.login.title };
+// The title is the app's short name, not "Log in": a browser that takes a
+// Home Screen or shortcut name from the title then offers "Singularity".
+export const metadata: Metadata = { title: copy.app.shortTitle };
 
 // The main login: members open their own page by name. Leads and captains
 // log in at /admin, which this page does not mention: they are told the

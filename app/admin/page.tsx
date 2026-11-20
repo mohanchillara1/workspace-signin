@@ -7,7 +7,9 @@ import { currentLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: copy.login.title };
+// The title is the app's short name, not "Log in": a browser that takes a
+// Home Screen or shortcut name from the title then offers "Singularity".
+export const metadata: Metadata = { title: copy.app.shortTitle };
 
 // Where leads and captains log in. Members have their own page, /login.
 export default async function AdminLoginPage() {

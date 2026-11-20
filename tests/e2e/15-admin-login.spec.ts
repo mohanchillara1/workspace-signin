@@ -64,6 +64,23 @@ test('a captain logs in at /admin; a wrong password stays there; the members pag
   expect(errors).toEqual([]);
 });
 
+test('every page a person might add to their Home Screen offers the name "Singularity"', async ({ page }) => {
+  // A phone takes the name from the Apple tag or the manifest. A laptop browser takes it from the page title.
+  const name = copy.app.shortTitle;
+  expect(name).toBe('Singularity');
+  for (const path of ['/login', '/admin']) {
+    await page.goto(path);
+    await expect(page).toHaveTitle(name);
+    await expect(page.locator('meta[name="apple-mobile-web-app-title"]')).toHaveAttribute('content', name);
+  }
+  const member = await addMember(db(), { firstName: 'Home', lastName: 'Screen' }, null);
+  await page.goto(`/m/${member.pageKey}`);
+  await expect(page).toHaveTitle(name);
+  await expect(page.locator('meta[name="apple-mobile-web-app-title"]')).toHaveAttribute('content', name);
+  const manifest = await (await page.request.get(`/m/${member.pageKey}/manifest.webmanifest`)).json();
+  expect([manifest.name, manifest.short_name]).toEqual([name, name]);
+});
+
 test('a device that is not the kiosk yet is pointed at the admin login', async ({ page }) => {
   await page.goto('/kiosk');
   await expect(page.getByRole('link', { name: copy.kiosk.notPairedLink })).toHaveAttribute('href', '/admin');
