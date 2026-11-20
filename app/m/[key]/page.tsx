@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { AddToHomeScreen } from '@/components/member/AddToHomeScreen';
 import { MemberTasks } from '@/components/member/MemberTasks';
 import { SentInList } from '@/components/member/SentInList';
+import { WalletButtons } from '@/components/member/WalletButtons';
 import { memberCount } from '@/lib/attendance';
 import { clientAddress } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
@@ -13,6 +14,7 @@ import { qrSvg } from '@/lib/qr';
 import { hit } from '@/lib/rate-limit';
 import { standingFor } from '@/lib/submit';
 import { openFor } from '@/lib/tasks';
+import { walletAvailable, walletPlatforms } from '@/lib/wallet';
 
 export const dynamic = 'force-dynamic';
 export async function generateMetadata({ params }: { params: Promise<{ key: string }> }): Promise<Metadata> {
@@ -69,6 +71,8 @@ export default async function MemberPage({ params }: { params: Promise<{ key: st
         <p className="mt-5 text-center text-lg font-semibold">{m.qrCaption}</p>
         <AddToHomeScreen />
       </div>
+
+      {walletAvailable() && <WalletButtons pageKey={key} platforms={walletPlatforms()} />}
 
       <p data-testid="count" className="mt-8 rounded-xl border-2 border-paper/25 px-4 py-3 text-base">
         {count.meetingDays === 0
