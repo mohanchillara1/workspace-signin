@@ -73,7 +73,8 @@ test('a lead puts one person in several subteams, and a task for the subteam abo
   await edit.getByLabel('Scouts', { exact: true }).uncheck();
   await page.getByRole('button', { name: c.save, exact: true }).click();
   await expect(page.locator('[data-subteam-chip]')).toHaveText(['Programming']);
-  await expect(page.getByText(c.detailNoTasks)).toBeVisible();
+  // Only this test's own task is looked for: other files leave tasks that are open to everyone.
+  await expect(page.getByText('Drive team job')).toHaveCount(0);
   await page.goto('/dashboard/members');
   await expect(page.locator('[data-group="Programming"] [data-member-name="Multi Person"]')).toHaveCount(1);
   await expect(page.locator('[data-group="Drive Team"]')).toHaveCount(0);
