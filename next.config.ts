@@ -30,6 +30,11 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // Phones on the same wifi open the dev server by the laptop's address.
   allowedDevOrigins: ['127.0.0.1', 'localhost', '192.168.*.*', '10.*.*.*', '*.local'],
+  // A browser may ask for /favicon.ico before it has read the page's own
+  // icon. It gets that icon, not a 404 in the console.
+  async redirects() {
+    return [{ source: '/favicon.ico', destination: '/icon.png', permanent: false }];
+  },
   async headers() {
     return [
       {

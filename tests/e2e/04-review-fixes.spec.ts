@@ -213,6 +213,13 @@ test('on a phone the dashboard links fold behind one Menu button', async ({ page
   expect(await page.evaluate(() => document.querySelector('[data-testid="nav-bar"]')!.getBoundingClientRect().height)).toBeLessThan(90);
 });
 
+test('a browser that asks for /favicon.ico gets the app icon, not a 404', async ({ request }) => {
+  // Browsers sometimes ask for it before they have read the page's own icon, and a 404 lands in the console.
+  const response = await request.get(`${state().baseUrl}/favicon.ico`);
+  expect(response.status()).toBe(200);
+  expect(response.headers()['content-type']).toContain('image/png');
+});
+
 test('security headers: no framework banner, a content policy and strict transport', async ({ request }) => {
   const response = await request.get(`${state().baseUrl}/login`);
   const headers = response.headers();
