@@ -58,10 +58,14 @@ test('the scan page still has an ordinary icon, paired or not, so the browser do
 test("a member's page and the login page do not carry the kiosk's manifest", async ({ page }) => {
   // Otherwise a member who adds their own page to their Home Screen would get the scan page.
   const member = await addMember(db(), { firstName: 'Shortcut', lastName: 'Person' }, null);
-  for (const path of [`/m/${member.pageKey}`, '/login']) {
-    await page.goto(path);
-    await expect(page.locator('link[rel="manifest"]')).toHaveCount(0);
-  }
+  await page.goto('/login');
+  await expect(page.locator('link[rel="manifest"]')).toHaveCount(0);
+  // The member page has a manifest of its own, which opens that member's page.
+  await page.goto(`/m/${member.pageKey}`);
+  const href = await page.locator('link[rel="manifest"]').getAttribute('href');
+  expect(href).toBe(`/m/${member.pageKey}/manifest.webmanifest`);
+  const manifest = await (await page.request.get(href!)).json();
+  expect(manifest.start_url).toBe(`/m/${member.pageKey}`);
 });
 
 // A stand-in for the browser's screen wake lock that records what the page asks for.

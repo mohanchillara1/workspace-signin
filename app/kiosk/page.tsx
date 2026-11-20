@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   // Naming icons here replaces the app's own for this page, so the ordinary one is named again.
   // Without it a browser asks for /favicon.ico, which does not exist.
   icons: {
-    icon: [{ url: '/icon.svg', type: 'image/svg+xml', sizes: 'any' }],
+    icon: [{ url: '/icon.png', type: 'image/png' }],
     apple: [{ url: '/icons/kiosk-180.png', sizes: '180x180', type: 'image/png' }],
   },
   appleWebApp: { capable: true, title: copy.kiosk.homeScreenShortName, statusBarStyle: 'black-translucent' },
