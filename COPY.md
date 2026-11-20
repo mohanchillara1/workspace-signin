@@ -442,11 +442,48 @@ Strings with a name or a number in them are shown with sample values, once for o
 
 | Key | Text |
 |---|---|
+| `title` | Keep your code in your phone |
+| `body` | A wallet pass holds your sign-in code and your first name. Nothing else about you. |
+| `apple` | Add to Apple Wallet |
+| `google` | Add to Google Wallet |
+| `passTeam` | Singularity |
+| `passTitle` | Singularity workspace |
+| `passLabel` | MEMBER |
+| `passDescription` | Sign-in code for the team workspace |
+| `failed` | The pass could not be made right now. Go back and try again in a minute, or ask a lead. |
+| `tooMany` | You asked for a pass too many times in a minute. Wait a minute and try again. |
+| `limitReached` | The pass service has made all the passes it can this month. Ask a lead. |
+| `noteTitle` | Wallet passes |
+| `noteOn` | Wallet passes are on. Members see two buttons on their own page. |
+| `noteStandIn` | Wallet passes are on, but they come from a built-in stand-in for testing. They are not real passes. |
+| `noteOff` | Wallet passes are off, so members do not see the buttons. They turn on when the pass service key is set. |
+| `noteFree` | On the free plan the pass uses one of six preset colours and the sign-in code, the first name and the team name. A custom colour, logo or picture needs a paid plan. |
+| `noteLimit` | The free plan allows 1,000 passes a month. Each tap on a button makes one new pass. |
 
 ## slack
 
 | Key | Text |
 |---|---|
+| `notLinked` | This Slack account isn't linked to a member yet. Ask a lead to add your Slack member ID on the Members screen. |
+| `nothingOpen` | You have nothing open right now. |
+| `listTitle` | Your open tasks ({count}): |
+| `listHelp` | To finish one, type /done and its number, like /done 2. Add a few words after the number to tell a lead what you did. |
+| `usage` | Type /done to see your tasks, or /done 2 to finish number 2. |
+| `badNumber` | There is no task {number} on your list. Type /done to see your {count} tasks. |
+| `finished` | Finished: {title} |
+| `waiting` | Sent to a lead to check: {title}. It isn't finished until they approve it. |
+| `gone` | That task is no longer on your list. Type /done to see your tasks again. |
+| `noteLong` | Those words are too long. Shorten them and try again. Nothing was changed. |
+| `tooMany` | Slow down. Wait a minute and try again. |
+| `failed` | Something went wrong and nothing was changed. Try again in a minute. |
+| `idLabel` | Slack member ID |
+| `idHelp` | In Slack, open their profile and look for the option to copy their member ID. It starts with U or W. Leave it empty to unlink. |
+| `idSave` | Save Slack ID |
+| `idSaved` | Slack member ID saved. |
+| `idCleared` | Slack member ID removed. |
+| `idBadShape` | That doesn't look like a Slack member ID. It starts with U or W and has capital letters and numbers, like U123ABC456. |
+| `idTaken` | Another member already has that Slack member ID. |
+| `linkedChip` | In Slack |
 
 ## kioskAdmin
 

@@ -11,6 +11,7 @@ import {
   safeGoogleLink,
   standInClient,
   walletAvailable,
+  walletIsStandIn,
   walletPlatforms,
   WalletError,
   type WalletClient,
@@ -146,6 +147,40 @@ describe('makePass with the stand-in', () => {
     const reply = await standInClient.create(buildPassRequest({ ...member, platform: 'apple' }), new AbortController().signal);
     expect(reply.applePass).toBeTruthy();
     expect(fetchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('which service makePass uses when it is given none', () => {
+  const key = 'ww_live_not_a_real_key';
+  const envelope = () => new Response(JSON.stringify({ applePass: b64('a pass') }), { status: 200, headers: { 'content-type': 'application/json' } });
+
+  it('makes nothing with no key and the stand-in off', async () => {
+    await expect(makePass({ ...member, platform: 'apple' })).rejects.toBeInstanceOf(WalletError);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+  it('makes nothing on the real host with no key, even with the stand-in switch set there', async () => {
+    process.env.VERCEL = '1';
+    process.env.WALLET_STAND_IN = '1';
+    await expect(makePass({ ...member, platform: 'apple' })).rejects.toBeInstanceOf(WalletError);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+  it('uses the stand-in on this machine even when a key is set, so a test run never spends a real pass', async () => {
+    process.env.WALLETWALLET_API_KEY = key;
+    process.env.WALLET_STAND_IN = '1';
+    const made = await makePass({ ...member, platform: 'apple' });
+    expect(made.kind).toBe('file');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(walletIsStandIn()).toBe(true);
+  });
+  it('uses the real service on the real host when a key is set, whatever the switch says', async () => {
+    process.env.VERCEL = '1';
+    process.env.WALLETWALLET_API_KEY = key;
+    process.env.WALLET_STAND_IN = '1';
+    fetchSpy.mockImplementation((async () => envelope()) as never);
+    const made = await makePass({ ...member, platform: 'apple' });
+    expect(made.kind).toBe('file');
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(walletIsStandIn()).toBe(false);
   });
 });
 

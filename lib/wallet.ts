@@ -98,9 +98,13 @@ export function walletAvailable(): boolean {
   return apiKey() !== '' || standInOn();
 }
 
-/** True only for the stand-in: no key, stand-in on. For the lead's note. */
+/**
+ * True when passes come from the stand-in. For the lead's note. With the
+ * stand-in on it wins over a key, so a test run on a machine that has a real
+ * key never spends a real pass.
+ */
 export function walletIsStandIn(): boolean {
-  return apiKey() === '' && standInOn();
+  return standInOn();
 }
 
 /** What the documented create call can really make: an Apple file and a Google link. */
@@ -186,9 +190,13 @@ function realClient(key: string): WalletClient {
   };
 }
 
+/** The stand-in when it is on, else the real service when there is a key, else nothing. */
 function defaultClient(): WalletClient {
+  if (standInOn()) return standInClient;
   const key = apiKey();
-  return key ? realClient(key) : standInClient;
+  // Off. Without this a caller that skipped walletAvailable() would hand out a made-up pass.
+  if (!key) throw new WalletError(copy.wallet.failed);
+  return realClient(key);
 }
 
 // ---------- Making a pass ----------
@@ -196,12 +204,12 @@ function defaultClient(): WalletClient {
 /** Makes one pass. Throws a WalletError with plain words, after 10 seconds at most. */
 export async function makePass(
   input: { scanCode: string; firstName: string; platform: Platform },
-  client: WalletClient = defaultClient(),
+  client?: WalletClient,
 ): Promise<MadePass> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
   try {
-    const reply = await client.create(buildPassRequest(input), controller.signal);
+    const reply = await (client ?? defaultClient()).create(buildPassRequest(input), controller.signal);
     if (input.platform === 'google') {
       const url = safeGoogleLink(reply.googleSaveUrl);
       if (!url) throw new WalletError(copy.wallet.failed);
