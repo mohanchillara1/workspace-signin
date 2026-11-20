@@ -1,4 +1,4 @@
-// Lane a: marking work done with a note and a link, and where each submission stands.
+// Marking work done with a note and a link, and where each submission stands.
 import { expect, test, type Page } from '@playwright/test';
 import { and, eq } from 'drizzle-orm';
 import { copy } from '@/lib/copy';

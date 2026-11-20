@@ -15,3 +15,5 @@ playwright-report/
 tsconfig.tsbuildinfo
 .e2e/
 .review/
+# personal Claude Code settings for this folder
+.claude/settings.local.json

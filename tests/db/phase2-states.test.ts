@@ -66,7 +66,7 @@ describe('phase 2 states', () => {
     const db = getDb();
     const task = await published({ title: 'Sent back once', audience: 'person', memberIds: [a.id] });
     const sent = await finish(task.id, (await line(a, 'Sent back once'))!.assignmentId, a);
-    // The lane that builds the queue writes the submission row; here it is done by hand.
+    // The review code writes the submission row; here it is done by hand.
     const [submission] = await db
       .insert(submissions)
       .values({ assignmentId: sent.assignmentId!, memberId: a.id, note: 'Did it', via: 'member_page' })

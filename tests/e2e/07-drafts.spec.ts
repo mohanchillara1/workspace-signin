@@ -9,7 +9,6 @@ import { closeDb, db, logIn, watchConsole } from './helpers';
 test.use({ viewport: { width: 1440, height: 900 } });
 test.afterAll(closeDb);
 
-const SHOTS = '/mnt/c/Users/mohan/Desktop/Claude Code Stuff/mohanvault/01 Projects/Singularity Workspace Sign-in 2026-11-18/workflow/shots-lane-c';
 const d = copy.drafts;
 const t = copy.tasks;
 
@@ -138,21 +137,23 @@ test('the edit page has the button too, and a subteam task drafts', async ({ pag
 });
 
 for (const width of [390, 1440]) {
-  test(`no sideways scroll at ${width} wide, with the button, the question and a draft`, async ({ page }) => {
+  test(`no sideways scroll at ${width} wide, with the button, the question and a draft`, async ({ page }, testInfo) => {
+    // The pictures go in this test's own output folder under test-results/.
+    const shot = (name: string) => testInfo.outputPath(`${name}-${width}.png`);
     const errors = watchConsole(page);
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     await logIn(page);
     await openNew(page, 'Layout check for a task with a fairly long title so it wraps');
     await noSideways(page);
-    await page.screenshot({ path: `${SHOTS}/new-task-button-${width}.png`, fullPage: true });
+    await page.screenshot({ path: shot('new-task-button'), fullPage: true });
     await drawButton(page).click();
     await expect(page.getByText(d.filled)).toBeVisible();
     await noSideways(page);
-    await page.screenshot({ path: `${SHOTS}/new-task-drafted-${width}.png`, fullPage: true });
+    await page.screenshot({ path: shot('new-task-drafted'), fullPage: true });
     await drawButton(page).click();
     await expect(page.getByText(d.replaceAsk)).toBeVisible();
     await noSideways(page);
-    await page.screenshot({ path: `${SHOTS}/new-task-asking-${width}.png`, fullPage: true });
+    await page.screenshot({ path: shot('new-task-asking'), fullPage: true });
     expect(errors).toEqual([]);
   });
 }

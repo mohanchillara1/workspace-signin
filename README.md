@@ -2,11 +2,13 @@
 
 An iPad on the workspace wall reads a member's QR code. The scan signs them in for the day and shows what they should work on. Leads load the tasks from a dashboard, see who is here, and export attendance.
 
-Phase 1 is sign-in and tasks. Phase 2 adds marking work done with a note and a link, a review queue where a lead approves it or sends it back, and a "Draft steps" button on the task form. It all runs on this machine only. Nothing here is deployed.
+Phase 1 is sign-in and tasks. Phase 2 adds marking work done with a note and a link, a review queue where a lead approves it or sends it back, and a "Draft steps" button on the task form. A test copy with made-up names runs on a host. It is deployed by hand and is not connected to this repository, so nothing pushed here changes it. The real one is not deployed yet.
+
+To work on it, read `CONTRIBUTING.md`.
 
 ## Run it
 
-You need Node 22. Nothing else: the database is a real Postgres that npm downloads and the app starts by itself.
+You need Node 22. Nothing else: the database is a real Postgres that npm downloads and the app starts by itself. So far it has only been run on Linux (Ubuntu under WSL2).
 
 ```bash
 npm install
@@ -31,7 +33,7 @@ npm run screenshots -- some/folder   # after a build: every screen, with checks
 npm run review -- 4320 signin        # after a build: a copy to click through, with the test feed on
 ```
 
-The browser tests use the system Chrome at `/usr/bin/google-chrome`. Set `CHROME` to use another.
+The browser tests use the system Chrome at `/usr/bin/google-chrome`. If yours is somewhere else, set `CHROME` to its path.
 
 One browser test plays a video of a QR code as Chrome's camera, so the camera and the decoder do the reading. The rest feed the kiosk a code through a test-only door (`KIOSK_TEST_FEED=1`), which the app refuses in production.
 
@@ -52,6 +54,8 @@ One browser test plays a video of a QR code as Chrome's camera, so the camera an
 | `lib/copy.ts` | Every fixed string on a screen. `COPY.md` is built from it. |
 | `lib/db/schema.ts`, `drizzle/` | The tables and their migrations. |
 | `app/` | Pages and routes. They are thin: the rules are in `lib/`. |
+| `CONTRACTS.md` | Developer notes on phase 2: the states, the functions and the rules between them. |
+| `scripts/` | The local database, the seed, the first captain's invite, screenshots, and `live-check.ts` for a hosted copy. |
 | `phase0-test/` | The throwaway camera test from before this app. Not part of it. |
 
 ## Rules this code keeps
@@ -83,6 +87,10 @@ DATABASE_URL=... npm run invite-captain -- "First" "Last"
 ```
 
 The second command prints a one-time path where the first captain sets a password. Every other lead gets an invite link from a captain, on the Members screen.
+
+## A test copy on a host
+
+A copy that holds made-up names only is run with `TEST_COPY=1`. The dashboard and the kiosk then show a "Test copy" tag, so nobody types a real roster into it. `npm run seed` fills a hosted database only when that switch is on, and prints no password there: a captain gets in with `npm run invite-captain -- --login testcaptain`. `scripts/live-check.ts` checks a hosted copy from the outside. Send it few requests: a burst at private-looking paths makes a host treat you as a scanner.
 
 ## Not built yet
 

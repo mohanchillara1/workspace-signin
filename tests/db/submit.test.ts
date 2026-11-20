@@ -1,4 +1,4 @@
-// Lane a: a member sends work in with a note and a link, and sees where it stands.
+// A member sends work in with a note and a link, and sees where it stands.
 import { eq } from 'drizzle-orm';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { assignments, submissions, type Member, type Subteam } from '@/lib/db/schema';
@@ -211,7 +211,7 @@ describe('where each submission stands', () => {
     const first = await sendIn(a, 'Standing one', 'note one');
     const second = await sendIn(a, 'Standing two', 'note two');
     const third = await sendIn(a, 'Standing three', 'note three');
-    // Approved: through settleReview, with the answer written on the row the way lane b does.
+    // Approved: through settleReview, with the answer written on the row the way the review code does.
     await getDb().transaction(async (tx) => {
       await settleReview(tx, { assignmentId: first.assignmentId, decision: 'approved' });
       await tx.update(submissions).set({ decision: 'approved', comment: 'Nice work', reviewedById: lead.id, reviewedAt: new Date() }).where(eq(submissions.assignmentId, first.assignmentId));
