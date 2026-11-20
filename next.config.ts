@@ -26,7 +26,8 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['@node-rs/argon2', 'pg', 'embedded-postgres'],
   turbopack: { root: process.cwd() },
   poweredByHeader: false,
-  allowedDevOrigins: ['127.0.0.1', 'localhost'],
+  // Phones on the same wifi open the dev server by the laptop's address.
+  allowedDevOrigins: ['127.0.0.1', 'localhost', '192.168.*.*', '10.*.*.*', '*.local'],
   async headers() {
     return [
       {
