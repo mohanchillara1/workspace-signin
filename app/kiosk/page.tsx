@@ -13,7 +13,12 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: copy.kiosk.idleTitle,
   manifest: '/kiosk/manifest.webmanifest',
-  icons: { apple: [{ url: '/icons/kiosk-180.png', sizes: '180x180', type: 'image/png' }] },
+  // Naming icons here replaces the app's own for this page, so the ordinary one is named again.
+  // Without it a browser asks for /favicon.ico, which does not exist.
+  icons: {
+    icon: [{ url: '/icon.svg', type: 'image/svg+xml', sizes: 'any' }],
+    apple: [{ url: '/icons/kiosk-180.png', sizes: '180x180', type: 'image/png' }],
+  },
   appleWebApp: { capable: true, title: copy.kiosk.homeScreenShortName, statusBarStyle: 'black-translucent' },
   other: { 'apple-mobile-web-app-capable': 'yes' },
 };

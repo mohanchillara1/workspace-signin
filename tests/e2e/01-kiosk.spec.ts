@@ -37,7 +37,8 @@ test('a lead pairs the device from the dashboard and is logged out on it', async
   await page.goto('/dashboard/kiosk');
   await page.getByLabel(copy.kioskAdmin.name).fill('Wall iPad');
   await page.getByRole('button', { name: copy.kioskAdmin.pair }).click();
-  await page.waitForURL('**/kiosk');
+  // Not '**/kiosk': that also matches /dashboard/kiosk, the page the button is on.
+  await page.waitForURL((url) => url.pathname === '/kiosk');
   await expect(page.getByRole('heading', { name: k.idleTitle })).toBeVisible();
   await page.goto('/dashboard');
   await page.waitForURL('**/login');

@@ -33,6 +33,28 @@ test('the scan page can be put on the Home Screen: a manifest, touch icons, full
   await expect(page.locator('meta[name="apple-mobile-web-app-capable"]')).toHaveAttribute('content', 'yes');
 });
 
+test('the scan page still has an ordinary icon, paired or not, so the browser does not go looking for one that is not there', async ({ page, context, request }) => {
+  // Giving this page its own touch icon must not take the app's icon away from it.
+  // With no icon named, a browser asks for /favicon.ico, which this app does not have.
+  const iconIsThere = async () => {
+    const href = await page.locator('link[rel="icon"]').first().getAttribute('href');
+    expect(href).toBeTruthy();
+    const picture = await request.get(href!);
+    expect(picture.status()).toBe(200);
+    expect(picture.headers()['content-type']).toContain('image/');
+  };
+  await page.goto('/kiosk');
+  await expect(page.getByRole('heading', { name: k.notPairedTitle })).toBeVisible();
+  await expect(page.locator('link[rel="icon"]')).not.toHaveCount(0);
+  await iconIsThere();
+  await pairByCookie(context, 'Wall icon kiosk');
+  await page.goto('/kiosk');
+  await expect(kiosk(page)).toHaveAttribute('data-ready', '1');
+  await expect(page.locator('link[rel="icon"]')).not.toHaveCount(0);
+  await iconIsThere();
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveCount(1);
+});
+
 test("a member's page and the login page do not carry the kiosk's manifest", async ({ page }) => {
   // Otherwise a member who adds their own page to their Home Screen would get the scan page.
   const member = await addMember(db(), { firstName: 'Shortcut', lastName: 'Person' }, null);

@@ -215,7 +215,8 @@ async function loop(shots: string | undefined) {
       await kiosk.goto('/dashboard/kiosk');
       await kiosk.getByLabel(copy.kioskAdmin.name).fill(kioskName);
       await kiosk.getByRole('button', { name: copy.kioskAdmin.pair }).click();
-      await kiosk.waitForURL('**/kiosk');
+      // Not '**/kiosk': that also matches /dashboard/kiosk, the page the button is on, and so waits for nothing.
+      await kiosk.waitForURL((url) => url.pathname === '/kiosk');
       const paired = await cookieNamed(wall, 'kiosk');
       const days = paired ? (paired.expires - Date.now() / 1000) / 86_400 : 0;
       check(!!paired && paired.secure && paired.httpOnly && days > 390, 'pairing sets a kiosk cookie that is Secure, HttpOnly and lasts about 400 days', paired ? `secure ${paired.secure}, httpOnly ${paired.httpOnly}, ${Math.round(days)} days` : 'no cookie');
