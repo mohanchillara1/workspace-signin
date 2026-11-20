@@ -26,6 +26,7 @@ import { assignments, attendance, kiosks, members, rateHits, submissions, tasks 
 import { isTestCopy } from '../lib/test-copy';
 import { writeQrVideo } from '../tests/e2e/fake-camera';
 import { databaseUrl, describeDatabase, isLocal } from './env';
+import { isChallenge, isLoginWall, isOurAnswer } from './live-rules';
 
 const args = process.argv.slice(2);
 const base = new URL(args.find((a) => !a.startsWith('--')) ?? '').origin;
@@ -41,11 +42,20 @@ function check(ok: boolean, what: string, detail = ''): boolean {
 }
 const skip = (what: string, why: string) => console.log(`skip ${what} | ${why}`);
 
-const get = (path: string, init: RequestInit = {}) => fetch(base + path, { redirect: 'manual', cache: 'no-store', ...init });
-const isLoginWall = (response: Response) =>
-  response.status === 401 ||
-  /vercel\.com/.test(response.headers.get('location') ?? '') ||
-  /_vercel_sso_nonce/.test(response.headers.get('set-cookie') ?? '');
+class Challenged extends Error {}
+
+// Requests are spaced out. A burst of them at private-looking paths reads as
+// a scanner to the host, which then challenges this address on every path.
+const PAUSE_MS = 400;
+const pause = () => new Promise((done) => setTimeout(done, PAUSE_MS));
+
+async function get(path: string, init: RequestInit = {}): Promise<Response> {
+  await pause();
+  const response = await fetch(base + path, { redirect: 'manual', cache: 'no-store', ...init });
+  // The checkpoint answers for every path, so no answer after it means anything.
+  if (isChallenge(response.headers)) throw new Challenged(path);
+  return response;
+}
 
 /** What a visitor with no login and no paired device gets. */
 async function signedOut(hasDb: boolean) {
@@ -56,8 +66,8 @@ async function signedOut(hasDb: boolean) {
   for (const path of pages) {
     const response = await get(path);
     const robots = response.headers.get('x-robots-tag') ?? '';
-    check(!isLoginWall(response), `${path} answers without a Vercel login`, `status ${response.status}`);
-    check(/noindex/.test(robots), `${path} is marked noindex`, `x-robots-tag: ${robots || 'missing'}`);
+    check(!isLoginWall(response.status, response.headers), `${path} is not behind a Vercel login`, `status ${response.status}`);
+    check(isOurAnswer(response.status, response.headers), `${path} is answered by the app itself, marked noindex`, `status ${response.status}, x-robots-tag: ${robots || 'missing'}`);
   }
   const robotsTxt = await (await get('/robots.txt')).text();
   check(/Disallow:\s*\/\s*$/m.test(robotsTxt), 'robots.txt tells every crawler to stay out', robotsTxt.replace(/\s+/g, ' ').trim());
@@ -73,12 +83,14 @@ async function signedOut(hasDb: boolean) {
   check((await get('/wordmark.png')).status === 200, 'control: the wordmark picture is served (so a 404 below means something)');
   check((await get('/zxing_reader.wasm')).status === 200, 'control: the QR decoder file is served');
 
-  // Nothing local was uploaded, and nothing of the source can be fetched.
+  // The files that would matter most if they could be fetched. Kept short on
+  // purpose: a long sweep of private-looking paths gets this address
+  // challenged. Whether a local folder was uploaded at all is answered by the
+  // host's own file list (vercel api "/v6/deployments/<id>/files"), which
+  // costs the site no requests.
   const mustBeMissing = [
-    '/.env.local', '/.env', '/.env.example', '/.data/', '/.data/review-4320.json', '/.review/', '/.e2e/state.json',
-    '/phase0-test/', '/phase0-test/site/index.html', '/phase0-test/site/.env.local', '/f1.png',
-    '/package.json', '/README.md', '/CONTRACTS.md', '/COPY.md', '/vercel.json', '/.vercelignore', '/.gitignore', '/.git/config',
-    '/drizzle/meta/_journal.json', '/scripts/seed.ts', '/lib/seed.ts', '/tests/e2e/helpers.ts', '/next.config.ts',
+    '/.env.local', '/.env', '/.data/review-4320.json', '/.e2e/state.json',
+    '/phase0-test/site/.env.local', '/.git/config', '/package.json', '/lib/seed.ts',
   ];
   for (const path of mustBeMissing) {
     const response = await get(path);
@@ -293,6 +305,11 @@ async function main() {
 }
 
 main().catch((error) => {
+  if (error instanceof Challenged) {
+    console.error(`\nSTOPPED at ${error.message}: the host is challenging this address (its security checkpoint answered, not the app).`);
+    console.error('Nothing after this point was checked, and no line above it should be read as a result for a later path. Wait, then run again. Do not try to get past the checkpoint.');
+    process.exit(2);
+  }
   console.error(error instanceof Error ? error.message : error);
   process.exit(1);
 });
