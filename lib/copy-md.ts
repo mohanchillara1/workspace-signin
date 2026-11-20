@@ -44,7 +44,6 @@ const KEY_SAMPLE: Record<string, unknown[]> = {
   'tasks.subteamAlso': ['Assembly, CAD'],
   'members.subteamPartOf': ['Build'],
   'inventory.summary': [152, 148],
-  'inventory.groupCount': ['Motors', 13],
 };
 
 function examples(fn: (...args: never[]) => unknown, path: string): string[] {

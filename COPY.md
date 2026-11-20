@@ -235,8 +235,11 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `memberHelp` | Took something off the shelf, or put something back? Type how many, then tap Take or Add. Your name goes in the log. |
 | `memberBack` | Back to my page |
 | `empty` | Nothing is on the list yet. |
-| `jump` | Jump to a group |
-| `groupCount` | Motors (13) |
+| `allGroups` | All groups |
+| `tileItems` | 1 item<br>3 items |
+| `tileNotCounted` | 1 not counted<br>3 not counted |
+| `tileAside` | 1 set aside<br>3 set aside |
+| `pickGroup` | Pick a group to see what is in it. |
 
 ## today
 

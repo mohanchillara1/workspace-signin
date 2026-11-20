@@ -120,6 +120,16 @@ const DRAWINGS: Record<string, { tile: string; shape: ReactNode }> = {
 };
 const OTHER = { tile: '#d9d5e3', shape: <rect x="16" y="16" width="32" height="32" rx="6" {...line} /> };
 
+/** The drawing for a group, for its tile. */
+export function GroupPicture({ category, size = 56 }: { category: string; size?: number }) {
+  const drawing = DRAWINGS[category] ?? OTHER;
+  return (
+    <svg viewBox="0 0 64 64" width={size} height={size} aria-hidden="true" className="shrink-0 rounded-lg border-2 border-ink" style={{ background: drawing.tile }}>
+      {drawing.shape}
+    </svg>
+  );
+}
+
 export function ItemPicture({ itemId, category, photoVersion, size = 72 }: { itemId: string; category: string; photoVersion: number | null; size?: number }) {
   const frame = 'shrink-0 rounded-lg border-2 border-ink object-cover';
   if (photoVersion !== null) {

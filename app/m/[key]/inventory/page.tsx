@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { memberCountAction } from '@/app/m/[key]/inventory/actions';
-import { ItemPicture } from '@/components/inventory/ItemPicture';
+import { GroupPicture, ItemPicture } from '@/components/inventory/ItemPicture';
 import { clientAddress } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
 import { getDb } from '@/lib/db/client';
@@ -38,30 +38,53 @@ export default async function MemberInventoryPage({
   const member = await memberByPageKey(db, key);
   if (!member || !(await membersSeeInventory(db))) notFound();
   if (!(await memberMayUseInventory(db, member.id, now))) return slow;
-  const items = (await listInventory(db)).filter((item) => item.have);
-  const groups = [...new Set(items.map((item) => item.category))];
+  const have = (await listInventory(db)).filter((item) => item.have);
+  const groups = [...new Set(have.map((item) => item.category))];
+  const group = groups.find((name) => name === g) ?? null;
+  const items = have.filter((item) => item.category === group);
   const c = copy.inventory;
 
+  // One tile for each group first. A tile shows that group's items and nothing else.
   return (
     <main className="mx-auto max-w-md px-4 pb-12 pt-8">
-      <Link href={`/m/${key}`} className="text-sm font-bold underline underline-offset-4">← {c.memberBack}</Link>
-      <h1 className="mt-4 text-4xl">{c.title}</h1>
-      <p className="mt-2 text-paper/85">{c.memberHelp}</p>
+      {group === null ? (
+        <Link href={`/m/${key}`} className="text-sm font-bold underline underline-offset-4">← {c.memberBack}</Link>
+      ) : (
+        <Link href={`/m/${key}/inventory`} className="text-sm font-bold underline underline-offset-4">← {c.allGroups}</Link>
+      )}
+      <h1 className="mt-4 text-4xl">{group ?? c.title}</h1>
       {problem && (
         <p role="alert" className="mt-5 inline-block rounded-xl border-2 border-ink bg-arcade-fuel px-4 py-2 font-bold text-ink">
           {c.problem(errorText(problem))}
         </p>
       )}
-      {items.length === 0 && <p className="mt-8 text-paper/70">{c.empty}</p>}
-      {/* A long list on a phone: each group stays folded until it is tapped, or until something in it was just changed. */}
-      {groups.map((group) => (
-        <details key={group} data-inventory-group={group} open={g === group} className="mt-4 rounded-xl border-2 border-paper/25 px-4 py-3">
-          <summary className="cursor-pointer text-xl font-bold">{c.groupCount(group, items.filter((item) => item.category === group).length)}</summary>
-          <ul className="mt-3 space-y-3">
-            {items.filter((item) => item.category === group).map((item) => (
+      {group === null ? (
+        have.length === 0 ? (
+          <p className="mt-8 text-paper/70">{c.empty}</p>
+        ) : (
+          <>
+            <p className="mt-2 text-paper/85">{c.pickGroup}</p>
+            <ul data-testid="inventory-tiles" className="mt-5 grid grid-cols-2 gap-3">
+              {groups.map((name) => (
+                <li key={name}>
+                  <Link href={`/m/${key}/inventory?g=${encodeURIComponent(name)}`} data-tile={name} className="card flex h-full min-w-0 flex-col gap-2 p-3">
+                    <GroupPicture category={name} />
+                    <span className="font-display text-lg leading-tight [overflow-wrap:anywhere]">{name}</span>
+                    <span className="text-sm text-ink/70">{c.tileItems(have.filter((item) => item.category === name).length)}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        )
+      ) : (
+        <section data-inventory-group={group}>
+          <p className="mt-2 text-paper/85">{c.memberHelp}</p>
+          <ul className="mt-5 space-y-3">
+            {items.map((item) => (
               <li key={item.id} id={`i-${item.id}`} data-item={item.name} className="card scroll-mt-6 space-y-3 p-4">
                 <div className="flex items-center gap-3">
-                  <ItemPicture itemId={item.id} category={item.category} photoVersion={item.photoVersion} size={64} />
+                  <ItemPicture itemId={item.id} category={item.category} photoVersion={item.photoVersion} size={72} />
                   <div className="min-w-0">
                     <p className="font-bold [overflow-wrap:anywhere]">{item.name}</p>
                     <p data-testid="item-count" className={item.count === null ? 'text-sm text-ink/70' : 'font-display text-3xl'}>
@@ -83,8 +106,8 @@ export default async function MemberInventoryPage({
               </li>
             ))}
           </ul>
-        </details>
-      ))}
+        </section>
+      )}
     </main>
   );
 }

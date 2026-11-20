@@ -11,10 +11,15 @@ import { addItem, changeCount, setCount, setHave, setMembersSeeInventory, setPho
 const PAGE = '/dashboard/inventory';
 const text = (form: FormData, name: string) => String(form.get(name) ?? '').trim();
 // The page gets a key, not words, so a link cannot put words of its own on it.
-const refused = (error: unknown, id?: string): never => redirect(`${PAGE}?problem=${errorKey(error)}${id ? `#i-${id}` : ''}`);
-const done = (id?: string): never => {
+// `group` is the group whose items the page was showing, so the same ones come back.
+const query = (group: string, problem?: string) => {
+  const parts = [...(problem ? [`problem=${problem}`] : []), ...(group ? [`g=${encodeURIComponent(group.slice(0, 60))}`] : [])];
+  return parts.length ? `?${parts.join('&')}` : '';
+};
+const refused = (error: unknown, group = '', id?: string): never => redirect(`${PAGE}${query(group, errorKey(error))}${id ? `#i-${id}` : ''}`);
+const done = (group = '', id?: string): never => {
   revalidatePath(PAGE);
-  redirect(`${PAGE}${id ? `#i-${id}` : ''}`);
+  redirect(`${PAGE}${query(group)}${id ? `#i-${id}` : ''}`);
 };
 /** A whole number typed in a box, or NaN. An empty box is NaN too. */
 const whole = (value: string) => (/^\d{1,6}$/.test(value) ? Number(value) : Number.NaN);
@@ -27,9 +32,9 @@ export async function addItemAction(form: FormData): Promise<void> {
     if (count !== '' && Number.isNaN(whole(count))) throw new UserError('inventoryCount');
     id = (await addItem(getDb(), { name: text(form, 'name'), category: text(form, 'category'), count: count === '' ? null : whole(count) }, lead.id)).id;
   } catch (error) {
-    refused(error);
+    refused(error, text(form, 'group'));
   }
-  done(id);
+  done(text(form, 'category'), id);
 }
 
 /** One box and three buttons: write the count down, add that many, or take that many. */
@@ -43,9 +48,9 @@ export async function countAction(form: FormData): Promise<void> {
     if (what === 'set') await setCount(getDb(), id, amount, lead.id);
     else await changeCount(getDb(), id, what === 'take' ? -amount : amount, lead.id);
   } catch (error) {
-    refused(error, id);
+    refused(error, text(form, 'group'), id);
   }
-  done(id);
+  done(text(form, 'group'), id);
 }
 
 export async function haveAction(form: FormData): Promise<void> {
@@ -55,9 +60,9 @@ export async function haveAction(form: FormData): Promise<void> {
     if (!isUuid(id)) throw new UserError('inventoryMissing');
     await setHave(getDb(), id, text(form, 'have') === '1', lead.id);
   } catch (error) {
-    refused(error, id);
+    refused(error, text(form, 'group'), id);
   }
-  done();
+  done(text(form, 'group'));
 }
 
 /** Only a captain opens the inventory to members or closes it. */

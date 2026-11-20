@@ -250,8 +250,11 @@ export const copy = {
     memberHelp: 'Took something off the shelf, or put something back? Type how many, then tap Take or Add. Your name goes in the log.',
     memberBack: 'Back to my page',
     empty: 'Nothing is on the list yet.',
-    jump: 'Jump to a group',
-    groupCount: (group: string, n: number) => `${group} (${n})`,
+    allGroups: 'All groups',
+    tileItems: (n: number) => `${n} ${plural(n, 'item', 'items')}`,
+    tileNotCounted: (n: number) => `${n} not counted`,
+    tileAside: (n: number) => `${n} set aside`,
+    pickGroup: 'Pick a group to see what is in it.',
   },
 
   today: {

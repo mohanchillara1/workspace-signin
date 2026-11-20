@@ -47,12 +47,20 @@ test('a lead keeps the list: add an item, count it, add to it, take from it, giv
   await page.getByLabel(c.name).fill('test GIZMO');
   await page.getByRole('button', { name: c.add }).click();
   await expect(page.getByText(c.problem(copy.errors.inventoryNameTaken))).toBeVisible();
-  // With more than one group, a row of links jumps to each. This test makes its own second group.
-  await addItem(db(), { name: 'Jump test part', category: 'Tools' }, await captainId());
+  // The screen opens on one tile for each group, so a phone is not handed the whole list at once.
+  await addItem(db(), { name: 'Tile test part', category: 'Tools' }, await captainId());
   await page.goto('/dashboard/inventory');
-  const jump = await page.getByTestId('inventory-jump').getByRole('link', { name: /^Tools \(/ }).getAttribute('href');
-  expect(jump).toMatch(/^#g-\d+$/);
-  await expect(page.locator(jump!)).toHaveAttribute('data-inventory-group', 'Tools');
+  const tiles = page.getByTestId('inventory-tiles');
+  await expect(tiles.locator('[data-tile="Motors"]')).toBeVisible();
+  await expect(page.locator('[data-item]')).toHaveCount(0);
+  await tiles.locator('[data-tile="Tools"]').click();
+  await expect(page).toHaveURL(/[?&]g=Tools$/);
+  await expect(page.locator('[data-inventory-group="Tools"] [data-item="Tile test part"]')).toBeVisible();
+  // Only that group's items are on the page.
+  await expect(page.locator('[data-item="Test gizmo"]')).toHaveCount(0);
+  await page.getByRole('link', { name: c.allGroups }).click();
+  await page.getByTestId('inventory-tiles').locator('[data-tile="Motors"]').click();
+  await expect(count).toHaveText('7');
   await expect(page.locator('[data-item="Test gizmo"]')).toHaveCount(1);
 
   // A photo: the browser shrinks it and the page shows it in place of the drawing.
@@ -70,7 +78,7 @@ test('a lead keeps the list: add an item, count it, add to it, take from it, giv
   await expect(card).toHaveCount(0);
   const aside = page.getByTestId('inventory-aside');
   await aside.locator('summary').click();
-  await aside.locator('[data-item="Test gizmo"]').getByRole('button', { name: c.doHave }).click();
+  await aside.locator('[data-aside-item="Test gizmo"]').getByRole('button', { name: c.doHave }).click();
   await expect(count).toHaveText('7');
   await expect(card.locator('img[data-photo]')).toHaveCount(1);
   expect(errors).toEqual([]);
@@ -102,9 +110,10 @@ test('members get the inventory only when a captain opens it; they add and take,
   await theirs.waitForURL(`**${address}`);
   const card = theirs.locator('[data-item="Shelf bolts"]');
   const count = card.getByTestId('item-count');
-  // Groups are folded on a member's page. Tapping one opens it, and it stays open after a change.
-  await expect(card).toBeHidden();
-  await theirs.locator('details[data-inventory-group="Hardware"] summary').click();
+  // A member's page opens on tiles too. Tapping one shows that group, and a change brings the same group back.
+  await expect(card).toHaveCount(0);
+  await theirs.getByTestId('inventory-tiles').locator('[data-tile="Hardware"]').click();
+  await expect(theirs).toHaveURL(/[?&]g=Hardware$/);
   await expect(count).toHaveText('20');
   const act = async (amount: string, button: string) => {
     await card.getByLabel(c.amount).fill(amount);
