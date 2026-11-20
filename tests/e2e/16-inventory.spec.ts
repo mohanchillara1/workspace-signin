@@ -128,7 +128,12 @@ test('members get the inventory only when a captain opens it; they add and take,
   await page.goto('/dashboard/inventory');
   await page.getByRole('link', { name: c.logLink }).click();
   const rows = page.getByTestId('inventory-log').locator('tbody tr').filter({ hasText: 'Shelf bolts' });
-  await expect(rows).toHaveText([/Shelf Member.*Shelf bolts.*Added 2.*19/, /Shelf Member.*Shelf bolts.*Took 3.*17/]);
+  await expect(rows).toHaveText([
+    /Shelf Member.*Shelf bolts.*Added 2.*19/,
+    /Shelf Member.*Shelf bolts.*Took 3.*17/,
+    // The count it was added with is the first line of its log.
+    /Test Captain.*Shelf bolts.*Counted.*20/,
+  ]);
 
   // Closed again: the page is gone for them, and a change sent anyway does nothing.
   await page.goto('/dashboard/inventory');
