@@ -59,6 +59,7 @@ export const copy = {
     inventoryNotCounted: 'Nobody has counted this yet. Add what is there first',
     inventoryPhoto: 'That picture could not be used. Pick a photo',
     inventoryMissing: 'That item is not on the list any more',
+    inventorySlow: 'That is a lot of changes in one minute. Wait a moment, then try again',
     captainOnly: 'Only a captain can make an invite link',
     notALead: 'Only a lead or a captain can have a login',
     leadsAreCaptainOnly: 'Only a captain can change a lead or a captain',

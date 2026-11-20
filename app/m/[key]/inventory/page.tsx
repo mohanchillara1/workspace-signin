@@ -7,14 +7,11 @@ import { clientAddress } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
 import { getDb } from '@/lib/db/client';
 import { errorText } from '@/lib/errors';
-import { listInventory, membersSeeInventory } from '@/lib/inventory';
+import { addressMayUseInventory, listInventory, memberMayUseInventory, membersSeeInventory } from '@/lib/inventory';
 import { memberByPageKey } from '@/lib/members';
-import { hit } from '@/lib/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: copy.member.homeScreenName };
-
-const LOADS_A_MINUTE = 30;
 
 // The inventory as a member sees it: every item the team has, with its count,
 // and a way to add to a count or take from it. Nothing else can be changed here.
@@ -28,17 +25,19 @@ export default async function MemberInventoryPage({
   const { key } = await params;
   const { problem, g } = await searchParams;
   const db = getDb();
-  const allowed = await hit(db, { key: `member-page:${await clientAddress()}`, limit: LOADS_A_MINUTE, windowSeconds: 60, now: new Date() });
-  if (!allowed.allowed) {
-    return (
-      <main className="mx-auto max-w-md p-6">
-        <h1 className="text-3xl">{copy.app.tooManyTitle}</h1>
-        <p className="mt-3 text-lg text-paper/85">{copy.app.tooManyBody}</p>
-      </main>
-    );
-  }
+  const now = new Date();
+  const slow = (
+    <main className="mx-auto max-w-md p-6">
+      <h1 className="text-3xl">{copy.app.tooManyTitle}</h1>
+      <p className="mt-3 text-lg text-paper/85">{copy.app.tooManyBody}</p>
+    </main>
+  );
+  // One ceiling for the address before anyone is looked up, one for the member after.
+  // Every Add or Take brings this page back, so the ceilings are well above a member's own page's.
+  if (!(await addressMayUseInventory(db, await clientAddress(), now))) return slow;
   const member = await memberByPageKey(db, key);
   if (!member || !(await membersSeeInventory(db))) notFound();
+  if (!(await memberMayUseInventory(db, member.id, now))) return slow;
   const items = (await listInventory(db)).filter((item) => item.have);
   const groups = [...new Set(items.map((item) => item.category))];
   const c = copy.inventory;

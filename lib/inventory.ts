@@ -7,6 +7,7 @@ import { changeLog, inventoryItems, inventoryPhotos, members, settings, type Inv
 import { UserError } from './errors';
 import { STARTER_LIST } from './inventory-starter';
 import { logChange } from './log';
+import { hit } from './rate-limit';
 
 export const INVENTORY_CATEGORIES = [
   'Control system',
@@ -30,6 +31,10 @@ export const COUNT_MAX = 99_999;
 export const PHOTO_MAX_BYTES = 300_000;
 const PHOTO_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const MEMBERS_SEE = 'members_see_inventory';
+/** Page loads and changes from one address in a minute: enough for a whole room on one wifi. */
+export const ADDRESS_USES_A_MINUTE = 600;
+/** Page loads and changes by one member in a minute. A change is two: the change, then the page again. */
+export const MEMBER_USES_A_MINUTE = 120;
 
 export type InventoryRow = InventoryItem & { hasPhoto: boolean; photoVersion: number | null };
 
@@ -86,6 +91,8 @@ export async function addItem(
       .returning();
     if (!made) throw new UserError('inventoryNameTaken');
     await logChange(tx, { actorId, action: 'inventory.add', entity: 'inventory', entityId: made.id, detail: { name, category: input.category } });
+    // A count given with the new item is the first line of that item's count log.
+    if (count !== null) await noteCount(tx, actorId, 'inventory.count', made.id, { from: null, to: count });
     return made;
   });
 }
@@ -128,9 +135,11 @@ export async function changeCount(db: Db, id: string, amount: number, actorId: s
 
 /** "We don't have this" sets an item aside. It stays in the table and can be brought back. */
 export async function setHave(db: Db, id: string, have: boolean, actorId: string | null): Promise<void> {
-  const changed = await db.update(inventoryItems).set({ have }).where(eq(inventoryItems.id, id)).returning({ id: inventoryItems.id });
-  if (changed.length === 0) throw new UserError('inventoryMissing');
-  await logChange(db, { actorId, action: 'inventory.have', entity: 'inventory', entityId: id, detail: { have } });
+  await db.transaction(async (tx) => {
+    const changed = await tx.update(inventoryItems).set({ have }).where(eq(inventoryItems.id, id)).returning({ id: inventoryItems.id });
+    if (changed.length === 0) throw new UserError('inventoryMissing');
+    await logChange(tx, { actorId, action: 'inventory.have', entity: 'inventory', entityId: id, detail: { have } });
+  });
 }
 
 /** Keeps one photo for an item, in place of any it had. The picture itself is never logged. */
@@ -172,11 +181,28 @@ export async function membersSeeInventory(db: Db): Promise<boolean> {
 
 export async function setMembersSeeInventory(db: Db, on: boolean, actorId: string | null): Promise<void> {
   const value = on ? '1' : '0';
-  await db
-    .insert(settings)
-    .values({ key: MEMBERS_SEE, value })
-    .onConflictDoUpdate({ target: settings.key, set: { value, updatedAt: new Date() } });
-  await logChange(db, { actorId, action: 'inventory.members_see', entity: 'inventory', detail: { on } });
+  await db.transaction(async (tx) => {
+    await tx
+      .insert(settings)
+      .values({ key: MEMBERS_SEE, value })
+      .onConflictDoUpdate({ target: settings.key, set: { value, updatedAt: new Date() } });
+    await logChange(tx, { actorId, action: 'inventory.members_see', entity: 'inventory', detail: { on } });
+  });
+}
+
+/**
+ * The two ceilings on a member's use of the inventory. The first is asked
+ * before anyone is looked up, so a flood of wrong keys costs little; it is
+ * per address and high, because a whole team shares the workshop's wifi. The
+ * second is per member once they are known, so one person cannot use up the
+ * room's share.
+ */
+export async function addressMayUseInventory(db: Db, address: string, now: Date): Promise<boolean> {
+  return (await hit(db, { key: `inventory-ip:${address}`, limit: ADDRESS_USES_A_MINUTE, windowSeconds: 60, now })).allowed;
+}
+
+export async function memberMayUseInventory(db: Db, memberId: string, now: Date): Promise<boolean> {
+  return (await hit(db, { key: `inventory-member:${memberId}`, limit: MEMBER_USES_A_MINUTE, windowSeconds: 60, now })).allowed;
 }
 
 export type InventoryLogRow = {

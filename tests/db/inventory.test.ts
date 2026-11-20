@@ -5,11 +5,15 @@ import { changeLog, inventoryItems, type Member } from '@/lib/db/schema';
 import { UserError } from '@/lib/errors';
 import {
   addItem,
+  addressMayUseInventory,
+  ADDRESS_USES_A_MINUTE,
   addStarterList,
   changeCount,
   INVENTORY_CATEGORIES,
   inventoryLog,
   listInventory,
+  MEMBER_USES_A_MINUTE,
+  memberMayUseInventory,
   membersSeeInventory,
   PHOTO_MAX_BYTES,
   photoOf,
@@ -90,6 +94,32 @@ describe('inventory', () => {
     const { setActive } = await import('@/lib/members');
     await setActive(db, member.id, false, lead.id);
     await expect(changeCount(db, item.id, 1, member.id)).rejects.toThrow(UserError);
+  });
+
+  it('an item added with a count already has its first line in the log', async () => {
+    const db = getDb();
+    await addItem(db, { name: 'Logged from the start', category: 'Safety', count: 6 }, lead.id);
+    await addItem(db, { name: 'No count yet', category: 'Safety' }, lead.id);
+    const log = await inventoryLog(db, { limit: 50 });
+    expect(log.filter((row) => row.item === 'Logged from the start').map((row) => [row.who, row.change, row.from, row.to])).toEqual([['Test Lead', 'count', null, 6]]);
+    expect(log.filter((row) => row.item === 'No count yet')).toEqual([]);
+  });
+
+  it('a whole room on one wifi can use the inventory, and one person cannot use up the room\'s share', async () => {
+    const db = getDb();
+    const now = new Date('2026-11-20T18:00:00Z');
+    const one = await addMember(db, { firstName: 'Test', lastName: 'Member B' }, null);
+    const two = await addMember(db, { firstName: 'Test', lastName: 'Member C' }, null);
+    for (let i = 0; i < MEMBER_USES_A_MINUTE; i++) expect(await memberMayUseInventory(db, one.id, now)).toBe(true);
+    expect(await memberMayUseInventory(db, one.id, now)).toBe(false);
+    // The next person is not held up by the first, and a minute later the first is back.
+    expect(await memberMayUseInventory(db, two.id, now)).toBe(true);
+    expect(await memberMayUseInventory(db, one.id, new Date(now.getTime() + 61_000))).toBe(true);
+    // One address gets far more than one person does, and still has a ceiling.
+    expect(ADDRESS_USES_A_MINUTE).toBeGreaterThanOrEqual(MEMBER_USES_A_MINUTE * 5);
+    for (let i = 0; i < ADDRESS_USES_A_MINUTE; i++) expect(await addressMayUseInventory(db, '10.9.9.9', now)).toBe(true);
+    expect(await addressMayUseInventory(db, '10.9.9.9', now)).toBe(false);
+    expect(await addressMayUseInventory(db, '10.9.9.8', now)).toBe(true);
   });
 
   it('"we don\'t have this" sets an item aside and keeps it, and it can be brought back', async () => {

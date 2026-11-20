@@ -6,11 +6,8 @@ import { clientAddress } from '@/lib/auth/session';
 import { getDb } from '@/lib/db/client';
 import { errorKey, UserError } from '@/lib/errors';
 import { isUuid } from '@/lib/ids';
-import { changeCount, membersSeeInventory } from '@/lib/inventory';
+import { addressMayUseInventory, changeCount, memberMayUseInventory, membersSeeInventory } from '@/lib/inventory';
 import { memberByPageKey } from '@/lib/members';
-import { hit } from '@/lib/rate-limit';
-
-const CHANGES_A_MINUTE = 60;
 
 /**
  * A member adds to a count or takes from it. That is all a member can do
@@ -22,6 +19,9 @@ export async function memberCountAction(form: FormData): Promise<void> {
   const key = String(form.get('key') ?? '');
   const id = String(form.get('id') ?? '');
   const db = getDb();
+  const now = new Date();
+  // Asked before anyone is looked up, so wrong keys sent in a flood cost little.
+  if (!(await addressMayUseInventory(db, await clientAddress(), now))) redirect('/login');
   const member = await memberByPageKey(db, key);
   // A wrong key, or the inventory closed to members, gets the same answer as a page that is not there.
   if (!member || !(await membersSeeInventory(db))) redirect('/login');
@@ -29,8 +29,7 @@ export async function memberCountAction(form: FormData): Promise<void> {
   // Which group to show open again when the page comes back.
   const group = `g=${encodeURIComponent(String(form.get('group') ?? '').slice(0, 60))}`;
   try {
-    const allowed = await hit(db, { key: `inventory:${await clientAddress()}`, limit: CHANGES_A_MINUTE, windowSeconds: 60, now: new Date() });
-    if (!allowed.allowed) throw new UserError('generic');
+    if (!(await memberMayUseInventory(db, member.id, now))) throw new UserError('inventorySlow');
     if (!isUuid(id)) throw new UserError('inventoryMissing');
     const typed = String(form.get('amount') ?? '').trim();
     const amount = /^\d{1,6}$/.test(typed) ? Number(typed) : Number.NaN;
