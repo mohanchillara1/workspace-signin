@@ -39,6 +39,13 @@ export function plan(args: string[]): { pages: boolean; privateFiles: boolean; l
   return { pages, privateFiles: pages && !has('no-private'), loop: has('loop') || has('loop-only') };
 }
 
+/** "1 address in 2 counts". The rate-limit table holds one row per time window, so rows are not addresses. */
+export function addressSummary(addresses: string[]): string {
+  const distinct = new Set(addresses).size;
+  const rows = addresses.length;
+  return `${distinct} ${distinct === 1 ? 'address' : 'addresses'} in ${rows} ${rows === 1 ? 'count' : 'counts'}`;
+}
+
 /** The last line of a run. A run in which nothing was checked is not a pass. */
 export function verdict(ran: number, failed: number): { ok: boolean; text: string } {
   if (ran === 0) return { ok: false, text: 'No check ran, so nothing was shown' };

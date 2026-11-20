@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { acceptInvite, checkLogin, createInvite, leadByLoginName, leadForSession } from '@/lib/auth/leads';
-import { leadLogins, type Member } from '@/lib/db/schema';
+import { leadLogins, rateHits, type Member } from '@/lib/db/schema';
 import { addMember, setActive, updateMember } from '@/lib/members';
 import { useTestDb } from '../setup/db';
 
@@ -125,5 +125,15 @@ describe('lead logins', () => {
     expect(await leadByLoginName(db, 'nobody-here')).toBeNull();
     await updateMember(db, other.id, { role: 'member' }, captain.id);
     expect(await leadByLoginName(db, 'finder')).toBeNull();
+  });
+
+  it('does not keep what was typed in the login-name box in the rate-limit table', async () => {
+    // People type their own name there by mistake. The count needs a key per name, not the name.
+    const db = getDb();
+    const typed = 'zz-typed-by-mistake';
+    await checkLogin(db, { loginName: typed, password: 'wrong password', ip: '10.9.0.1', now: later(300) });
+    const keys = (await db.select({ key: rateHits.key }).from(rateHits)).map((row) => row.key);
+    expect(keys.some((key) => key.startsWith('login-name:'))).toBe(true);
+    expect(keys.filter((key) => key.includes(typed))).toEqual([]);
   });
 });

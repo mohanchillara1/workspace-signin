@@ -26,7 +26,7 @@ import { assignments, attendance, kiosks, members, rateHits, submissions, tasks 
 import { isTestCopy } from '../lib/test-copy';
 import { writeQrVideo } from '../tests/e2e/fake-camera';
 import { databaseUrl, describeDatabase, isLocal } from './env';
-import { isChallenge, isLoginWall, isOurAnswer, plan, verdict } from './live-rules';
+import { addressSummary, isChallenge, isLoginWall, isOurAnswer, plan, verdict } from './live-rules';
 
 const args = process.argv.slice(2);
 const base = new URL(args.find((a) => !a.startsWith('--')) ?? '').origin;
@@ -267,7 +267,7 @@ async function loop(shots: string | undefined) {
       const keys = (await db.select({ key: rateHits.key }).from(rateHits).where(like(rateHits.key, 'member-page:%'))).map((row) => row.key.slice('member-page:'.length));
       const real = keys.filter((address) => address !== forged);
       check(!keys.includes(forged), 'a made-up forwarding header does not change which address a rate limit counts');
-      check(real.length > 0 && real.every((address) => isIP(address) !== 0 && !/^(10\.|127\.|192\.168\.|169\.254\.|::1$|fc|fd)/.test(address)), 'the address the rate limit counts is a public one, as the host reports it', `${keys.length} address(es) counted, IPv${real.map((a) => isIP(a)).join('/')}`);
+      check(real.length > 0 && real.every((address) => isIP(address) !== 0 && !/^(10\.|127\.|192\.168\.|169\.254\.|::1$|fc|fd)/.test(address)), 'the address the rate limit counts is a public one, as the host reports it', `${addressSummary(real)}, IPv${[...new Set(real.map((a) => isIP(a)))].join('/')}`);
 
       // Leave nothing paired behind.
       await lead.goto('/dashboard/kiosk');

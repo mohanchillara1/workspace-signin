@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isChallenge, isLoginWall, isOurAnswer, plan, verdict } from '@/scripts/live-rules';
+import { addressSummary, isChallenge, isLoginWall, isOurAnswer, plan, verdict } from '@/scripts/live-rules';
 
 const h = (init: Record<string, string>) => new Headers(init);
 const ours = { 'x-robots-tag': 'noindex, nofollow' };
@@ -56,5 +56,13 @@ describe('what the live check says at the end', () => {
   });
   it('a run in which nothing was checked is not a pass', () => {
     expect(verdict(0, 0)).toEqual({ ok: false, text: 'No check ran, so nothing was shown' });
+  });
+});
+
+describe('how the live check words the addresses a rate limit counted', () => {
+  it('counts addresses, not rows: the table holds one row per time window', () => {
+    expect(addressSummary(['198.51.100.7', '198.51.100.7'])).toBe('1 address in 2 counts');
+    expect(addressSummary(['198.51.100.7', '198.51.100.8', '198.51.100.7'])).toBe('2 addresses in 3 counts');
+    expect(addressSummary(['198.51.100.7'])).toBe('1 address in 1 count');
   });
 });
