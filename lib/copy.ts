@@ -33,6 +33,9 @@ export const copy = {
   // its full stop there, so none ends in one (except the last, shown alone).
   errors: {
     generic: 'Something went wrong. Try again',
+    memberLoginName: 'Use 3 to 32 lowercase letters, numbers, dots, dashes or underscores for the login name',
+    memberLoginPassword: 'Use a password of 10 characters or more',
+    memberLoginTaken: 'That login name is taken. Pick another',
     taskTitle: 'Fill in what needs doing',
     taskTitleLong: 'Shorten "What needs doing" to 120 characters or fewer',
     taskDescriptionLong: 'Shorten the detail to 2,000 characters or fewer',
@@ -118,13 +121,14 @@ export const copy = {
   },
 
   login: {
-    title: 'Lead login',
+    title: 'Log in',
+    subtitle: 'Members and leads log in here. Members go to their own page; leads go to the dashboard.',
     name: 'Login name',
     password: 'Password',
     submit: 'Log in',
     wrong: "That login name and password don't match.",
     locked: 'Too many wrong tries. Wait 15 minutes, then try again.',
-    help: 'Lost your password? Ask a captain for a new invite link.',
+    help: 'Lost your password? Members ask a lead; leads ask a captain for a new invite link.',
   },
 
   invite: {
@@ -276,6 +280,11 @@ export const copy = {
     listTitle: (n: number) => `Everyone (${n})`,
     inactive: 'Inactive',
     hasLogin: 'Has a login',
+    memberLoginChip: (name: string) => `Logs in as ${name}`,
+    memberLoginTitle: 'Member login',
+    memberLoginHelp: 'Give this member a login name and a password. Logging in opens their own page: their QR code and their tasks.',
+    memberLoginName: 'Login name',
+    memberLoginPassword: 'New password (10+ characters)',
     copyLink: 'Copy page link',
     copied: 'Copied',
     newCode: 'New QR code',

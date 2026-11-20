@@ -13,7 +13,8 @@ export default async function LoginPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-10">
       <Image src="/wordmark.png" alt={copy.app.title} width={380} height={115} priority className="mb-4 h-10 w-auto self-start" />
-      <h1 className="mb-6 mt-1 text-5xl">{copy.login.title}</h1>
+      <h1 className="mb-2 mt-1 text-5xl">{copy.login.title}</h1>
+      <p className="mb-6 text-base opacity-80">{copy.login.subtitle}</p>
       <LoginForm />
     </main>
   );

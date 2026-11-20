@@ -26,6 +26,7 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['@node-rs/argon2', 'pg', 'embedded-postgres'],
   turbopack: { root: process.cwd() },
   poweredByHeader: false,
+  allowedDevOrigins: ['127.0.0.1', 'localhost'],
   async headers() {
     return [
       {
@@ -34,7 +35,7 @@ const nextConfig: NextConfig = {
           // Nothing in this app belongs in a search engine.
           { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
           { key: 'Permissions-Policy', value: 'camera=(self)' },
-          { key: 'Referrer-Policy', value: 'no-referrer' },
+          { key: 'Referrer-Policy', value: 'same-origin' },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
           // Browsers act on this only when the page came over https.

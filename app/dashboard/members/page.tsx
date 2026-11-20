@@ -3,11 +3,13 @@ import {
   addMemberAction,
   addSubteamAction,
   editMemberAction,
+  setMemberLoginAction,
   memberRowAction,
   removeSubteamAction,
   rosterAction,
 } from '@/app/dashboard/members/actions';
 import { CopyLink, InviteButton } from '@/components/dashboard/MemberBits';
+import { memberLoginNames } from '@/lib/auth/member-logins';
 import { requireLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
 import { getDb } from '@/lib/db/client';
@@ -24,7 +26,7 @@ export default async function MembersPage({
   const lead = await requireLead();
   const query = await searchParams;
   const db = getDb();
-  const [members, subteams] = await Promise.all([listMembers(db), listSubteams(db)]);
+  const [members, subteams, memberLogins] = await Promise.all([listMembers(db), listSubteams(db), memberLoginNames(db)]);
   const c = copy.members;
   const captain = lead.role === 'captain';
   const roleLabel = { member: c.roleMember, lead: c.roleLead, captain: c.roleCaptain };
@@ -140,6 +142,7 @@ export default async function MembersPage({
                 <p className="flex flex-wrap items-center gap-2">
                   {m.role !== 'member' && <span className="chip !bg-arcade-sky">{roleLabel[m.role]}</span>}
                   {m.hasLogin && <span className="chip">{c.hasLogin}</span>}
+                  {memberLogins.has(m.id) && <span className="chip">{c.memberLoginChip(memberLogins.get(m.id)!)}</span>}
                   {!m.active && <span className="chip !border-arcade-bumper !bg-arcade-bumper !text-paper">{c.inactive}</span>}
                 </p>
               </div>
@@ -173,6 +176,18 @@ export default async function MembersPage({
                     ) : (
                       <span />
                     )}
+                    <button type="submit" className="btn-small">{c.save}</button>
+                  </form>
+                </details>
+              )}
+              {mine && m.active && m.role === 'member' && (
+                <details className="mt-3">
+                  <summary className="cursor-pointer text-sm font-bold underline underline-offset-4">{c.memberLoginTitle}</summary>
+                  <p className="mt-2 text-sm text-paper/70">{c.memberLoginHelp}</p>
+                  <form action={setMemberLoginAction} className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+                    <input type="hidden" name="id" value={m.id} />
+                    <input name="loginName" aria-label={`${c.memberLoginName}: ${fullName}`} placeholder={c.memberLoginName} className="field" defaultValue={memberLogins.get(m.id) ?? ''} maxLength={32} required />
+                    <input name="password" type="password" aria-label={`${c.memberLoginPassword}: ${fullName}`} placeholder={c.memberLoginPassword} className="field" minLength={10} maxLength={200} required autoComplete="new-password" />
                     <button type="submit" className="btn-small">{c.save}</button>
                   </form>
                 </details>

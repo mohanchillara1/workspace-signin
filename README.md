@@ -14,11 +14,21 @@ You need Node 22. Nothing else: the database is a real Postgres that npm downloa
 npm install
 cp .env.example .env.local      # then put 32+ random characters in SESSION_SECRET
 npm run db                      # terminal 1: the local Postgres, leave it open
-npm run seed                    # terminal 2, once: made-up people and tasks; prints a lead login
+npm run seed                    # terminal 2, once: made-up people, tasks and check-ins
 npm run dev                     # http://127.0.0.1:4320
 ```
 
-- Lead dashboard: `/login`, with the login the seed printed.
+Test logins on your machine (the seed makes the same ones for everyone, with made-up names):
+
+| Who | Login name | Password | Opens |
+|---|---|---|---|
+| Lead (captain) | `testcaptain` | `test-captain-pass` | The dashboard |
+| Member (Test Member A) | `testmember` | `test-member-pass` | Their own page: QR code and tasks |
+
+Both log in at `/login`. A hosted copy never gets these passwords.
+
+- Lead dashboard: `/login`, as `testcaptain`.
+- A member: `/login`, as `testmember`. A lead gives any member a login on Members → "Member login".
 - Kiosk: log in, open Kiosk, choose "Make this the kiosk". The scan page is `/kiosk`.
 - A member's page: the seed prints one link. Leads copy the rest from Members.
 

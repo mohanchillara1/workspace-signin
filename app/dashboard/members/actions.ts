@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createInvite } from '@/lib/auth/leads';
+import { setMemberLogin } from '@/lib/auth/member-logins';
 import { isHttps, requireLead } from '@/lib/auth/session';
 import { getDb } from '@/lib/db/client';
 import { errorKey, errorText, UserError } from '@/lib/errors';
@@ -155,4 +156,26 @@ export async function makeInvite(_previous: InviteLinkState, form: FormData): Pr
   } catch (error) {
     return { problem: errorText(errorKey(error)) };
   }
+}
+
+export async function setMemberLoginAction(form: FormData): Promise<void> {
+  const lead = await requireLead();
+  const db = getDb();
+  const id = form.get('id');
+  try {
+    if (!isUuid(id)) throw new UserError('generic');
+    const target = await assertMayManage(db, lead.id, id, 'edit');
+    if (target.role !== 'member') throw new UserError('generic');
+    await setMemberLogin(db, {
+      memberId: target.id,
+      loginName: text(form, 'loginName'),
+      password: text(form, 'password'),
+      actorId: lead.id,
+      now: new Date(),
+    });
+  } catch (error) {
+    refused(error);
+  }
+  revalidatePath('/dashboard/members');
+  redirect('/dashboard/members');
 }
