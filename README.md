@@ -8,7 +8,7 @@ To work on it, read `CONTRIBUTING.md`.
 
 ## Run it
 
-You need Node 22. Nothing else: the database is a real Postgres that npm downloads and the app starts by itself. So far it has only been run on Linux (Ubuntu under WSL2).
+You need Node 22. Nothing else: the database is a real Postgres that npm downloads and the app starts by itself. It has been run on Linux (Ubuntu under WSL2) and on macOS (with Node 24 too).
 
 ```bash
 npm install
@@ -43,7 +43,7 @@ npm run screenshots -- some/folder   # after a build: every screen, with checks
 npm run review -- 4320 signin        # after a build: a copy to click through, with the test feed on
 ```
 
-The browser tests use the system Chrome at `/usr/bin/google-chrome`. If yours is somewhere else, set `CHROME` to its path.
+The browser tests use the system Chrome at `/usr/bin/google-chrome`. If yours is somewhere else, set `CHROME` to its path. On a Mac: `CHROME="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" npm run test:e2e`.
 
 One browser test plays a video of a QR code as Chrome's camera, so the camera and the decoder do the reading. The rest feed the kiosk a code through a test-only door (`KIOSK_TEST_FEED=1`), which the app refuses in production.
 

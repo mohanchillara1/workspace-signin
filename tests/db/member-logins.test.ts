@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import { acceptInvite, checkLogin, createInvite } from '@/lib/auth/leads';
-import { checkMemberLogin, setMemberLogin } from '@/lib/auth/member-logins';
+import { checkMemberLogin, logInAnyone, setMemberLogin } from '@/lib/auth/member-logins';
 import type { Member } from '@/lib/db/schema';
 import { addMember, setActive } from '@/lib/members';
 import { useTestDb } from '../setup/db';
@@ -44,5 +44,42 @@ describe('member logins', () => {
     const db = getDb();
     await setActive(db, member.id, false, captain.id);
     expect(await checkMemberLogin(db, { loginName: 'membera', password: 'member pass 1' })).toBeNull();
+  });
+});
+
+describe('member logins and the wrong-try limits', () => {
+  const getDb = useTestDb();
+  let member: Member;
+  const pass = 'member pass 1';
+
+  beforeAll(async () => {
+    const db = getDb();
+    const captain = await addMember(db, { firstName: 'Test', lastName: 'Captain', role: 'captain' }, null);
+    member = await addMember(db, { firstName: 'Test', lastName: 'Member C' }, captain.id);
+    await setMemberLogin(db, { memberId: member.id, loginName: 'memberc', password: pass, actorId: captain.id, now: NOW });
+  });
+
+  it('does not lock a member out for logging in correctly many times', async () => {
+    const db = getDb();
+    for (let i = 0; i < 8; i++) {
+      const result = await logInAnyone(db, { loginName: 'memberc', password: pass, ip: 'phone', now: NOW });
+      expect(result).toEqual({ ok: true, kind: 'member', pageKey: member.pageKey });
+    }
+  });
+
+  it('does not lock a shared wifi address after many correct member logins', async () => {
+    const db = getDb();
+    for (let i = 0; i < 25; i++) {
+      const result = await logInAnyone(db, { loginName: 'memberc', password: pass, ip: 'team-wifi', now: NOW });
+      expect(result.ok).toBe(true);
+    }
+  });
+
+  it('still locks a member name after five wrong passwords', async () => {
+    const db = getDb();
+    for (let i = 0; i < 5; i++) {
+      expect(await logInAnyone(db, { loginName: 'memberc', password: 'wrong pass 11', ip: 'x', now: NOW })).toEqual({ ok: false, reason: 'wrong' });
+    }
+    expect(await logInAnyone(db, { loginName: 'memberc', password: pass, ip: 'x', now: NOW })).toEqual({ ok: false, reason: 'locked' });
   });
 });

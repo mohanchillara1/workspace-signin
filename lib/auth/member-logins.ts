@@ -5,7 +5,7 @@ import type { Db } from '../db/client';
 import { leadLogins, memberLogins, members } from '../db/schema';
 import { UserError } from '../errors';
 import { logChange } from '../log';
-import { LOGIN_NAME_PATTERN, normalLoginName } from './leads';
+import { checkLogin, forgiveLoginTries, LOGIN_NAME_PATTERN, normalLoginName } from './leads';
 import { hashPassword, PASSWORD_MAX, PASSWORD_MIN, verifyPassword } from './password';
 
 /** Sets (or replaces) a member's login. Login names are unique across leads and members. */
@@ -48,4 +48,28 @@ export async function checkMemberLogin(db: Db, input: { loginName: string; passw
 export async function memberLoginNames(db: Db): Promise<Map<string, string>> {
   const rows = await db.select({ memberId: memberLogins.memberId, loginName: memberLogins.loginName }).from(memberLogins);
   return new Map(rows.map((r) => [r.memberId, r.loginName]));
+}
+
+export type AnyLoginResult =
+  | { ok: true; kind: 'lead'; memberId: string; version: number }
+  | { ok: true; kind: 'member'; pageKey: string }
+  | { ok: false; reason: 'wrong' | 'locked' };
+
+/**
+ * The login form: a lead, or else a member. checkLogin counts every try
+ * against the name and the address before it looks at the password, so a
+ * correct member password must give those tries back too, or members and
+ * everyone on the same wifi get locked out for logging in correctly.
+ */
+export async function logInAnyone(
+  db: Db,
+  input: { loginName: string; password: string; ip: string; now: Date },
+): Promise<AnyLoginResult> {
+  const lead = await checkLogin(db, input);
+  if (lead.ok) return { ok: true, kind: 'lead', memberId: lead.memberId, version: lead.version };
+  if (lead.reason === 'locked') return lead;
+  const pageKey = await checkMemberLogin(db, input);
+  if (!pageKey) return { ok: false, reason: 'wrong' };
+  await forgiveLoginTries(db, input);
+  return { ok: true, kind: 'member', pageKey };
 }
