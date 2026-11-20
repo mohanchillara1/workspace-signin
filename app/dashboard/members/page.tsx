@@ -6,6 +6,7 @@ import {
   memberRowAction,
   removeSubteamAction,
   rosterAction,
+  setSlackIdAction,
 } from '@/app/dashboard/members/actions';
 import { CopyLink, InviteButton } from '@/components/dashboard/MemberBits';
 import { requireLead } from '@/lib/auth/session';
@@ -19,7 +20,7 @@ export const dynamic = 'force-dynamic';
 export default async function MembersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ added?: string; skipped?: string; already?: string; problem?: string }>;
+  searchParams: Promise<{ added?: string; skipped?: string; already?: string; problem?: string; slack?: string }>;
 }) {
   const lead = await requireLead();
   const query = await searchParams;
@@ -37,6 +38,13 @@ export default async function MembersPage({
       ))}
     </>
   );
+  const sc = copy.slack;
+  const slackNotes: Record<string, { text: string; bad: boolean }> = {
+    saved: { text: sc.idSaved, bad: false },
+    cleared: { text: sc.idCleared, bad: false },
+    shape: { text: sc.idBadShape, bad: true },
+    taken: { text: sc.idTaken, bad: true },
+  };
   const roleOptions = (['member', 'lead', 'captain'] as const).map((role) => (
     <option key={role} value={role}>{roleLabel[role]}</option>
   ));
@@ -51,6 +59,11 @@ export default async function MembersPage({
       {query.problem && (
         <p role="alert" className="mt-5 inline-block rounded-xl border-2 border-ink bg-arcade-fuel px-4 py-2 font-bold text-ink">
           {c.problem(errorText(query.problem))}
+        </p>
+      )}
+      {query.slack && Object.hasOwn(slackNotes, query.slack) && (
+        <p role={slackNotes[query.slack].bad ? 'alert' : 'status'} className={`mt-5 inline-block rounded-xl border-2 border-ink px-4 py-2 font-bold text-ink ${slackNotes[query.slack].bad ? 'bg-arcade-fuel' : 'bg-arcade-mint'}`}>
+          {slackNotes[query.slack].text}
         </p>
       )}
       {query.added !== undefined && (
@@ -139,6 +152,7 @@ export default async function MembersPage({
                 </p>
                 <p className="flex flex-wrap items-center gap-2">
                   {m.role !== 'member' && <span className="chip !bg-arcade-sky">{roleLabel[m.role]}</span>}
+                  {m.slackUserId && <span className="chip">{sc.linkedChip}</span>}
                   {m.hasLogin && <span className="chip">{c.hasLogin}</span>}
                   {!m.active && <span className="chip !border-arcade-bumper !bg-arcade-bumper !text-paper">{c.inactive}</span>}
                 </p>
@@ -174,6 +188,15 @@ export default async function MembersPage({
                       <span />
                     )}
                     <button type="submit" className="btn-small">{c.save}</button>
+                  </form>
+                  <form action={setSlackIdAction} className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,16rem)_auto] sm:items-end">
+                    <input type="hidden" name="id" value={m.id} />
+                    <div>
+                      <label className="label !text-paper" htmlFor={`slack-${m.id}`}>{sc.idLabel}</label>
+                      <input id={`slack-${m.id}`} name="slackUserId" className="field" defaultValue={m.slackUserId ?? ''} maxLength={30} autoComplete="off" spellCheck={false} />
+                    </div>
+                    <button type="submit" className="btn-small">{sc.idSave}</button>
+                    <p className="text-sm text-paper/70 sm:col-span-2">{sc.idHelp}</p>
                   </form>
                 </details>
               )}
