@@ -213,3 +213,22 @@ export async function endSession(db: Db, sid: string | undefined): Promise<void>
     await db.delete(endedSessions).where(lt(endedSessions.endedAt, new Date(Date.now() - (SESSION_DAYS + 1) * 86_400_000)));
   }
 }
+
+/**
+ * Makes a member a lead or captain and gives them a login name and password in
+ * one step, with no invite link. For setting up the team's admins from the
+ * command line (scripts/set-login.ts). Ends any session they already had.
+ */
+export async function setLeadLogin(
+  db: Db,
+  input: { memberId: string; role: 'lead' | 'captain'; loginName: string; password: string; now: Date },
+): Promise<AcceptResult> {
+  const [member] = await db.select().from(members).where(eq(members.id, input.memberId));
+  if (!member || !member.active) return { ok: false, reason: 'bad_link' };
+  if (member.role !== input.role) {
+    await db.update(members).set({ role: input.role }).where(eq(members.id, member.id));
+    await logChange(db, { actorId: null, action: 'member.role', entity: 'member', entityId: member.id, detail: { role: input.role } });
+  }
+  const token = await createInvite(db, { memberId: member.id, actorId: null, now: input.now, bootstrap: true });
+  return acceptInvite(db, { token, loginName: input.loginName, password: input.password, now: input.now });
+}

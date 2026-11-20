@@ -113,6 +113,14 @@ DATABASE_URL=... npm run invite-captain -- "First" "Last"
 
 The second command prints a one-time path where the first captain sets a password. Every other lead gets an invite link from a captain, on the Members screen.
 
+To give admins a password yourself instead of sending invite links, add them to the roster first (Members, then Paste a roster), then for each one:
+
+```bash
+DATABASE_URL=... npm run set-login -- "First" "Last" --role captain --login first
+```
+
+`--role` is `lead` or `captain`. It asks for the password (5 characters or more), so it never lands in a file or your shell history. Running it again changes the password.
+
 ## A test copy on a host
 
 A copy that holds made-up names only is run with `TEST_COPY=1`. The dashboard and the kiosk then show a "Test copy" tag, so nobody types a real roster into it. `npm run seed` fills a hosted database only when that switch is on, and prints no password there: a captain gets in with `npm run invite-captain -- --login testcaptain`. `scripts/live-check.ts` checks a hosted copy from the outside. Send it few requests: a burst at private-looking paths makes a host treat you as a scanner.
