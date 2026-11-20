@@ -12,6 +12,7 @@ import {
   timestamp,
   uniqueIndex,
   uuid,
+  type AnyPgColumn,
 } from 'drizzle-orm/pg-core';
 
 export const roleEnum = pgEnum('role', ['member', 'lead', 'captain']);
@@ -40,6 +41,9 @@ const at = (name: string) => timestamp(name, { withTimezone: true });
 export const subteams = pgTable('subteams', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull().unique(),
+  // The subteam this one is part of (Assembly is part of Mech + Electrical).
+  // One level only: a subteam that is part of another has none under it.
+  parentId: uuid('parent_id').references((): AnyPgColumn => subteams.id),
   createdAt: at('created_at').notNull().defaultNow(),
 });
 
@@ -48,7 +52,9 @@ export const members = pgTable('members', {
   id: uuid('id').primaryKey().defaultRandom(),
   firstName: text('first_name').notNull(),
   lastName: text('last_name').notNull().default(''),
-  subteamId: uuid('subteam_id').references(() => subteams.id, { onDelete: 'set null' }),
+  // From when a person had one subteam. Nothing reads it now: member_subteams
+  // is the record. It stays so a build from before that change still runs.
+  oldSubteamId: uuid('subteam_id').references(() => subteams.id, { onDelete: 'set null' }),
   role: roleEnum('role').notNull().default('member'),
   active: boolean('active').notNull().default(true),
   scanCode: text('scan_code').notNull().unique(),
@@ -63,6 +69,17 @@ export const members = pgTable('members', {
   // on the team before the app was.
   countsFrom: date('counts_from', { mode: 'string' }),
 });
+
+// Which subteams a person is in. Any number, or none.
+export const memberSubteams = pgTable(
+  'member_subteams',
+  {
+    memberId: uuid('member_id').notNull().references(() => members.id),
+    subteamId: uuid('subteam_id').notNull().references(() => subteams.id),
+    addedAt: at('added_at').notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.memberId, t.subteamId] }), index('member_subteams_subteam').on(t.subteamId)],
+);
 
 export const kiosks = pgTable('kiosks', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -126,7 +143,7 @@ export const tasks = pgTable('tasks', {
 // One row per hand-out of a task. Each has its own state.
 //   person task          one row per named member
 //   subteam task, once   one row with subteam_id and no member
-//   subteam task, each   one row per member of the subteam
+//   subteam task, each   one row per member of the subteam or of one under it
 //   pool task            one row with no member until someone claims it
 //   standing pool task   no row until someone claims or finishes it that day;
 //                        then one row per day (day is set)

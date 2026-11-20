@@ -44,7 +44,7 @@ test('a lead adds a member and tasks, sees who is here, corrects by hand, export
   await page.goto('/dashboard/members');
   await page.getByLabel(copy.members.firstName, { exact: true }).fill('Dash');
   await page.getByLabel(copy.members.lastName, { exact: true }).fill('Board');
-  await page.getByLabel(copy.members.subteam, { exact: true }).selectOption({ label: 'Build' });
+  await page.getByRole('group', { name: copy.members.subteams }).getByLabel('Build', { exact: true }).check();
   await page.getByRole('button', { name: copy.members.add }).click();
   await expect(page.locator('[data-member-name="Dash Board"]')).toBeVisible();
   const dash = await memberNamed('Dash', 'Board');

@@ -5,6 +5,7 @@ import { isDay } from './day';
 import { UserError } from './errors';
 import { logChange } from './log';
 import { shortName } from './names';
+import { membershipOf, memberships, peopleReached, subteamLine } from './subteams';
 
 export type TaskInput = {
   title: string;
@@ -127,7 +128,7 @@ const isSettled = (row: Assignment) => (SETTLED as readonly string[]).includes(r
  * Makes a published task's hand-outs match what the task now says.
  *
  * It closes live hand-outs that no longer belong (a person taken off the
- * task, a member who left the subteam) and adds the missing ones. Finished
+ * task, a member the subteam no longer reaches) and adds the missing ones. Finished
  * hand-outs are never touched, and nobody gets a second copy of something
  * they finished. With `fresh`, who the task is for has changed shape (a
  * different subteam, pool instead of people, and so on): everything live
@@ -161,15 +162,8 @@ async function reconcile(tx: Db, task: Task, options: { fresh: boolean }): Promi
       const awayIds = new Set(away.map((p) => p.id));
       wanted = wanted.filter((id) => !awayIds.has(id));
     }
-    if (task.audience === 'subteam') {
-      const people = task.subteamId
-        ? await tx
-            .select({ id: members.id })
-            .from(members)
-            .where(and(eq(members.subteamId, task.subteamId), eq(members.active, true)))
-        : [];
-      wanted = people.map((p) => p.id);
-    }
+    // Everyone in the subteam or in one that is part of it, each person once.
+    if (task.audience === 'subteam') wanted = task.subteamId ? await peopleReached(tx, task.subteamId) : [];
     const wantedSet = new Set(wanted);
     const have = new Set<string>();
     if (!options.fresh) {
@@ -264,10 +258,11 @@ export async function closeTask(db: Db, taskId: string, actorId: string | null):
 }
 
 /**
- * Brings one member's hand-outs in line after they are added, moved to
- * another subteam, deactivated or reactivated: they get their subteam's
- * "everyone does their own" tasks, lose the old subteam's, and a pool task
- * held by someone who was deactivated goes back to the pool.
+ * Brings one member's hand-outs in line after they are added, put in or taken
+ * out of a subteam, deactivated or reactivated: they get the "everyone does
+ * their own" tasks of each subteam that reaches them, lose the ones that no
+ * longer do, and a pool task held by someone who was deactivated goes back to
+ * the pool.
  */
 export async function syncMember(db: Db, memberId: string): Promise<void> {
   await db.transaction(async (tx) => {
@@ -303,6 +298,7 @@ export async function syncMember(db: Db, memberId: string): Promise<void> {
       const task = await lockTask(tx, id);
       if (task && task.state === 'published') await reconcile(tx, task, { fresh: false });
     }
+    const { reach } = await membershipOf(tx, memberId);
     const each = await tx
       .select()
       .from(tasks)
@@ -313,7 +309,7 @@ export async function syncMember(db: Db, memberId: string): Promise<void> {
         .select()
         .from(assignments)
         .where(and(eq(assignments.taskId, task.id), eq(assignments.memberId, memberId)));
-      const belongs = member.active && member.subteamId !== null && member.subteamId === task.subteamId;
+      const belongs = member.active && task.subteamId !== null && reach.has(task.subteamId);
       if (belongs) {
         if (!mine.some((r) => isLive(r) || isSettled(r))) {
           await tx.insert(assignments).values({ taskId: task.id, memberId });
@@ -364,14 +360,15 @@ const GROUP_ORDER = { yours: 0, subteam: 1, pool: 2 } as const;
 
 /**
  * Everything a member could work on today: their own first, then their
- * subteam's, then the open pool. Soonest due day first inside each group.
+ * subteams', then the open pool. Soonest due day first inside each group.
  */
 export async function openFor(db: Db, memberId: string, today: string): Promise<Handout[]> {
   const [member] = await db.select().from(members).where(eq(members.id, memberId));
   if (!member) return [];
   const mine = eq(assignments.memberId, memberId);
-  const myTeams = member.subteamId
-    ? and(isNull(assignments.memberId), eq(assignments.subteamId, member.subteamId))
+  const { reach } = await membershipOf(db, memberId);
+  const myTeams = reach.size
+    ? and(isNull(assignments.memberId), inArray(assignments.subteamId, [...reach]))
     : sql`false`;
   const unclaimedPool = and(isNull(assignments.memberId), isNull(assignments.subteamId), eq(tasks.audience, 'pool'));
   const rows = await db
@@ -516,10 +513,10 @@ export async function giveBack(
   return { ok: await unclaim(db, found.row, found.task) };
 }
 
-/** May this member act on this hand-out? */
-function isFor(row: Assignment, task: Task, member: { id: string; subteamId: string | null }): boolean {
-  if (row.memberId) return row.memberId === member.id;
-  if (row.subteamId) return row.subteamId === member.subteamId;
+/** May this member act on this hand-out? `reach` is the subteams whose tasks are theirs. */
+function isFor(row: Assignment, task: Task, memberId: string, reach: Set<string>): boolean {
+  if (row.memberId) return row.memberId === memberId;
+  if (row.subteamId) return reach.has(row.subteamId);
   return task.audience === 'pool';
 }
 
@@ -582,7 +579,7 @@ export async function finishHandout(
     .select()
     .from(assignments)
     .where(and(eq(assignments.id, input.assignmentId), eq(assignments.taskId, task.id)));
-  if (!row || !isFor(row, task, member)) return { ok: false };
+  if (!row || !isFor(row, task, member.id, (await membershipOf(tx, member.id)).reach)) return { ok: false };
   const changed = await tx
     .update(assignments)
     .set({ ...finish, memberId: row.memberId ?? (task.audience === 'pool' ? member.id : null) })
@@ -640,10 +637,10 @@ export async function setStepsDone(
     .innerJoin(tasks, eq(assignments.taskId, tasks.id))
     .where(eq(assignments.id, input.assignmentId));
   if (!member || !found) return { ok: false };
-  // Ticks are kept only on a hand-out that is this member's or their subteam's.
+  // Ticks are kept only on a hand-out that is this member's or one of their subteams'.
   const theirs =
     found.row.memberId === member.id ||
-    (!found.row.memberId && found.row.subteamId !== null && found.row.subteamId === member.subteamId);
+    (!found.row.memberId && found.row.subteamId !== null && (await membershipOf(db, member.id)).reach.has(found.row.subteamId));
   if (!theirs || !isLive(found.row)) return { ok: false };
   const count = found.task.steps.length;
   const stepsDone = [...new Set(input.stepsDone.filter((i) => Number.isInteger(i) && i >= 0 && i < count))].sort(
@@ -703,7 +700,7 @@ export async function finished(db: Db, options: { limit: number }): Promise<Fini
   }));
 }
 
-/** Active members with no open task of their own or their subteam's. */
+/** Active members with no open task of their own or from a subteam that reaches them. */
 export async function membersWithNothing(
   db: Db,
   today: string,
@@ -721,15 +718,11 @@ export async function membersWithNothing(
     );
   const busyMembers = new Set(live.map((r) => r.memberId).filter(Boolean));
   const busySubteams = new Set(live.filter((r) => !r.memberId && r.subteamId).map((r) => r.subteamId));
-  const people = await db
-    .select({ member: members, subteam: subteams.name })
-    .from(members)
-    .leftJoin(subteams, eq(members.subteamId, subteams.id))
-    .where(eq(members.active, true))
-    .orderBy(members.firstName, members.lastName);
+  const people = await db.select().from(members).where(eq(members.active, true)).orderBy(members.firstName, members.lastName);
+  const teams = await memberships(db);
   return people
-    .filter((p) => !busyMembers.has(p.member.id) && !(p.member.subteamId && busySubteams.has(p.member.subteamId)))
-    .map((p) => ({ memberId: p.member.id, name: shortName(p.member.firstName, p.member.lastName), subteam: p.subteam }));
+    .filter((p) => !busyMembers.has(p.id) && ![...(teams.get(p.id)?.reach ?? [])].some((id) => busySubteams.has(id)))
+    .map((p) => ({ memberId: p.id, name: shortName(p.firstName, p.lastName), subteam: subteamLine(teams.get(p.id)) }));
 }
 
 export type TaskListRow = Task & {

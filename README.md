@@ -57,7 +57,8 @@ One browser test plays a video of a QR code as Chrome's camera, so the camera an
 | `lib/submit.ts` | A member sends work in, with a note and a link; where each piece stands. |
 | `lib/review.ts` | The leads' review queue: approve, or send back with a comment. |
 | `lib/step-drafts.ts` | "Draft steps": the request to the AI service, the stand-in, and the cleaning of what comes back. |
-| `lib/members.ts` | Members, scan codes, page links, roster paste. |
+| `lib/members.ts` | Members, scan codes, page links, roster paste, subteams. |
+| `lib/subteams.ts` | Which subteams a person is in, and who a task for a subteam goes to. |
 | `lib/auth/` | Lead logins: invites, passwords, the session cookie. |
 | `lib/kiosk.ts` | Pairing a device as the kiosk. |
 | `lib/scanner/` | The QR decoder and the camera, behind one small interface. |
@@ -137,6 +138,24 @@ DATABASE_URL=... npm run import-attendance -- path/to/attendance.csv --hosted
 ```
 
 It adds anyone in the file who is not on the roster and one attendance row for each `TRUE`. The Attendance screen shows those rows as "from the attendance sheet" with no scan time, because the sheet has none. Each person's own count then runs from the file's first day. Running it again adds nothing. It prints counts, never names. The file has real names in it, so keep it out of this repo.
+
+### Subteams
+
+A person can be in any number of subteams, or none. A subteam can be part of one other subteam (Assembly is part of Mech + Electrical), one level deep. A task for a subteam goes to everyone in it and to everyone in a subteam that is part of it, once each. Leads set all of this on the Members screen.
+
+To set many people at once, write a file with one person per line, the name and then their subteams with semicolons between them:
+
+```
+name,subteams
+First Last,Assembly; CAD
+Another Person,Media
+```
+
+```bash
+DATABASE_URL=... npm run set-subteams -- path/to/subteams.csv --hosted
+```
+
+Each person in the file ends up in exactly the subteams on their line. People who are not in the file are left as they are. It adds nobody and makes no subteam: a name that is not on the roster, or a subteam that does not exist yet, stops it before anything changes, and it says which lines. It prints counts and subteam names, never a person's name. Keep the file out of this repo.
 
 ## A test copy on a host
 

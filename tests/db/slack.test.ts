@@ -2,7 +2,7 @@
 import { eq } from 'drizzle-orm';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { copy } from '@/lib/copy';
-import { assignments, changeLog, members, submissions, type Member } from '@/lib/db/schema';
+import { assignments, changeLog, members, submissions, type Member, type Subteam } from '@/lib/db/schema';
 import { addMember, addSubteam, memberBySlackUserId, setActive, setSlackUserId } from '@/lib/members';
 import { answerSlackCommand, handleCommand, taskCodes } from '@/lib/slack';
 import { createTask, openFor, publishTask, type TaskInput } from '@/lib/tasks';
@@ -19,14 +19,15 @@ describe('/done', () => {
   let captain: Member;
   let a: Member;
   let b: Member;
+  let build: Subteam;
 
   beforeAll(async () => {
     const db = getDb();
-    const build = await addSubteam(db, 'Build');
+    build = await addSubteam(db, 'Build');
     captain = await addMember(db, { firstName: 'Test', lastName: 'Captain', role: 'captain' }, null);
     lead = await addMember(db, { firstName: 'Test', lastName: 'Lead', role: 'lead' }, null);
-    a = await addMember(db, { firstName: 'Test', lastName: 'Member A', subteamId: build.id }, null);
-    b = await addMember(db, { firstName: 'Test', lastName: 'Member B', subteamId: build.id }, null);
+    a = await addMember(db, { firstName: 'Test', lastName: 'Member A', subteamIds: [build.id] }, null);
+    b = await addMember(db, { firstName: 'Test', lastName: 'Member B', subteamIds: [build.id] }, null);
     expect(await setSlackUserId(db, a.id, A, lead.id)).toEqual({ ok: true });
     expect(await setSlackUserId(db, b.id, B, lead.id)).toEqual({ ok: true });
   });
@@ -180,7 +181,7 @@ describe('/done', () => {
   });
 
   it("lists the member's own and their subteam's tasks under their headings, and leaves up-for-grabs tasks to the kiosk", async () => {
-    await publish({ title: 'For the whole subteam', audience: 'subteam', subteamId: a.subteamId });
+    await publish({ title: 'For the whole subteam', audience: 'subteam', subteamId: build.id });
     const pool = await publish({ title: 'Anyone may take this', audience: 'pool' });
     const all = await openFor(getDb(), a.id, TODAY);
     expect(all.some((h) => h.title === 'Anyone may take this' && h.group === 'pool')).toBe(true);

@@ -6,6 +6,7 @@ import {
   rosterAction,
 } from '@/app/dashboard/members/actions';
 import { groupColour, NO_GROUP_COLOUR, PersonFigure } from '@/components/dashboard/PersonFigure';
+import { SubteamTicks } from '@/components/dashboard/SubteamTicks';
 import { WalletNote } from '@/components/dashboard/WalletNote';
 import { requireLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
@@ -28,28 +29,24 @@ export default async function MembersPage({
   const captain = lead.role === 'captain';
   const roleLabel = { member: c.roleMember, lead: c.roleLead, captain: c.roleCaptain };
   const count = (value: string | undefined) => Math.max(0, Math.min(9999, Number(value) || 0));
-  const subteamOptions = (
-    <>
-      <option value="">{c.noSubteam}</option>
-      {subteams.map((s) => (
-        <option key={s.id} value={s.id}>{s.name}</option>
-      ))}
-    </>
-  );
+  const names = subteams.map((s) => s.name);
   // Leads and captains first, then each subteam, then people with none, then anyone turned off.
+  // Someone in several subteams is under each of them. A subteam with others
+  // under it shows everyone a task for it would go to.
   type Row = (typeof members)[number];
-  const groups: { key: string; name: string; colour: string; people: Row[] }[] = [];
+  const groups: { key: string; name: string; partOf: string | null; colour: string; people: Row[] }[] = [];
   const active = members.filter((m) => m.active);
   const leaders = active.filter((m) => m.role !== 'member');
-  if (leaders.length) groups.push({ key: 'leads', name: c.groupLeads, colour: '#FFD23F', people: leaders });
+  if (leaders.length) groups.push({ key: 'leads', name: c.groupLeads, partOf: null, colour: '#FFD23F', people: leaders });
   for (const s of subteams) {
-    const people = active.filter((m) => m.role === 'member' && m.subteamId === s.id);
-    if (people.length) groups.push({ key: s.id, name: s.name, colour: groupColour(s.name, subteams.map((t) => t.name)), people });
+    const ids = new Set([s.id, ...subteams.filter((t) => t.parentId === s.id).map((t) => t.id)]);
+    const people = active.filter((m) => m.role === 'member' && m.subteams.some((t) => ids.has(t.id)));
+    if (people.length) groups.push({ key: s.id, name: s.name, partOf: s.parentName, colour: groupColour(s.name, names), people });
   }
-  const loose = active.filter((m) => m.role === 'member' && !m.subteamId);
-  if (loose.length) groups.push({ key: 'none', name: c.groupNone, colour: NO_GROUP_COLOUR, people: loose });
+  const loose = active.filter((m) => m.role === 'member' && m.subteams.length === 0);
+  if (loose.length) groups.push({ key: 'none', name: c.groupNone, partOf: null, colour: NO_GROUP_COLOUR, people: loose });
   const off = members.filter((m) => !m.active);
-  if (off.length) groups.push({ key: 'off', name: c.groupInactive, colour: NO_GROUP_COLOUR, people: off });
+  if (off.length) groups.push({ key: 'off', name: c.groupInactive, partOf: null, colour: NO_GROUP_COLOUR, people: off });
   const roleOptions = (['member', 'lead', 'captain'] as const).map((role) => (
     <option key={role} value={role}>{roleLabel[role]}</option>
   ));
@@ -84,16 +81,16 @@ export default async function MembersPage({
               <label className="label" htmlFor="lastName">{c.lastName}</label>
               <input id="lastName" name="lastName" className="field" maxLength={60} />
             </div>
-            <div>
-              <label className="label" htmlFor="subteamId">{c.subteam}</label>
-              <select id="subteamId" name="subteamId" className="field">{subteamOptions}</select>
-            </div>
             {captain && (
               <div>
                 <label className="label" htmlFor="role">{c.role}</label>
                 <select id="role" name="role" className="field" defaultValue="member">{roleOptions}</select>
               </div>
             )}
+            <fieldset className="min-w-0 sm:col-span-2">
+              <legend className="label">{c.subteams}</legend>
+              <SubteamTicks subteams={subteams} chosen={[]} />
+            </fieldset>
           </div>
           <button type="submit" className="btn-pill bg-arcade-purple text-paper !shadow-none">{c.add}</button>
         </form>
@@ -116,8 +113,9 @@ export default async function MembersPage({
           {subteams.map((s) => (
             <li key={s.id} data-subteam={s.name} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <span className="font-bold">{s.name}</span>
+              {s.parentName && <span data-part-of={s.parentName} className="text-sm text-ink/70">{c.subteamPartOf(s.parentName)}</span>}
               <span className="text-sm text-ink/70">{c.subteamUse(s.members, s.tasks)}</span>
-              {s.members === 0 && s.tasks === 0 && (
+              {!s.inUse && (
                 <form action={removeSubteamAction}>
                   <input type="hidden" name="id" value={s.id} />
                   <button type="submit" className="btn-small">{c.subteamRemove(s.name)}</button>
@@ -127,9 +125,18 @@ export default async function MembersPage({
           ))}
         </ul>
         <form action={addSubteamAction} className="mt-4 flex flex-wrap items-end gap-3">
-          <div className="min-w-0 flex-1 sm:max-w-xs">
+          <div className="w-full min-w-0 sm:w-auto sm:max-w-xs sm:flex-1">
             <label className="label" htmlFor="subteamName">{c.subteamName}</label>
             <input id="subteamName" name="name" className="field" maxLength={60} required />
+          </div>
+          <div className="w-full min-w-0 sm:w-auto sm:max-w-xs sm:flex-1">
+            <label className="label" htmlFor="subteamParent">{c.subteamParent}</label>
+            <select id="subteamParent" name="parentId" className="field">
+              <option value="">{c.subteamParentNone}</option>
+              {subteams.filter((s) => !s.parentId).map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
           </div>
           <button type="submit" className="btn-pill bg-paper text-ink !shadow-none">{c.subteamAdd}</button>
         </form>
@@ -141,10 +148,11 @@ export default async function MembersPage({
         {groups.map((g) => (
           <section key={g.key} data-group={g.name} className="min-w-0 rounded-xl border-2 border-paper/20 bg-deep p-4">
             <h3 className="flex items-center gap-2 text-xl">
-              <span className="inline-block h-3.5 w-3.5 rounded" style={{ background: g.colour }} />
-              {g.name}
+              <span className="inline-block h-3.5 w-3.5 shrink-0 rounded" style={{ background: g.colour }} />
+              <span className="min-w-0 [overflow-wrap:anywhere]">{g.name}</span>
               <span className="ml-auto text-sm font-semibold text-paper/60">{g.people.length}</span>
             </h3>
+            {g.partOf && <p className="mt-0.5 text-sm text-paper/60">{c.subteamPartOf(g.partOf)}</p>}
             <ul className="mt-3 flex flex-wrap gap-x-1 gap-y-3">
               {g.people.map((m) => {
                 const fullName = `${m.firstName} ${m.lastName}`.trim();
@@ -155,7 +163,7 @@ export default async function MembersPage({
                       data-member-name={fullName}
                       className={`grid justify-items-center gap-1 rounded-lg px-1 py-1.5 text-center hover:bg-paper/10 ${m.active ? '' : 'opacity-50'}`}
                     >
-                      <PersonFigure firstName={m.firstName} lastName={m.lastName} colour={groupColour(m.subteamName, subteams.map((t) => t.name))} ringed={m.role !== 'member'} />
+                      <PersonFigure firstName={m.firstName} lastName={m.lastName} colour={m.subteams.some((t) => t.id === g.key) ? g.colour : groupColour(m.subteams[0]?.name ?? null, names)} ringed={m.role !== 'member'} />
                       <span className="text-xs font-semibold leading-tight [overflow-wrap:anywhere]">{fullName}</span>
                       {m.role !== 'member' && <span className="text-[10px] font-bold uppercase tracking-wide text-arcade-fuel">{roleLabel[m.role]}</span>}
                     </Link>

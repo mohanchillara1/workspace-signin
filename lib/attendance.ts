@@ -2,9 +2,10 @@ import { and, asc, between, eq, inArray, notInArray, or, sql } from 'drizzle-orm
 import { alias } from 'drizzle-orm/pg-core';
 import { chicagoDay } from './day';
 import type { Db } from './db/client';
-import { attendance, changeLog, members, struckDays, subteams, type AttendanceRow } from './db/schema';
+import { attendance, changeLog, members, struckDays, type AttendanceRow } from './db/schema';
 import { logChange } from './log';
 import { shortName } from './names';
+import { memberships, subteamLine } from './subteams';
 
 export type BoardRow = {
   memberId: string;
@@ -12,6 +13,7 @@ export type BoardRow = {
   name: string;
   /** The whole name, for the leads' dashboard only. */
   fullName: string;
+  /** Every subteam they are in, as one line of words. */
   subteam: string | null;
   /** Empty for someone who is not here, and for a row from the attendance sheet. */
   firstScanAt: Date | null;
@@ -158,20 +160,19 @@ export async function todayBoard(db: Db, day: string): Promise<{ here: BoardRow[
       memberId: members.id,
       firstName: members.firstName,
       lastName: members.lastName,
-      subteam: subteams.name,
       firstScanAt: attendance.firstScanAt,
       source: attendance.source,
     })
     .from(members)
-    .leftJoin(subteams, eq(members.subteamId, subteams.id))
     .leftJoin(attendance, and(eq(attendance.memberId, members.id), eq(attendance.day, day)))
     .where(eq(members.active, true))
     .orderBy(asc(members.firstName), asc(members.lastName));
+  const teams = await memberships(db);
   const board = rows.map((r) => ({
     memberId: r.memberId,
     name: shortName(r.firstName, r.lastName),
     fullName: `${r.firstName} ${r.lastName}`.trim(),
-    subteam: r.subteam,
+    subteam: subteamLine(teams.get(r.memberId)),
     firstScanAt: r.firstScanAt,
     source: r.source,
   }));
@@ -205,7 +206,6 @@ export async function attendanceRows(db: Db, range: { from: string; to: string }
       day: attendance.day,
       firstName: members.firstName,
       lastName: members.lastName,
-      subteam: subteams.name,
       firstScanAt: attendance.firstScanAt,
       addedAt: attendance.addedAt,
       source: attendance.source,
@@ -214,16 +214,16 @@ export async function attendanceRows(db: Db, range: { from: string; to: string }
     })
     .from(attendance)
     .innerJoin(members, eq(attendance.memberId, members.id))
-    .leftJoin(subteams, eq(members.subteamId, subteams.id))
     .leftJoin(recorder, eq(attendance.recordedById, recorder.id))
     .where(between(attendance.day, range.from, range.to))
     .orderBy(asc(attendance.day), asc(attendance.firstScanAt), asc(members.firstName), asc(members.lastName));
+  const teams = await memberships(db);
   return rows.map((r) => ({
     memberId: r.memberId,
     day: r.day,
     firstName: r.firstName,
     lastName: r.lastName,
-    subteam: r.subteam ?? '',
+    subteam: subteamLine(teams.get(r.memberId)) ?? '',
     firstScanAt: r.firstScanAt,
     addedAt: r.addedAt,
     source: r.source,

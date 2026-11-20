@@ -40,7 +40,8 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `firstNameEmpty` | Type a first name |
 | `nameLong` | Shorten the name to 60 characters or fewer |
 | `subteamEmpty` | Type a subteam name |
-| `subteamInUse` | That subteam still has members or tasks. Move them first |
+| `subteamInUse` | That subteam still has members, tasks or subteams that are part of it. Move them first |
+| `subteamNesting` | That subteam is already part of another one. Pick one that is not |
 | `captainOnly` | Only a captain can make an invite link |
 | `notALead` | Only a lead or a captain can have a login |
 | `leadsAreCaptainOnly` | Only a captain can change a lead or a captain |
@@ -224,6 +225,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `audiencePool` | Anyone (up for grabs) |
 | `fieldPeople` | People |
 | `fieldSubteam` | Subteam |
+| `subteamAlso` | Also goes to everyone in Assembly, CAD. |
 | `fieldCompletion` | When more than one person has it |
 | `completionOnce` | Done once for the group |
 | `completionEach` | Everyone does their own |
@@ -274,7 +276,7 @@ Strings with a name or a number in them are shown with sample values, once for o
 | Key | Text |
 |---|---|
 | `title` | Members |
-| `boardHelp` | Tap a person to see their QR code, tasks and attendance, and to change their details. |
+| `boardHelp` | Tap a person to see their QR code, tasks and attendance, and to change their details. Someone in several subteams shows under each one. |
 | `groupLeads` | Captains and leads |
 | `groupNone` | No subteam |
 | `groupInactive` | Turned off |
@@ -294,7 +296,8 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `addTitle` | Add a member |
 | `firstName` | First name |
 | `lastName` | Last name |
-| `subteam` | Subteam |
+| `subteams` | Subteams |
+| `subteamsEmpty` | There are no subteams yet. |
 | `noSubteam` | No subteam |
 | `role` | Role |
 | `roleMember` | Member |
@@ -302,12 +305,15 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `roleCaptain` | Captain |
 | `add` | Add member |
 | `rosterTitle` | Paste a roster |
-| `rosterHelp` | One person per line: "First Last", "First Last, Subteam" or "First, Last, Subteam". A header row is skipped. If the subteam is new, it gets added. Someone already on the roster is not added twice. |
+| `rosterHelp` | One person per line: "First Last", "First Last, Subteam" or "First, Last, Subteam". For someone in several subteams, put a semicolon between them. A header row is skipped. If a subteam is new, it gets added. Someone already on the roster is not added twice. |
 | `rosterFile` | Or pick a CSV file |
 | `rosterSubmit` | Add everyone |
 | `rosterResult` | Added {added}. {already} were already on the roster. Skipped {skipped} lines that could not be read. |
 | `subteamsTitle` | Subteams |
 | `subteamName` | New subteam name |
+| `subteamParent` | Part of |
+| `subteamParentNone` | No other subteam |
+| `subteamPartOf` | part of Build |
 | `subteamAdd` | Add subteam |
 | `subteamUse` | {members} members, {tasks} tasks |
 | `subteamRemove` | Remove Test M. |

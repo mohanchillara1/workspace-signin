@@ -32,8 +32,8 @@ describe('phase 2 states', () => {
     const db = getDb();
     build = await addSubteam(db, 'Build');
     lead = await addMember(db, { firstName: 'Test', lastName: 'Lead', role: 'lead' }, null);
-    a = await addMember(db, { firstName: 'Test', lastName: 'Member A', subteamId: build.id }, null);
-    b = await addMember(db, { firstName: 'Test', lastName: 'Member B', subteamId: build.id }, null);
+    a = await addMember(db, { firstName: 'Test', lastName: 'Member A', subteamIds: [build.id] }, null);
+    b = await addMember(db, { firstName: 'Test', lastName: 'Member B', subteamIds: [build.id] }, null);
   });
 
   const line = async (member: Member, title: string) => (await openFor(getDb(), member.id, TODAY)).find((h) => h.title === title);

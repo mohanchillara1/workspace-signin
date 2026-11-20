@@ -28,7 +28,7 @@ export function TaskForm({
 }: {
   initial: TaskFormValues;
   people: { id: string; name: string }[];
-  subteams: { id: string; name: string }[];
+  subteams: { id: string; name: string; parentId: string | null; parentName: string | null }[];
   // True only when the page found drafting turned on. Without it there is no button.
   canDraft?: boolean;
 }) {
@@ -46,6 +46,8 @@ export function TaskForm({
   const audience = v.standing ? 'pool' : v.audience;
   const group = audience === 'subteam' || (audience === 'person' && v.memberIds.length > 1);
   const closed = v.state === 'closed';
+  // A task for a subteam also goes to the subteams that are part of it.
+  const partOfChosen = subteams.filter((s) => v.subteamId !== '' && s.parentId === v.subteamId).map((s) => s.name);
 
   async function draft() {
     if (drafting) return;
@@ -169,9 +171,10 @@ export function TaskForm({
           <select id="subteamId" name="subteamId" className="field" value={v.subteamId} onChange={(e) => set('subteamId', e.target.value)}>
             <option value="" />
             {subteams.map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
+              <option key={s.id} value={s.id}>{s.parentName ? `${s.name} (${copy.members.subteamPartOf(s.parentName)})` : s.name}</option>
             ))}
           </select>
+          {partOfChosen.length > 0 && <p data-testid="subteam-also" className="mt-1 text-sm text-ink/70">{t.subteamAlso(partOfChosen.join(', '))}</p>}
         </div>
       )}
 

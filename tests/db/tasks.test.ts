@@ -34,9 +34,9 @@ describe('tasks and hand-outs', () => {
     build = await addSubteam(db, 'Build');
     code = await addSubteam(db, 'Code');
     lead = await addMember(db, { firstName: 'Test', lastName: 'Lead', role: 'lead' }, null);
-    a = await addMember(db, { firstName: 'Test', lastName: 'Member A', subteamId: build.id }, null);
-    b = await addMember(db, { firstName: 'Test', lastName: 'Member B', subteamId: build.id }, null);
-    c = await addMember(db, { firstName: 'Test', lastName: 'Member C', subteamId: code.id }, null);
+    a = await addMember(db, { firstName: 'Test', lastName: 'Member A', subteamIds: [build.id] }, null);
+    b = await addMember(db, { firstName: 'Test', lastName: 'Member B', subteamIds: [build.id] }, null);
+    c = await addMember(db, { firstName: 'Test', lastName: 'Member C', subteamIds: [code.id] }, null);
   });
 
   const titles = async (member: Member, day = TODAY) => (await openFor(getDb(), member.id, day)).map((h) => h.title);

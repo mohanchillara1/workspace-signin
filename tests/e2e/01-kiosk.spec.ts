@@ -48,7 +48,7 @@ test('a scan signs the member in once and shows their tasks in order', async ({ 
   const errors = watchConsole(page);
   const actor = await captainId();
   const subteam = await addSubteam(db(), 'Kiosk Crew');
-  const member = await addMember(db(), { firstName: 'Kiosk', lastName: 'Tester', subteamId: subteam.id }, null);
+  const member = await addMember(db(), { firstName: 'Kiosk', lastName: 'Tester', subteamIds: [subteam.id] }, null);
   for (const input of [
     { title: 'Pool job for the kiosk test', audience: 'pool' as const, needsCheck: false },
     { title: 'Crew job', audience: 'subteam' as const, subteamId: subteam.id },

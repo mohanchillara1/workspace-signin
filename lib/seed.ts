@@ -20,7 +20,7 @@ export async function seedBase(db: Db, options: { captainPassword: string }): Pr
   for (const name of ['Build', 'Programming', 'Business']) subteams[name] = (await addSubteam(db, name)).id;
   const captain = await addMember(
     db,
-    { firstName: 'Test', lastName: 'Captain', role: 'captain', subteamId: subteams.Business },
+    { firstName: 'Test', lastName: 'Captain', role: 'captain', subteamIds: [subteams.Business] },
     null,
   );
   const token = await createInvite(db, { memberId: captain.id, actorId: null, now, bootstrap: true });
@@ -31,7 +31,7 @@ export async function seedBase(db: Db, options: { captainPassword: string }): Pr
     now,
   });
   if (!accepted.ok) throw new Error(`The seed captain could not be given a login: ${accepted.reason}`);
-  const lead = await addMember(db, { firstName: 'Test', lastName: 'Lead', role: 'lead', subteamId: subteams.Build }, captain.id);
+  const lead = await addMember(db, { firstName: 'Test', lastName: 'Lead', role: 'lead', subteamIds: [subteams.Build] }, captain.id);
   return {
     captain: { loginName: 'testcaptain', password: options.captainPassword, member: captain },
     lead,
@@ -58,7 +58,7 @@ export async function seedDemo(db: Db, options: { captainPassword: string; today
     ['J', null],
   ];
   for (const [letter, subteamId] of people) {
-    info.members[letter] = await addMember(db, { firstName: 'Test', lastName: `Member ${letter}`, subteamId }, actor);
+    info.members[letter] = await addMember(db, { firstName: 'Test', lastName: `Member ${letter}`, subteamIds: subteamId ? [subteamId] : [] }, actor);
   }
   const m = info.members;
   const plusDays = (n: number) => {

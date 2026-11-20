@@ -65,8 +65,8 @@ describe('members', () => {
     const all = await listMembers(db);
     const d = all.find((m) => m.lastName === 'Member D');
     const f = all.find((m) => m.lastName === 'Member F');
-    expect(d?.subteamName).toBe('Build');
-    expect(f?.subteamName).toBe('Outreach');
-    expect(all.find((m) => m.lastName === 'Member E')?.subteamName).toBeNull();
+    expect(d?.subteams.map((s) => s.name)).toEqual(['Build']);
+    expect(f?.subteams.map((s) => s.name)).toEqual(['Outreach']);
+    expect(all.find((m) => m.lastName === 'Member E')?.subteams).toEqual([]);
   });
 });

@@ -47,7 +47,8 @@ export const copy = {
     firstNameEmpty: 'Type a first name',
     nameLong: 'Shorten the name to 60 characters or fewer',
     subteamEmpty: 'Type a subteam name',
-    subteamInUse: 'That subteam still has members or tasks. Move them first',
+    subteamInUse: 'That subteam still has members, tasks or subteams that are part of it. Move them first',
+    subteamNesting: 'That subteam is already part of another one. Pick one that is not',
     captainOnly: 'Only a captain can make an invite link',
     notALead: 'Only a lead or a captain can have a login',
     leadsAreCaptainOnly: 'Only a captain can change a lead or a captain',
@@ -236,6 +237,7 @@ export const copy = {
     audiencePool: 'Anyone (up for grabs)',
     fieldPeople: 'People',
     fieldSubteam: 'Subteam',
+    subteamAlso: (names: string) => `Also goes to everyone in ${names}.`,
     fieldCompletion: 'When more than one person has it',
     completionOnce: 'Done once for the group',
     completionEach: 'Everyone does their own',
@@ -282,7 +284,8 @@ export const copy = {
 
   members: {
     title: 'Members',
-    boardHelp: 'Tap a person to see their QR code, tasks and attendance, and to change their details.',
+    boardHelp:
+      'Tap a person to see their QR code, tasks and attendance, and to change their details. Someone in several subteams shows under each one.',
     groupLeads: 'Captains and leads',
     groupNone: 'No subteam',
     groupInactive: 'Turned off',
@@ -302,7 +305,8 @@ export const copy = {
     addTitle: 'Add a member',
     firstName: 'First name',
     lastName: 'Last name',
-    subteam: 'Subteam',
+    subteams: 'Subteams',
+    subteamsEmpty: 'There are no subteams yet.',
     noSubteam: 'No subteam',
     role: 'Role',
     roleMember: 'Member',
@@ -311,7 +315,7 @@ export const copy = {
     add: 'Add member',
     rosterTitle: 'Paste a roster',
     rosterHelp:
-      'One person per line: "First Last", "First Last, Subteam" or "First, Last, Subteam". A header row is skipped. If the subteam is new, it gets added. Someone already on the roster is not added twice.',
+      'One person per line: "First Last", "First Last, Subteam" or "First, Last, Subteam". For someone in several subteams, put a semicolon between them. A header row is skipped. If a subteam is new, it gets added. Someone already on the roster is not added twice.',
     rosterFile: 'Or pick a CSV file',
     rosterSubmit: 'Add everyone',
     rosterResult: (added: number, skipped: number, already: number) =>
@@ -324,6 +328,9 @@ export const copy = {
         .join(' '),
     subteamsTitle: 'Subteams',
     subteamName: 'New subteam name',
+    subteamParent: 'Part of',
+    subteamParentNone: 'No other subteam',
+    subteamPartOf: (name: string) => `part of ${name}`,
     subteamAdd: 'Add subteam',
     subteamUse: (members: number, tasks: number) =>
       `${members} ${plural(members, 'member', 'members')}, ${tasks} ${plural(tasks, 'task', 'tasks')}`,

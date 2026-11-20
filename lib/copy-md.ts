@@ -41,6 +41,8 @@ const KEY_SAMPLE: Record<string, unknown[]> = {
   'errors.taskStepLong': [200],
   'errors.nameLong': [60],
   'tasks.forSubteam': ['Build'],
+  'tasks.subteamAlso': ['Assembly, CAD'],
+  'members.subteamPartOf': ['Build'],
 };
 
 function examples(fn: (...args: never[]) => unknown, path: string): string[] {

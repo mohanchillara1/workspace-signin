@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { editMemberAction, memberRowAction, setSlackIdAction } from '@/app/dashboard/members/actions';
 import { CopyLink, InviteButton } from '@/components/dashboard/MemberBits';
 import { groupColour, PersonFigure } from '@/components/dashboard/PersonFigure';
+import { SubteamTicks } from '@/components/dashboard/SubteamTicks';
 import { memberCount } from '@/lib/attendance';
 import { requireLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
@@ -48,15 +49,9 @@ export default async function MemberDetailPage({
   const mine = captain || m.role === 'member' || self;
   const roleLabel = { member: c.roleMember, lead: c.roleLead, captain: c.roleCaptain };
   const fullName = `${m.firstName} ${m.lastName}`.trim();
-  const colour = groupColour(m.subteamName, subteams.map((t) => t.name));
-  const subteamOptions = (
-    <>
-      <option value="">{c.noSubteam}</option>
-      {subteams.map((s) => (
-        <option key={s.id} value={s.id}>{s.name}</option>
-      ))}
-    </>
-  );
+  const names = subteams.map((t) => t.name);
+  // The figure takes the colour of their first subteam. Each subteam's chip has its own.
+  const colour = groupColour(m.subteams[0]?.name ?? null, names);
   const roleOptions = (['member', 'lead', 'captain'] as const).map((role) => (
     <option key={role} value={role}>{roleLabel[role]}</option>
   ));
@@ -91,7 +86,10 @@ export default async function MemberDetailPage({
         <div className="min-w-0">
           <h1 className="text-4xl sm:text-5xl [overflow-wrap:anywhere]">{fullName}</h1>
           <p className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="chip" style={{ background: colour }}>{m.subteamName ?? c.noSubteam}</span>
+            {m.subteams.length === 0 && <span className="chip" style={{ background: colour }}>{c.noSubteam}</span>}
+            {m.subteams.map((s) => (
+              <span key={s.id} data-subteam-chip={s.name} className="chip" style={{ background: groupColour(s.name, names) }}>{s.name}</span>
+            ))}
             {m.role !== 'member' && <span className="chip !bg-arcade-sky">{roleLabel[m.role]}</span>}
             {m.slackUserId && <span className="chip">{sc.linkedChip}</span>}
             {m.hasLogin && <span className="chip">{c.hasLogin}</span>}
@@ -193,16 +191,16 @@ export default async function MemberDetailPage({
                   <label className="label" htmlFor="editLast">{c.lastName}</label>
                   <input id="editLast" name="lastName" className="field" defaultValue={m.lastName} maxLength={60} />
                 </div>
-                <div>
-                  <label className="label" htmlFor="editSubteam">{c.subteam}</label>
-                  <select id="editSubteam" name="subteamId" className="field" defaultValue={m.subteamId ?? ''}>{subteamOptions}</select>
-                </div>
                 {captain && !self && (
                   <div>
                     <label className="label" htmlFor="editRole">{c.role}</label>
                     <select id="editRole" name="role" className="field" defaultValue={m.role}>{roleOptions}</select>
                   </div>
                 )}
+                <fieldset className="min-w-0 sm:col-span-2">
+                  <legend className="label">{c.subteams}</legend>
+                  <SubteamTicks subteams={subteams} chosen={m.subteams.map((s) => s.id)} />
+                </fieldset>
                 <button type="submit" className="btn-pill bg-arcade-purple text-paper !shadow-none sm:col-span-2 sm:justify-self-start">{c.save}</button>
               </form>
               <form action={setSlackIdAction} className="mt-5 grid gap-2 sm:grid-cols-[minmax(0,16rem)_auto] sm:items-end">

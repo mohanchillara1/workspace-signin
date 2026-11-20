@@ -1,15 +1,17 @@
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, sql } from 'drizzle-orm';
 import { parseCsvLine } from './csv';
 import type { Db } from './db/client';
-import { leadLogins, members, subteams, type Member, type Subteam } from './db/schema';
+import { leadLogins, memberSubteams, members, subteams, tasks, type Member, type Subteam } from './db/schema';
 import { UserError, type ErrorKey } from './errors';
-import { newPageKey, newScanCode, SCAN_CODE_PATTERN } from './ids';
+import { isUuid, newPageKey, newScanCode, SCAN_CODE_PATTERN } from './ids';
 import { logChange } from './log';
+import { memberships, type SubteamRef } from './subteams';
 import { syncMember } from './tasks';
 
 export type Role = Member['role'];
-export type NewMember = { firstName: string; lastName?: string; subteamId?: string | null; role?: Role };
-export type MemberListRow = Member & { subteamName: string | null; hasLogin: boolean };
+export type NewMember = { firstName: string; lastName?: string; subteamIds?: string[]; role?: Role };
+/** `subteams` are the ones the person is in, in name order. */
+export type MemberListRow = Member & { subteams: SubteamRef[]; hasLogin: boolean };
 
 const NAME_MAX = 60;
 /**
@@ -35,27 +37,50 @@ async function endAllSessions(db: Db, memberId: string): Promise<void> {
     .where(eq(leadLogins.memberId, memberId));
 }
 
+/**
+ * Makes a person's subteams exactly these. An id that is no subteam is left
+ * out. Says whether anything changed.
+ */
+async function writeSubteams(db: Db, memberId: string, wanted: string[]): Promise<boolean> {
+  const asked = [...new Set(wanted)].filter(isUuid);
+  return db.transaction(async (tx) => {
+    const real = asked.length
+      ? (await tx.select({ id: subteams.id }).from(subteams).where(inArray(subteams.id, asked))).map((s) => s.id)
+      : [];
+    const have = (
+      await tx.select({ id: memberSubteams.subteamId }).from(memberSubteams).where(eq(memberSubteams.memberId, memberId))
+    ).map((row) => row.id);
+    const add = real.filter((id) => !have.includes(id));
+    const drop = have.filter((id) => !real.includes(id));
+    if (drop.length) {
+      await tx.delete(memberSubteams).where(and(eq(memberSubteams.memberId, memberId), inArray(memberSubteams.subteamId, drop)));
+    }
+    if (add.length) await tx.insert(memberSubteams).values(add.map((subteamId) => ({ memberId, subteamId })));
+    return add.length + drop.length > 0;
+  });
+}
+
 export async function addMember(db: Db, input: NewMember, actorId: string | null): Promise<Member> {
   const [member] = await db
     .insert(members)
     .values({
       firstName: cleanName(input.firstName, 'firstNameEmpty'),
       lastName: cleanName(input.lastName, null),
-      subteamId: input.subteamId ?? null,
       role: input.role ?? 'member',
       scanCode: newScanCode(),
       pageKey: newPageKey(),
     })
     .returning();
   await logChange(db, { actorId, action: 'member.add', entity: 'member', entityId: member.id });
-  if (member.subteamId) await syncMember(db, member.id);
+  if (await writeSubteams(db, member.id, input.subteamIds ?? [])) await syncMember(db, member.id);
   return member;
 }
 
+/** `subteamIds` is the whole list: the person ends up in exactly these. */
 export async function updateMember(
   db: Db,
   id: string,
-  patch: { firstName?: string; lastName?: string; subteamId?: string | null; role?: Role },
+  patch: { firstName?: string; lastName?: string; subteamIds?: string[]; role?: Role },
   actorId: string | null,
 ): Promise<void> {
   const [before] = await db.select().from(members).where(eq(members.id, id));
@@ -63,20 +88,20 @@ export async function updateMember(
   const set: Partial<typeof members.$inferInsert> = {};
   if (patch.firstName !== undefined) set.firstName = cleanName(patch.firstName, 'firstNameEmpty');
   if (patch.lastName !== undefined) set.lastName = cleanName(patch.lastName, null);
-  if (patch.subteamId !== undefined) set.subteamId = patch.subteamId;
   if (patch.role !== undefined) set.role = patch.role;
-  if (Object.keys(set).length === 0) return;
-  await db.update(members).set(set).where(eq(members.id, id));
+  const moved = patch.subteamIds !== undefined && (await writeSubteams(db, id, patch.subteamIds));
+  if (Object.keys(set).length === 0 && !moved) return;
+  if (Object.keys(set).length) await db.update(members).set(set).where(eq(members.id, id));
   await logChange(db, {
     actorId,
     action: 'member.edit',
     entity: 'member',
     entityId: id,
-    detail: { fields: Object.keys(set) },
+    detail: { fields: [...Object.keys(set), ...(moved ? ['subteams'] : [])] },
   });
   // A change of role ends the sessions made under the old one.
   if (set.role !== undefined && set.role !== before.role) await endAllSessions(db, id);
-  if (set.subteamId !== undefined && set.subteamId !== before.subteamId) await syncMember(db, id);
+  if (moved) await syncMember(db, id);
 }
 
 export async function setActive(db: Db, id: string, active: boolean, actorId: string | null): Promise<void> {
@@ -188,59 +213,97 @@ export async function memberById(db: Db, id: string): Promise<Member | null> {
 }
 
 export async function listMembers(db: Db): Promise<MemberListRow[]> {
-  const rows = await db
-    .select({ member: members, subteamName: subteams.name, loginName: leadLogins.loginName })
-    .from(members)
-    .leftJoin(subteams, eq(members.subteamId, subteams.id))
-    .leftJoin(leadLogins, eq(leadLogins.memberId, members.id))
-    .orderBy(asc(members.firstName), asc(members.lastName));
-  return rows.map((r) => ({ ...r.member, subteamName: r.subteamName, hasLogin: r.loginName !== null }));
+  const [rows, teams] = await Promise.all([
+    db
+      .select({ member: members, loginName: leadLogins.loginName })
+      .from(members)
+      .leftJoin(leadLogins, eq(leadLogins.memberId, members.id))
+      .orderBy(asc(members.firstName), asc(members.lastName)),
+    memberships(db),
+  ]);
+  return rows.map((r) => ({ ...r.member, subteams: teams.get(r.member.id)?.subteams ?? [], hasLogin: r.loginName !== null }));
 }
 
-export async function addSubteam(db: Db, name: string): Promise<Subteam> {
+/**
+ * Makes a subteam, on its own or as part of another one. A name that is
+ * already there (any letter case) hands back that subteam as it is. One level
+ * only: a subteam that is part of another cannot have one under it.
+ */
+export async function addSubteam(db: Db, name: string, parentId: string | null = null): Promise<Subteam> {
   const clean = cleanName(name, 'subteamEmpty');
   const [existing] = await db
     .select()
     .from(subteams)
     .where(sql`lower(${subteams.name}) = lower(${clean})`);
   if (existing) return existing;
-  const [made] = await db.insert(subteams).values({ name: clean }).returning();
+  if (parentId) {
+    const [parent] = await db.select().from(subteams).where(eq(subteams.id, parentId));
+    if (!parent) throw new UserError('generic');
+    if (parent.parentId) throw new UserError('subteamNesting');
+  }
+  const [made] = await db.insert(subteams).values({ name: clean, parentId }).returning();
   return made;
 }
 
-export type SubteamRow = Subteam & { members: number; tasks: number };
+export type SubteamRow = Subteam & {
+  /** The subteam it is part of, when it is part of one. */
+  parentName: string | null;
+  /** Active people a task for it goes to: in it, or in a subteam that is part of it. */
+  members: number;
+  tasks: number;
+  /** Someone is in it (switched off or not), a task is for it, or a subteam is part of it. */
+  inUse: boolean;
+};
 
+/** Every subteam in name order, each followed by the subteams that are part of it. */
 export async function listSubteams(db: Db): Promise<SubteamRow[]> {
-  const rows = await db
-    .select({
-      subteam: subteams,
-      // Table names are written out: inside a one-table select the query
-      // builder drops them, and the two "id" columns would be confused.
-      members: sql<number>`(select count(*)::int from "members" where "members"."subteam_id" = "subteams"."id")`,
-      tasks: sql<number>`(select count(*)::int from "tasks" where "tasks"."subteam_id" = "subteams"."id")`,
-    })
-    .from(subteams)
-    .orderBy(asc(subteams.name));
-  return rows.map((r) => ({ ...r.subteam, members: r.members, tasks: r.tasks }));
+  const [all, links, taskCounts] = await Promise.all([
+    db.select().from(subteams).orderBy(asc(subteams.name)),
+    db
+      .select({ memberId: memberSubteams.memberId, subteamId: memberSubteams.subteamId, active: members.active })
+      .from(memberSubteams)
+      .innerJoin(members, eq(memberSubteams.memberId, members.id)),
+    db
+      .select({ subteamId: tasks.subteamId, n: sql<number>`count(*)::int` })
+      .from(tasks)
+      .where(isNotNull(tasks.subteamId))
+      .groupBy(tasks.subteamId),
+  ]);
+  const under = (id: string) => all.filter((s) => s.parentId === id);
+  return all
+    .filter((s) => !s.parentId)
+    .flatMap((top) => [top, ...under(top.id)])
+    .map((s) => {
+      const ids = new Set([s.id, ...under(s.id).map((t) => t.id)]);
+      const taskCount = taskCounts.find((t) => t.subteamId === s.id)?.n ?? 0;
+      return {
+        ...s,
+        parentName: all.find((t) => t.id === s.parentId)?.name ?? null,
+        members: new Set(links.filter((l) => l.active && ids.has(l.subteamId)).map((l) => l.memberId)).size,
+        tasks: taskCount,
+        inUse: ids.size > 1 || taskCount > 0 || links.some((l) => l.subteamId === s.id),
+      };
+    });
 }
 
-/** Removes a subteam made by mistake. Only one that no member and no task uses. */
+/** Removes a subteam made by mistake. Only one that nobody is in, no task is for, and no subteam is part of. */
 export async function removeSubteam(db: Db, id: string, actorId: string | null): Promise<void> {
   const all = await listSubteams(db);
   const row = all.find((s) => s.id === id);
   if (!row) return;
-  if (row.members > 0 || row.tasks > 0) throw new UserError('subteamInUse');
+  if (row.inUse) throw new UserError('subteamInUse');
   await db.delete(subteams).where(eq(subteams.id, id));
   await logChange(db, { actorId, action: 'subteam.remove', entity: 'subteam', entityId: id, detail: { name: row.name } });
 }
 
-const HEADER_WORDS = new Set(['name', 'full name', 'first', 'first name', 'last', 'last name', 'subteam', 'team', 'member']);
+const HEADER_WORDS = new Set(['name', 'full name', 'first', 'first name', 'last', 'last name', 'subteam', 'subteams', 'team', 'member']);
 
 /**
  * Adds members from pasted text or an uploaded CSV, one person per line:
  *   First Last            First Last, Subteam            First, Last, Subteam
- * A header row is skipped. Cells may be in quotes. A subteam that does not
- * exist yet is made. Someone already on the roster (same first and last
+ * Several subteams for one person go in the one cell with semicolons between
+ * them. A header row is skipped. Cells may be in quotes. A subteam that does
+ * not exist yet is made. Someone already on the roster (same first and last
  * name, any letter case) is not added again.
  */
 export async function importRoster(
@@ -267,17 +330,18 @@ export async function importRoster(
     }
     let firstName: string;
     let lastName: string;
-    let subteamName: string;
+    let subteamCell: string;
     if (cells.length >= 3) {
-      [firstName, lastName, subteamName] = cells;
+      [firstName, lastName, subteamCell] = cells;
     } else {
       const name = cells[0] ?? '';
       const space = name.indexOf(' ');
       firstName = space === -1 ? name : name.slice(0, space);
       lastName = space === -1 ? '' : name.slice(space + 1);
-      subteamName = cells[1] ?? '';
+      subteamCell = cells[1] ?? '';
     }
-    if (!firstName || firstName.length > NAME_MAX || lastName.length > NAME_MAX || subteamName.length > NAME_MAX || cells.length > 3) {
+    const subteamNames = subteamCell.split(';').map((name) => name.trim()).filter(Boolean);
+    if (!firstName || firstName.length > NAME_MAX || lastName.length > NAME_MAX || subteamNames.some((name) => name.length > NAME_MAX) || cells.length > 3) {
       skipped.push(line);
       continue;
     }
@@ -286,8 +350,9 @@ export async function importRoster(
       already.push(whole);
       continue;
     }
-    const subteam = subteamName ? await addSubteam(db, subteamName) : null;
-    await addMember(db, { firstName, lastName, subteamId: subteam?.id ?? null }, actorId);
+    const subteamIds: string[] = [];
+    for (const name of subteamNames) subteamIds.push((await addSubteam(db, name)).id);
+    await addMember(db, { firstName, lastName, subteamIds }, actorId);
     existing.add(whole.toLowerCase());
     added++;
   }

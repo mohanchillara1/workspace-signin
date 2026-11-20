@@ -40,7 +40,7 @@ export async function addMemberAction(form: FormData): Promise<void> {
       {
         firstName: text(form, 'firstName'),
         lastName: text(form, 'lastName'),
-        subteamId: isUuid(form.get('subteamId')) ? text(form, 'subteamId') : null,
+        subteamIds: form.getAll('subteamIds').filter(isUuid),
         // Only a captain can hand out lead or captain roles.
         role: lead.role === 'captain' && ROLES.includes(role) ? role : 'member',
       },
@@ -69,7 +69,7 @@ export async function editMemberAction(form: FormData): Promise<void> {
       {
         firstName: text(form, 'firstName'),
         lastName: text(form, 'lastName'),
-        subteamId: isUuid(form.get('subteamId')) ? text(form, 'subteamId') : null,
+        subteamIds: form.getAll('subteamIds').filter(isUuid),
         ...(newRole ? { role: newRole } : {}),
       },
       lead.id,
@@ -104,7 +104,8 @@ export async function rosterAction(form: FormData): Promise<void> {
 export async function addSubteamAction(form: FormData): Promise<void> {
   await requireLead();
   try {
-    await addSubteam(getDb(), text(form, 'name'));
+    const parentId = form.get('parentId');
+    await addSubteam(getDb(), text(form, 'name'), isUuid(parentId) ? parentId : null);
   } catch (error) {
     refused(error);
   }

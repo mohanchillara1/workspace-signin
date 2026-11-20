@@ -37,9 +37,9 @@ describe('hand-outs follow edits, moves and races', () => {
     build = await addSubteam(db, 'Build');
     code = await addSubteam(db, 'Code');
     lead = await addMember(db, { firstName: 'Test', lastName: 'Lead', role: 'lead' }, null);
-    a = await addMember(db, { firstName: 'Test', lastName: 'Member A', subteamId: build.id }, null);
-    b = await addMember(db, { firstName: 'Test', lastName: 'Member B', subteamId: build.id }, null);
-    c = await addMember(db, { firstName: 'Test', lastName: 'Member C', subteamId: code.id }, null);
+    a = await addMember(db, { firstName: 'Test', lastName: 'Member A', subteamIds: [build.id] }, null);
+    b = await addMember(db, { firstName: 'Test', lastName: 'Member B', subteamIds: [build.id] }, null);
+    c = await addMember(db, { firstName: 'Test', lastName: 'Member C', subteamIds: [code.id] }, null);
   });
 
   const lines = async (member: Member, title: string, day = TODAY) =>
@@ -123,16 +123,16 @@ describe('hand-outs follow edits, moves and races', () => {
   it('someone who joins a subteam later gets its "everyone does their own" tasks, and someone who leaves loses them', async () => {
     const db = getDb();
     await published({ title: 'Each for Build', audience: 'subteam', subteamId: build.id, completion: 'each' });
-    const late = await addMember(db, { firstName: 'Late', lastName: 'Joiner', subteamId: build.id }, lead.id);
+    const late = await addMember(db, { firstName: 'Late', lastName: 'Joiner', subteamIds: [build.id] }, lead.id);
     expect(await lines(late, 'Each for Build')).toHaveLength(1);
-    const mover = await addMember(db, { firstName: 'Mover', lastName: 'Person', subteamId: code.id }, lead.id);
+    const mover = await addMember(db, { firstName: 'Mover', lastName: 'Person', subteamIds: [code.id] }, lead.id);
     expect(await lines(mover, 'Each for Build')).toHaveLength(0);
-    await updateMember(db, mover.id, { subteamId: build.id }, lead.id);
+    await updateMember(db, mover.id, { subteamIds: [build.id] }, lead.id);
     expect(await lines(mover, 'Each for Build')).toHaveLength(1);
-    await updateMember(db, mover.id, { subteamId: code.id }, lead.id);
+    await updateMember(db, mover.id, { subteamIds: [code.id] }, lead.id);
     expect(await lines(mover, 'Each for Build')).toHaveLength(0);
     // Moving back does not make a second copy.
-    await updateMember(db, mover.id, { subteamId: build.id }, lead.id);
+    await updateMember(db, mover.id, { subteamIds: [build.id] }, lead.id);
     expect(await lines(mover, 'Each for Build')).toHaveLength(1);
   });
 

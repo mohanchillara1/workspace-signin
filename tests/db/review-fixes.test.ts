@@ -133,11 +133,14 @@ describe('review fixes: the roster', () => {
     expect(result.added).toBe(4);
     expect(result.skipped).toEqual([]);
     const all = await listMembers(db);
-    const named = (last: string) => all.find((m) => m.lastName === last);
-    expect(named('Member Q')).toMatchObject({ firstName: 'Test', subteamName: 'Build' });
-    expect(named('Member R')).toMatchObject({ firstName: 'Test', subteamName: 'Build' });
-    expect(named('Member S')).toMatchObject({ firstName: 'Test', subteamName: 'Programming' });
-    expect(named('Member T')).toMatchObject({ firstName: 'Test', subteamName: null });
+    const named = (last: string) => {
+      const found = all.find((m) => m.lastName === last);
+      return { firstName: found?.firstName, subteams: found?.subteams.map((s) => s.name) };
+    };
+    expect(named('Member Q')).toEqual({ firstName: 'Test', subteams: ['Build'] });
+    expect(named('Member R')).toEqual({ firstName: 'Test', subteams: ['Build'] });
+    expect(named('Member S')).toEqual({ firstName: 'Test', subteams: ['Programming'] });
+    expect(named('Member T')).toEqual({ firstName: 'Test', subteams: [] });
     const teams = (await db.select().from(subteams)).map((s) => s.name).sort();
     expect(teams).toEqual(['Build', 'Programming']);
     expect(all.some((m) => m.firstName.toLowerCase() === 'name')).toBe(false);

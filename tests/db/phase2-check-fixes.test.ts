@@ -26,8 +26,8 @@ describe('phase 2 check fixes', () => {
     build = await addSubteam(db, 'Build');
     lead = await addMember(db, { firstName: 'Test', lastName: 'Lead', role: 'lead' }, null);
     lead2 = await addMember(db, { firstName: 'Test', lastName: 'Lead Two', role: 'lead' }, null);
-    a = await addMember(db, { firstName: 'Test', lastName: 'Member A', subteamId: build.id }, null);
-    b = await addMember(db, { firstName: 'Test', lastName: 'Member B', subteamId: build.id }, null);
+    a = await addMember(db, { firstName: 'Test', lastName: 'Member A', subteamIds: [build.id] }, null);
+    b = await addMember(db, { firstName: 'Test', lastName: 'Member B', subteamIds: [build.id] }, null);
     c = await addMember(db, { firstName: 'Test', lastName: 'Member C' }, null);
   });
 
