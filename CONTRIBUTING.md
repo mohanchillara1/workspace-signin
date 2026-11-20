@@ -42,6 +42,6 @@ This comes from Claude Code's settings reference, under "Git and attribution": h
 - No real member's name anywhere: code, tests, seeds, issues, pull requests, screenshots. Use made-up names ("Test Member A").
 - No keys, passwords or database addresses in the repo. Settings go in `.env.local`, which git ignores.
 
-## The hosted test copy
+## What a push does
 
-A test copy with made-up names runs on a host. It is deployed by hand and is not connected to this repository. Nothing you push changes it.
+The repository is connected to a Vercel project. A branch you push gets a preview build there, and `main` is deployed by itself when a pull request is merged. So keep keys, passwords and real names out of every branch, not only out of `main`.

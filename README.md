@@ -2,7 +2,7 @@
 
 An iPad on the workspace wall reads a member's QR code. The scan signs them in for the day and shows what they should work on. Leads load the tasks from a dashboard, see who is here, and export attendance.
 
-Phase 1 is sign-in and tasks. Phase 2 adds marking work done with a note and a link, a review queue where a lead approves it or sends it back, and a "Draft steps" button on the task form. A test copy with made-up names runs on a host. It is deployed by hand and is not connected to this repository, so nothing pushed here changes it. The real one is not deployed yet.
+Phase 1 is sign-in and tasks. Phase 2 adds marking work done with a note and a link, a review queue where a lead approves it or sends it back, and a "Draft steps" button on the task form. This repository is connected to a Vercel project. Every push to `main` is deployed there by itself, and every pushed branch gets a preview build. That deployment has no database yet, so the pages that need one answer with an error.
 
 To work on it, read `CONTRIBUTING.md`.
 

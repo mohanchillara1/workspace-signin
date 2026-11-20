@@ -152,12 +152,14 @@ async function reconcile(tx: Db, task: Task, options: { fresh: boolean }): Promi
     if (task.audience === 'person' && wanted.length) {
       // Someone who has been deactivated cannot see or finish a task, so they
       // hold none. They get it back if they are reactivated.
-      const active = await tx
+      // Only people known to be inactive are left out. A name that matches
+      // nobody still fails below, so a task for nobody is never published.
+      const away = await tx
         .select({ id: members.id })
         .from(members)
-        .where(and(inArray(members.id, wanted), eq(members.active, true)));
-      const activeIds = new Set(active.map((p) => p.id));
-      wanted = wanted.filter((id) => activeIds.has(id));
+        .where(and(inArray(members.id, wanted), eq(members.active, false)));
+      const awayIds = new Set(away.map((p) => p.id));
+      wanted = wanted.filter((id) => !awayIds.has(id));
     }
     if (task.audience === 'subteam') {
       const people = task.subteamId
