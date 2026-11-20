@@ -43,11 +43,18 @@ test('a lead who is not a captain gets no buttons on a captain or another lead',
   await page.waitForURL('**/dashboard');
   await page.goto('/dashboard/members');
   for (const name of ['Test Captain', 'Other Lead']) {
-    const row = page.locator(`[data-member-name="${name}"]`);
+    // A plain lead can open another lead's page but gets no buttons on it.
+    await page.goto('/dashboard/members');
+    await page.locator(`[data-member-name="${name}"]`).click();
+    await page.waitForURL(/\/dashboard\/members\/[0-9a-f-]{36}$/);
+    const row = page.locator(`div[data-member-name="${name}"]`);
     await expect(row).toBeVisible();
     await expect(row.getByRole('button')).toHaveCount(0);
   }
+  await page.goto('/dashboard/members');
   // Their own row: a new code, yes; switching themselves off, no.
+  await page.locator('[data-member-name="Plain Lead"]').click();
+  await page.waitForURL(/\/dashboard\/members\/[0-9a-f-]{36}$/);
   const own = page.locator('[data-member-name="Plain Lead"]');
   await expect(own.getByRole('button', { name: copy.members.newCode })).toBeVisible();
   await expect(own.getByRole('button', { name: copy.members.deactivate })).toHaveCount(0);
@@ -163,7 +170,7 @@ test('the roster takes a CSV file with a header row and quotes, and a second upl
     await page.getByRole('button', { name: copy.members.rosterSubmit }).click();
     await expect(page.getByRole('status')).toHaveText(expected);
   }
-  await expect(page.locator('[data-member-name="Upload Three"]')).toContainText('Upload Crew');
+  await expect(page.locator('[data-group="Upload Crew"] [data-member-name="Upload Three"]')).toBeVisible();
   expect(await db().select().from(members).where(eq(members.firstName, 'Name'))).toHaveLength(0);
   expect(await db().select().from(members).where(and(eq(members.firstName, 'Upload'), eq(members.lastName, 'Two')))).toHaveLength(1);
   // A subteam made by mistake can be removed while nothing uses it.

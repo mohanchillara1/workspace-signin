@@ -273,6 +273,23 @@ Strings with a name or a number in them are shown with sample values, once for o
 | Key | Text |
 |---|---|
 | `title` | Members |
+| `boardHelp` | Tap a person to see their QR code, tasks and attendance, and to change their details. |
+| `groupLeads` | Captains and leads |
+| `groupNone` | No subteam |
+| `groupInactive` | Turned off |
+| `back` | All members |
+| `detailCode` | Scan code |
+| `detailId` | Member ID |
+| `detailQrAlt` | Test M.'s sign-in code |
+| `detailTasks` | Open tasks |
+| `detailNoTasks` | Nothing open for them right now. |
+| `detailSentIn` | Sent in |
+| `detailNoSentIn` | Nothing sent in yet. |
+| `detailManage` | Manage |
+| `taskGroup` | [object Object] |
+| `taskSentBack` | Sent back |
+| `taskTaken` | Taken |
+| `taskDue` | Due Wed, Nov 18 |
 | `addTitle` | Add a member |
 | `firstName` | First name |
 | `lastName` | Last name |
