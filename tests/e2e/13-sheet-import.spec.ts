@@ -9,6 +9,9 @@ import { closeDb, db, logIn, watchConsole } from './helpers';
 
 test.afterAll(closeDb);
 
+// Its own address, so the page loads of the files before this one do not count against it.
+test.use({ extraHTTPHeaders: { 'x-forwarded-for': '10.20.40.1' } });
+
 const FILE = ['name,2026-08-03,2026-08-05,2026-08-10', 'Sheet Person A,TRUE,FALSE,TRUE', 'Sheet Person B,FALSE,FALSE,FALSE'].join('\n');
 
 test("rows from the sheet count on a person's own page and show a lead where they came from", async ({ page }) => {
