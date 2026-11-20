@@ -111,7 +111,14 @@ DATABASE_URL=... npm run db:migrate
 DATABASE_URL=... npm run invite-captain -- "First" "Last"
 ```
 
-The second command prints a one-time path where the first captain sets a password. If that person is already on the roster, they become the captain and keep their own row. Every other lead gets an invite link from a captain, on the Members screen.
+The first command also stores an 8-second limit on any one statement in the database itself, as a default of the role it connects as. The app asks for that limit each time it connects, but a host's proxy can drop the request without an error (Neon's does), and the database then runs with no limit. To ask a database what it enforces:
+
+```bash
+DATABASE_URL=... npm run db:limit              # read-only; exits 1 when it is not 8 seconds
+DATABASE_URL=... npm run db:limit -- --slow    # also times a 9-second statement
+```
+
+The `invite-captain` command prints a one-time path where the first captain sets a password. If that person is already on the roster, they become the captain and keep their own row. Every other lead gets an invite link from a captain, on the Members screen.
 
 To give admins a password yourself instead of sending invite links, add them to the roster first (Members, then Paste a roster), then for each one:
 

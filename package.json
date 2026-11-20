@@ -21,6 +21,7 @@
     "test:e2e": "next build && playwright test",
     "screenshots": "tsx scripts/screenshots.ts",
     "db:migrate": "tsx scripts/migrate.ts",
+    "db:limit": "tsx scripts/db-limit.ts",
     "test:all": "vitest run && next build && playwright test",
     "review": "tsx scripts/review-server.ts"
   },

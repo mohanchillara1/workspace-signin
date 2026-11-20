@@ -1,5 +1,6 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
+import { STATEMENT_LIMIT_MS } from './limit';
 import * as schema from './schema';
 
 type Root = NodePgDatabase<typeof schema>;
@@ -16,7 +17,10 @@ export function makeDb(url: string): { db: Root; pool: Pool } {
     // Fail in seconds, not minutes, when the database is slow or away, so the
     // kiosk can say so.
     connectionTimeoutMillis: 5000,
-    statement_timeout: 8000,
+    // The server's own limit. A host's proxy can drop this request, so the
+    // limit is stored in the database as well: see limit.ts.
+    statement_timeout: STATEMENT_LIMIT_MS,
+    // The driver's own: it gives up waiting two seconds after that.
     query_timeout: 10000,
   });
   return { db: drizzle(pool, { schema }), pool };
