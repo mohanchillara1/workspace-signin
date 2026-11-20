@@ -25,10 +25,10 @@ Test logins on your machine (the seed makes the same ones for everyone, with mad
 | Lead (captain) | `testcaptain` | `test-captain-pass` | The dashboard |
 | Member | First name `Test`, last name `Member A` (no password) | | Their own page: QR code and tasks |
 
-Both are on `/login`. Members type their first and last name; only leads and captains have a password. A hosted copy never gets the captain's password.
+Members log in on `/login` with their first and last name. Leads and captains log in on `/admin`; only they have a password. A hosted copy never gets the captain's password.
 
-- Lead dashboard: `/login`, as `testcaptain`.
-- A member: `/login`, under "Members", with their first and last name. Two people with the same name can't log in that way; a lead copies them their page link from Members instead.
+- Lead dashboard: `/admin`, as `testcaptain`.
+- A member: `/login`, with their first and last name. Two people with the same name can't log in that way; a lead copies them their page link from Members instead.
 - Kiosk: log in, open Kiosk, choose "Make this the kiosk". The scan page is `/kiosk`.
 - A member's page: the seed prints one link. Leads copy the rest from Members.
 

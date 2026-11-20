@@ -64,7 +64,7 @@ async function signedOut(hasDb: boolean, privateFiles: boolean) {
   console.log(`\nSigned out, plain requests to ${base}`);
 
   // Every kind of page: reachable without a Vercel login, and never indexed.
-  const pages = ['/', '/login', '/kiosk', '/dashboard', '/dashboard/members', '/m/not-a-real-page-key', '/invite/not-a-real-invite-token-0000', '/api/health', '/robots.txt', '/icon.png', '/wordmark.png', '/no-such-page'];
+  const pages = ['/', '/login', '/admin', '/kiosk', '/dashboard', '/dashboard/members', '/m/not-a-real-page-key', '/invite/not-a-real-invite-token-0000', '/api/health', '/robots.txt', '/icon.png', '/wordmark.png', '/no-such-page'];
   for (const path of pages) {
     const response = await get(path);
     const robots = response.headers.get('x-robots-tag') ?? '';
@@ -119,10 +119,12 @@ async function signedOut(hasDb: boolean, privateFiles: boolean) {
   for (const path of ['/dashboard', '/dashboard/members', '/dashboard/tasks', '/dashboard/review', '/dashboard/attendance', '/dashboard/kiosk', '/dashboard/attendance/export?from=2026-01-01&to=2026-12-31']) {
     const response = await get(path);
     const body = await response.text();
-    check(response.status >= 300 && response.status < 400 && /\/login$/.test(response.headers.get('location') ?? '') && !/Test Member/.test(body), `${path} sends you to the login page`, `status ${response.status}`);
+    check(response.status >= 300 && response.status < 400 && /\/admin$/.test(response.headers.get('location') ?? '') && !/Test Member/.test(body), `${path} sends you to the leads' login page`, `status ${response.status}`);
   }
   const login = await (await get('/login')).text();
-  check(login.includes(copy.login.title), 'the login page opens');
+  check(login.includes(copy.login.memberTitle) && !login.includes(copy.login.password), 'the login page opens, with the members form only');
+  const admin = await (await get('/admin')).text();
+  check(admin.includes(copy.login.leadTitle) && admin.includes(copy.login.password), "the leads' login page opens");
   const badPage = await get('/m/not-a-real-page-key');
   check(badPage.status === 404, 'a wrong member link opens nothing', `status ${badPage.status}`);
 }
@@ -133,7 +135,7 @@ const watch = (page: Page, errors: string[]) => {
 };
 
 async function logIn(page: Page, loginName: string, password: string) {
-  await page.goto('/login');
+  await page.goto('/admin');
   await page.getByLabel(copy.login.name).fill(loginName);
   await page.getByLabel(copy.login.password).fill(password);
   await page.getByRole('button', { name: copy.login.submit }).click();
@@ -190,9 +192,9 @@ async function loop(shots: string | undefined) {
 
       // Log out and in again: the stored hash is checked on the host too.
       await lead.getByRole('button', { name: copy.nav.logout }).click();
-      await lead.waitForURL('**/login');
+      await lead.waitForURL('**/admin');
       await lead.goto('/dashboard');
-      check(new URL(lead.url()).pathname === '/login', 'after logging out the dashboard asks for a login again');
+      check(new URL(lead.url()).pathname === '/admin', 'after logging out the dashboard asks for a login again');
       await logIn(lead, loginName, password);
       check(true, 'logging in with the new password works (the password check runs on the host)');
 
@@ -280,7 +282,7 @@ async function loop(shots: string | undefined) {
       const [device] = await db.select().from(kiosks).where(eq(kiosks.name, kioskName));
       check(!!device?.revokedAt, 'the hosted database shows the test kiosk as turned off');
       await lead.getByRole('button', { name: copy.nav.logout }).click();
-      await lead.waitForURL('**/login');
+      await lead.waitForURL('**/admin');
 
       check(errors.length === 0, 'no console errors on any live page', errors.join(' ; '));
     } finally {

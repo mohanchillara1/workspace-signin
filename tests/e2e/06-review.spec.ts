@@ -173,7 +173,7 @@ test('a note is plain text and only an https link can be tapped', async ({ page 
 
 test('the review screen needs a login', async ({ page }) => {
   await page.goto('/dashboard/review');
-  await page.waitForURL('**/login');
+  await page.waitForURL('**/admin');
   await expect(page.getByTestId('review-card')).toHaveCount(0);
 });
 

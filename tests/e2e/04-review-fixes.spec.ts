@@ -19,12 +19,12 @@ test('logging out ends the session: a copied cookie no longer opens the dashboar
   const cookies = await page.context().cookies();
   expect(cookies.find((c) => c.name === 'lead')?.httpOnly).toBe(true);
   await page.getByRole('button', { name: copy.nav.logout }).click();
-  await page.waitForURL('**/login');
+  await page.waitForURL('**/admin');
   const thief = await browser.newContext();
   await thief.addCookies(cookies);
   const stolen = await thief.newPage();
   await stolen.goto('/dashboard');
-  expect(stolen.url()).toContain('/login');
+  expect(stolen.url()).toContain('/admin');
   await thief.close();
 });
 
@@ -36,7 +36,7 @@ test('a lead who is not a captain gets no buttons on a captain or another lead',
   await acceptInvite(db(), { token, loginName: 'plainlead', password: 'a long enough password', now });
   const context = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await context.newPage();
-  await page.goto('/login');
+  await page.goto('/admin');
   await page.getByLabel(copy.login.name).fill('plainlead');
   await page.getByLabel(copy.login.password).fill('a long enough password');
   await page.getByRole('button', { name: copy.login.submit }).click();

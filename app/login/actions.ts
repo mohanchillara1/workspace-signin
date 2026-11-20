@@ -36,5 +36,5 @@ export async function openMemberPage(_previous: LoginState, form: FormData): Pro
 
 export async function logOut(): Promise<void> {
   await signOutLead();
-  redirect('/login');
+  redirect('/admin');
 }

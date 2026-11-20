@@ -24,14 +24,14 @@ async function newTask(page: Page, title: string, fill: (page: Page) => Promise<
 
 test('the dashboard needs a login, and a wrong password gets a plain answer', async ({ page }) => {
   await page.goto('/dashboard');
-  await page.waitForURL('**/login');
+  await page.waitForURL('**/admin');
   await page.getByLabel(copy.login.name).fill(state().captain.loginName);
   await page.getByLabel(copy.login.password).fill('not the password');
   await page.getByRole('button', { name: copy.login.submit }).click();
   await expect(page.getByText(copy.login.wrong)).toBeVisible();
   for (const path of ['/dashboard/members', '/dashboard/attendance/export?from=2026-01-01&to=2026-12-31']) {
     const response = await page.goto(path);
-    expect(page.url()).toContain('/login');
+    expect(page.url()).toContain('/admin');
     expect(await response?.text()).not.toContain('first name');
   }
 });

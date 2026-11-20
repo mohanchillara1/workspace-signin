@@ -71,10 +71,10 @@ export async function currentLead(): Promise<Member | null> {
   return leadForSession(getDb(), { memberId: session.memberId, version: session.version, sid: session.sid });
 }
 
-/** For every dashboard page and action: the lead, or a trip to the login page. */
+/** For every dashboard page and action: the lead, or a trip to the leads' login page. */
 export async function requireLead(): Promise<Member> {
   const lead = await currentLead();
-  if (!lead) redirect('/login');
+  if (!lead) redirect('/admin');
   return lead;
 }
 

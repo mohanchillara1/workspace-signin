@@ -46,7 +46,7 @@ export async function feed(page: Page, code: string): Promise<void> {
 
 export async function logIn(page: Page): Promise<void> {
   const { captain } = state();
-  await page.goto('/login');
+  await page.goto('/admin');
   await page.getByLabel(copy.login.name).fill(captain.loginName);
   await page.getByLabel(copy.login.password).fill(captain.password);
   await page.getByRole('button', { name: copy.login.submit }).click();

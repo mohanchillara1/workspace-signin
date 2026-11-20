@@ -25,7 +25,7 @@ test.describe('member login by name', () => {
     await expect(page.getByTestId('qr')).toBeVisible();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(copy.member.greeting('Login'));
     await page.goto('/dashboard');
-    await page.waitForURL('**/login');
+    await page.waitForURL('**/admin');
     expect(errors).toEqual([]);
   });
 

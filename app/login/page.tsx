@@ -1,24 +1,24 @@
 import type { Metadata } from 'next';
 import Image from 'next/image';
-import { redirect } from 'next/navigation';
-import { LoginForm } from '@/components/dashboard/LoginForm';
+import Link from 'next/link';
 import { MemberLoginForm } from '@/components/dashboard/MemberLoginForm';
-import { currentLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
 
 export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: copy.login.title };
 
-export default async function LoginPage() {
-  if (await currentLead()) redirect('/dashboard');
+// The main login: members open their own page by name. Leads and captains
+// log in at /admin. Nobody is sent away from here for being logged in, so a
+// lead can still open their own member page.
+export default function LoginPage() {
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-10">
       <Image src="/wordmark.png" alt={copy.app.title} width={380} height={115} priority className="mb-4 h-10 w-auto self-start" />
       <h1 className="mb-6 mt-1 text-5xl">{copy.login.title}</h1>
-      <div className="space-y-6">
-        <MemberLoginForm />
-        <LoginForm />
-      </div>
+      <MemberLoginForm />
+      <p className="mt-6 text-sm text-paper/70">
+        <Link href="/admin" className="underline underline-offset-4">{copy.login.toAdmin}</Link>
+      </p>
     </main>
   );
 }

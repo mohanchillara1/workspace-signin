@@ -197,6 +197,8 @@ async function main() {
       const errors = watch(page);
       await page.goto(`${BASE}/login`);
       await shoot(page, `login-${label}`, errors);
+      await page.goto(`${BASE}/admin`);
+      await shoot(page, `admin-login-${label}`, errors);
       await page.getByLabel(copy.login.name).fill(seed.captain.loginName);
       await page.getByLabel(copy.login.password).fill(password);
       await page.getByRole('button', { name: copy.login.submit }).click();

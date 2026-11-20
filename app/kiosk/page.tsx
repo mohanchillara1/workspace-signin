@@ -32,7 +32,7 @@ export default async function KioskPage() {
         <div className="max-w-xl">
           <h1 className="text-5xl">{k.notPairedTitle}</h1>
           <p className="mt-4 text-xl text-paper/85">{k.notPairedBody}</p>
-          <a href="/login" className="btn-pill mt-8 bg-arcade-fuel text-ink">
+          <a href="/admin" className="btn-pill mt-8 bg-arcade-fuel text-ink">
             {k.notPairedLink}
           </a>
         </div>

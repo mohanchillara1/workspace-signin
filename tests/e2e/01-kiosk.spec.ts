@@ -41,7 +41,7 @@ test('a lead pairs the device from the dashboard and is logged out on it', async
   await page.waitForURL((url) => url.pathname === '/kiosk');
   await expect(page.getByRole('heading', { name: k.idleTitle })).toBeVisible();
   await page.goto('/dashboard');
-  await page.waitForURL('**/login');
+  await page.waitForURL('**/admin');
 });
 
 test('a scan signs the member in once and shows their tasks in order', async ({ page, context }) => {
