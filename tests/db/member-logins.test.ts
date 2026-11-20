@@ -1,85 +1,51 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { acceptInvite, checkLogin, createInvite } from '@/lib/auth/leads';
-import { checkMemberLogin, logInAnyone, setMemberLogin } from '@/lib/auth/member-logins';
+import { logInByName } from '@/lib/auth/member-logins';
 import type { Member } from '@/lib/db/schema';
 import { addMember, setActive } from '@/lib/members';
 import { useTestDb } from '../setup/db';
 
 const NOW = new Date('2026-11-18T23:00:00Z');
+const at = (firstName: string, lastName: string, ip = 'phone') => ({ firstName, lastName, ip, now: NOW });
 
-describe('member logins', () => {
+describe('members log in with their first and last name', () => {
   const getDb = useTestDb();
-  let captain: Member;
-  let member: Member;
-  let other: Member;
+  let alpha: Member;
+  let gone: Member;
 
   beforeAll(async () => {
     const db = getDb();
-    captain = await addMember(db, { firstName: 'Test', lastName: 'Captain', role: 'captain' }, null);
-    member = await addMember(db, { firstName: 'Test', lastName: 'Member A' }, captain.id);
-    other = await addMember(db, { firstName: 'Test', lastName: 'Member B' }, captain.id);
-    const token = await createInvite(db, { memberId: captain.id, actorId: null, now: NOW, bootstrap: true });
-    await acceptInvite(db, { token, loginName: 'capt', password: 'captain pass 1', now: NOW });
+    alpha = await addMember(db, { firstName: 'Test', lastName: 'Member Alpha' }, null);
+    gone = await addMember(db, { firstName: 'Test', lastName: 'Member Gone' }, null);
+    await setActive(db, gone.id, false, null);
+    await addMember(db, { firstName: 'Test', lastName: 'Member Twin' }, null);
+    await addMember(db, { firstName: 'Test', lastName: 'Member Twin' }, null);
   });
 
-  it('opens only the member page, never the dashboard', async () => {
+  it('opens that member page, whatever the case and spaces', async () => {
     const db = getDb();
-    await setMemberLogin(db, { memberId: member.id, loginName: 'MemberA', password: 'member pass 1', actorId: captain.id, now: NOW });
-    expect(await checkMemberLogin(db, { loginName: 'membera', password: 'member pass 1' })).toBe(member.pageKey);
-    expect(await checkMemberLogin(db, { loginName: 'membera', password: 'wrong pass 11' })).toBeNull();
-    const asLead = await checkLogin(db, { loginName: 'membera', password: 'member pass 1', ip: 'x', now: NOW });
-    expect(asLead.ok).toBe(false);
+    expect(await logInByName(db, at('Test', 'Member Alpha'))).toEqual({ ok: true, pageKey: alpha.pageKey });
+    expect(await logInByName(db, at('  test ', 'member   ALPHA'))).toEqual({ ok: true, pageKey: alpha.pageKey });
   });
 
-  it('refuses short passwords, bad names and names already taken', async () => {
+  it('refuses a name not on the list, a blank one, and a deactivated member', async () => {
     const db = getDb();
-    const base = { memberId: other.id, actorId: captain.id, now: NOW };
-    await expect(setMemberLogin(db, { ...base, loginName: 'memberb', password: 'short' })).rejects.toThrow();
-    await expect(setMemberLogin(db, { ...base, loginName: 'no spaces', password: 'long enough 1' })).rejects.toThrow();
-    await expect(setMemberLogin(db, { ...base, loginName: 'membera', password: 'long enough 1' })).rejects.toThrow();
-    await expect(setMemberLogin(db, { ...base, loginName: 'capt', password: 'long enough 1' })).rejects.toThrow();
+    expect(await logInByName(db, at('Test', 'Member Nobody'))).toEqual({ ok: false, reason: 'not_found' });
+    expect(await logInByName(db, at('Test', ' '))).toEqual({ ok: false, reason: 'not_found' });
+    expect(await logInByName(db, at('Test', 'Member Gone'))).toEqual({ ok: false, reason: 'not_found' });
   });
 
-  it('stops working when the member is deactivated', async () => {
-    const db = getDb();
-    await setActive(db, member.id, false, captain.id);
-    expect(await checkMemberLogin(db, { loginName: 'membera', password: 'member pass 1' })).toBeNull();
-  });
-});
-
-describe('member logins and the wrong-try limits', () => {
-  const getDb = useTestDb();
-  let member: Member;
-  const pass = 'member pass 1';
-
-  beforeAll(async () => {
-    const db = getDb();
-    const captain = await addMember(db, { firstName: 'Test', lastName: 'Captain', role: 'captain' }, null);
-    member = await addMember(db, { firstName: 'Test', lastName: 'Member C' }, captain.id);
-    await setMemberLogin(db, { memberId: member.id, loginName: 'memberc', password: pass, actorId: captain.id, now: NOW });
+  it('opens nothing when two people share the name', async () => {
+    expect(await logInByName(getDb(), at('Test', 'Member Twin'))).toEqual({ ok: false, reason: 'two_match' });
   });
 
-  it('does not lock a member out for logging in correctly many times', async () => {
+  it('a whole team logging in from one wifi is never locked out', async () => {
     const db = getDb();
-    for (let i = 0; i < 8; i++) {
-      const result = await logInAnyone(db, { loginName: 'memberc', password: pass, ip: 'phone', now: NOW });
-      expect(result).toEqual({ ok: true, kind: 'member', pageKey: member.pageKey });
-    }
+    for (let i = 0; i < 40; i++) expect((await logInByName(db, at('Test', 'Member Alpha', 'team-wifi'))).ok).toBe(true);
   });
 
-  it('does not lock a shared wifi address after many correct member logins', async () => {
+  it('twenty names not on the list from one address make it wait', async () => {
     const db = getDb();
-    for (let i = 0; i < 25; i++) {
-      const result = await logInAnyone(db, { loginName: 'memberc', password: pass, ip: 'team-wifi', now: NOW });
-      expect(result.ok).toBe(true);
-    }
-  });
-
-  it('still locks a member name after five wrong passwords', async () => {
-    const db = getDb();
-    for (let i = 0; i < 5; i++) {
-      expect(await logInAnyone(db, { loginName: 'memberc', password: 'wrong pass 11', ip: 'x', now: NOW })).toEqual({ ok: false, reason: 'wrong' });
-    }
-    expect(await logInAnyone(db, { loginName: 'memberc', password: pass, ip: 'x', now: NOW })).toEqual({ ok: false, reason: 'locked' });
+    for (let i = 0; i < 20; i++) expect(await logInByName(db, at('Guess', `Name ${i}`, 'guesser'))).toEqual({ ok: false, reason: 'not_found' });
+    expect(await logInByName(db, at('Test', 'Member Alpha', 'guesser'))).toEqual({ ok: false, reason: 'locked' });
   });
 });

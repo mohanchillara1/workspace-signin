@@ -5,7 +5,6 @@
 // never land next to real ones. The one exception is a hosted test copy: a
 // database whose own settings say TEST_COPY=1.
 import { randomBytes } from 'node:crypto';
-import { setMemberLogin } from '../lib/auth/member-logins';
 import { sql } from 'drizzle-orm';
 import { recordScan } from '../lib/attendance';
 import { chicagoDay } from '../lib/day';
@@ -31,13 +30,6 @@ async function main() {
     const info = await seedDemo(db, { captainPassword: password, today: chicagoDay(new Date()) });
     console.log(`Seeded the database (${describeDatabase(url)}) with made-up subteams, twelve people and tasks of every kind.`);
     if (local) {
-      await setMemberLogin(db, {
-        memberId: info.members.A.id,
-        loginName: 'testmember',
-        password: 'test-member-pass',
-        actorId: null,
-        now: new Date(),
-      });
       // Made-up meetings: three a week for the past four weeks, plus today,
       // so the attendance screens have something to show.
       const people = Object.values(info.members);
@@ -56,7 +48,7 @@ async function main() {
       console.log(`Made-up check-ins: ${made}`);
       console.log(`Lead login:   ${info.captain.loginName}`);
       console.log(`Password:     ${password}`);
-      console.log('Member login: testmember  /  test-member-pass   (Test Member A)');
+      console.log('Member login: first name "Test", last name "Member A"');
       console.log(`A member page: http://127.0.0.1:4320/m/${info.members.A.pageKey}`);
     } else {
       // Nothing that opens a hosted copy is printed. The seeded captain's

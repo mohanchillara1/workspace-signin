@@ -148,24 +148,6 @@ export async function acceptInvite(
 
 let dummyHash: Promise<string> | undefined;
 
-/** The two wrong-try counters a login touches: one per login name, one per address. */
-function tryKeys(input: { loginName: string; ip: string; now: Date }) {
-  const loginName = normalLoginName(input.loginName).slice(0, 64);
-  return {
-    nameKey: { key: `login-name:${loginName}`, windowSeconds: LOCK_WINDOW_SECONDS, now: input.now },
-    addressKey: { key: `login-ip:${input.ip}`, windowSeconds: LOCK_WINDOW_SECONDS, now: input.now },
-  };
-}
-
-/**
- * Gives back the tries a correct login was counted for. checkLogin does this
- * for a lead; the login form calls it when the password was a member's.
- */
-export async function forgiveLoginTries(db: Db, input: { loginName: string; ip: string; now: Date }): Promise<void> {
-  const { nameKey, addressKey } = tryKeys(input);
-  await Promise.all([unhit(db, nameKey), unhit(db, addressKey)]);
-}
-
 export type LoginResult =
   | { ok: true; memberId: string; version: number }
   | { ok: false; reason: 'wrong' | 'locked' };
@@ -182,7 +164,8 @@ export async function checkLogin(
   input: { loginName: string; password: string; ip: string; now: Date },
 ): Promise<LoginResult> {
   const loginName = normalLoginName(input.loginName).slice(0, 64);
-  const { nameKey, addressKey } = tryKeys(input);
+  const nameKey = { key: `login-name:${loginName}`, windowSeconds: LOCK_WINDOW_SECONDS, now: input.now };
+  const addressKey = { key: `login-ip:${input.ip}`, windowSeconds: LOCK_WINDOW_SECONDS, now: input.now };
   const [byName, byAddress] = await Promise.all([
     hit(db, { ...nameKey, limit: WRONG_PER_NAME }),
     hit(db, { ...addressKey, limit: WRONG_PER_ADDRESS }),

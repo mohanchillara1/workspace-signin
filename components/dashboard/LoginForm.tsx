@@ -8,7 +8,8 @@ export function LoginForm() {
   const [state, action, pending] = useActionState<LoginState, FormData>(logIn, {});
   const c = copy.login;
   return (
-    <form action={action} className="card space-y-4 p-6">
+    <form action={action} className="card space-y-4 p-6" data-testid="lead-login">
+      <h2 className="text-2xl">{c.leadTitle}</h2>
       <div>
         <label className="label" htmlFor="loginName">{c.name}</label>
         <input id="loginName" name="loginName" className="field" autoComplete="username" autoCapitalize="none" required />

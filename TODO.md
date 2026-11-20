@@ -11,7 +11,7 @@ The goal: at meetings, people know what to work on. Each member has an account a
 - [x] Style tokens copied from singularity-frc.com (colors, Manrope / Bricolage fonts)
 
 ## Needs doing now
-- [x] **Member login.** Members log in at `/login` and land on their page. Leads set it on Members → "Member login"
+- [x] **Member login.** Members type their first and last name at `/login` and land on their page. Only leads and captains have passwords
 - [x] **Fix the white screen after login.** `Referrer-Policy: no-referrer` made Chrome send `Origin: null`, and Next.js rejected the login
 - [ ] **Style check against singularity-frc.com.** Compare each screen to the live site (header, wordmark, buttons, cards) and fix differences
 - [ ] **Kiosk on a laptop and scanner.** The kiosk was built for an iPad camera. Test it with a USB scanner, which types the code like a keyboard, on a laptop screen
