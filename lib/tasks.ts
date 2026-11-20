@@ -293,16 +293,19 @@ export async function syncMember(db: Db, memberId: string): Promise<void> {
           eq(tasks.audience, 'person'),
           sql`${tasks.memberIds} @> ${JSON.stringify([memberId])}::jsonb`,
         ),
-      );
+      )
+      .orderBy(tasks.id);
     for (const { id } of own) {
       const task = await lockTask(tx, id);
       if (task && task.state === 'published') await reconcile(tx, task, { fresh: false });
     }
     const { reach } = await membershipOf(tx, memberId);
+    // Tasks are locked in the same order every time, so two of these at once cannot hold each other up.
     const each = await tx
       .select()
       .from(tasks)
-      .where(and(eq(tasks.state, 'published'), eq(tasks.audience, 'subteam'), eq(tasks.completion, 'each')));
+      .where(and(eq(tasks.state, 'published'), eq(tasks.audience, 'subteam'), eq(tasks.completion, 'each')))
+      .orderBy(tasks.id);
     for (const task of each) {
       await lockTask(tx, task.id);
       const mine = await tx

@@ -60,48 +60,56 @@ async function writeSubteams(db: Db, memberId: string, wanted: string[]): Promis
   });
 }
 
+/** All of it or none: the person, their subteams and the tasks those bring. */
 export async function addMember(db: Db, input: NewMember, actorId: string | null): Promise<Member> {
-  const [member] = await db
-    .insert(members)
-    .values({
-      firstName: cleanName(input.firstName, 'firstNameEmpty'),
-      lastName: cleanName(input.lastName, null),
-      role: input.role ?? 'member',
-      scanCode: newScanCode(),
-      pageKey: newPageKey(),
-    })
-    .returning();
-  await logChange(db, { actorId, action: 'member.add', entity: 'member', entityId: member.id });
-  if (await writeSubteams(db, member.id, input.subteamIds ?? [])) await syncMember(db, member.id);
-  return member;
+  return db.transaction(async (tx) => {
+    const [member] = await tx
+      .insert(members)
+      .values({
+        firstName: cleanName(input.firstName, 'firstNameEmpty'),
+        lastName: cleanName(input.lastName, null),
+        role: input.role ?? 'member',
+        scanCode: newScanCode(),
+        pageKey: newPageKey(),
+      })
+      .returning();
+    await logChange(tx, { actorId, action: 'member.add', entity: 'member', entityId: member.id });
+    if (await writeSubteams(tx, member.id, input.subteamIds ?? [])) await syncMember(tx, member.id);
+    return member;
+  });
 }
 
-/** `subteamIds` is the whole list: the person ends up in exactly these. */
+/**
+ * `subteamIds` is the whole list: the person ends up in exactly these. All of
+ * it or none, so a person's subteams never change without their tasks following.
+ */
 export async function updateMember(
   db: Db,
   id: string,
   patch: { firstName?: string; lastName?: string; subteamIds?: string[]; role?: Role },
   actorId: string | null,
 ): Promise<void> {
-  const [before] = await db.select().from(members).where(eq(members.id, id));
-  if (!before) return;
-  const set: Partial<typeof members.$inferInsert> = {};
-  if (patch.firstName !== undefined) set.firstName = cleanName(patch.firstName, 'firstNameEmpty');
-  if (patch.lastName !== undefined) set.lastName = cleanName(patch.lastName, null);
-  if (patch.role !== undefined) set.role = patch.role;
-  const moved = patch.subteamIds !== undefined && (await writeSubteams(db, id, patch.subteamIds));
-  if (Object.keys(set).length === 0 && !moved) return;
-  if (Object.keys(set).length) await db.update(members).set(set).where(eq(members.id, id));
-  await logChange(db, {
-    actorId,
-    action: 'member.edit',
-    entity: 'member',
-    entityId: id,
-    detail: { fields: [...Object.keys(set), ...(moved ? ['subteams'] : [])] },
+  await db.transaction(async (tx) => {
+    const [before] = await tx.select().from(members).where(eq(members.id, id));
+    if (!before) return;
+    const set: Partial<typeof members.$inferInsert> = {};
+    if (patch.firstName !== undefined) set.firstName = cleanName(patch.firstName, 'firstNameEmpty');
+    if (patch.lastName !== undefined) set.lastName = cleanName(patch.lastName, null);
+    if (patch.role !== undefined) set.role = patch.role;
+    const moved = patch.subteamIds !== undefined && (await writeSubteams(tx, id, patch.subteamIds));
+    if (Object.keys(set).length === 0 && !moved) return;
+    if (Object.keys(set).length) await tx.update(members).set(set).where(eq(members.id, id));
+    await logChange(tx, {
+      actorId,
+      action: 'member.edit',
+      entity: 'member',
+      entityId: id,
+      detail: { fields: [...Object.keys(set), ...(moved ? ['subteams'] : [])] },
+    });
+    // A change of role ends the sessions made under the old one.
+    if (set.role !== undefined && set.role !== before.role) await endAllSessions(tx, id);
+    if (moved) await syncMember(tx, id);
   });
-  // A change of role ends the sessions made under the old one.
-  if (set.role !== undefined && set.role !== before.role) await endAllSessions(db, id);
-  if (moved) await syncMember(db, id);
 }
 
 export async function setActive(db: Db, id: string, active: boolean, actorId: string | null): Promise<void> {

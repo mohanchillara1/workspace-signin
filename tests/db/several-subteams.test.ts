@@ -186,6 +186,16 @@ describe('several subteams for one person', () => {
     expect((await listMembers(db)).find((m) => m.id === made.id)?.subteams.map((s) => s.name)).toEqual(['Code']);
   });
 
+  it('a save that fails part-way leaves the person as they were', async () => {
+    const db = getDb();
+    // Nobody has this id, so writing who made the change fails after the subteams were written.
+    const nobody = '00000000-0000-4000-8000-000000000000';
+    await expect(updateMember(db, d.id, { subteamIds: [mech.id] }, nobody)).rejects.toThrow();
+    expect((await listMembers(db)).find((m) => m.id === d.id)?.subteams.map((s) => s.name)).toEqual(['Code']);
+    await expect(addMember(db, { firstName: 'Test', lastName: 'Half Made', subteamIds: [mech.id] }, nobody)).rejects.toThrow();
+    expect((await listMembers(db)).some((m) => m.lastName === 'Half Made')).toBe(false);
+  });
+
   it('a pasted roster can put one person in several subteams', async () => {
     const db = getDb();
     const result = await importRoster(db, 'Test Member P, Assembly; Media\nTest, Member Q, cad;New Crew ; \nTest Member R', null);
