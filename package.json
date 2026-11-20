@@ -17,6 +17,7 @@
     "set-login": "tsx scripts/set-login.ts",
     "import-attendance": "tsx scripts/import-attendance.ts",
     "set-subteams": "tsx scripts/set-subteams.ts",
+    "inventory-starter": "tsx scripts/inventory-starter.ts",
     "copy:md": "tsx scripts/copy-md.ts",
     "test": "vitest run",
     "test:e2e": "next build && playwright test",

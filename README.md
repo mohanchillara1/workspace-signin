@@ -59,6 +59,7 @@ One browser test plays a video of a QR code as Chrome's camera, so the camera an
 | `lib/step-drafts.ts` | "Draft steps": the request to the AI service, the stand-in, and the cleaning of what comes back. |
 | `lib/members.ts` | Members, scan codes, page links, roster paste, subteams. |
 | `lib/subteams.ts` | Which subteams a person is in, and who a task for a subteam goes to. |
+| `lib/inventory.ts` | The inventory: items, counts, photos, the starter list, who changed a count. |
 | `lib/auth/` | Lead logins: invites, passwords, the session cookie. |
 | `lib/kiosk.ts` | Pairing a device as the kiosk. |
 | `lib/scanner/` | The QR decoder and the camera, behind one small interface. |
@@ -156,6 +157,23 @@ DATABASE_URL=... npm run set-subteams -- path/to/subteams.csv --hosted
 ```
 
 Each person in the file ends up in exactly the subteams on their line. People who are not in the file are left as they are. It adds nobody and makes no subteam: a name that is not on the roster, or a subteam that does not exist yet, stops it before anything changes, and it says which lines. It prints counts and subteam names, never a person's name. Keep the file out of this repo.
+
+### Inventory
+
+What the team has on its shelves: each item has a group, a count and a picture. A count can be empty, which shows as "Not counted yet".
+
+- Leads and captains keep the list on the Inventory screen: add an item, write down a count, add a photo, or press "We don't have this". That sets the item aside; it is not deleted and can be brought back.
+- A photo is shrunk in the browser to 480 pixels on its long side before it is sent, and kept in the database. Until an item has one it shows a small drawing for its group.
+- Members see the inventory from their own page once a captain opens it to them. A member can add to a count or take from it, and nothing else.
+- Every change of a count is written down with who made it and when. Leads read that under "Who changed what".
+
+To start from a guess instead of an empty page:
+
+```bash
+DATABASE_URL=... npm run inventory-starter -- --hosted
+```
+
+It adds the starter list in `lib/inventory-starter.ts` with every count empty, and only the items that are not on the list yet.
 
 ## A test copy on a host
 

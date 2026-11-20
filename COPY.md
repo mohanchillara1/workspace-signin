@@ -42,6 +42,16 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `subteamEmpty` | Type a subteam name |
 | `subteamInUse` | That subteam still has members, tasks or subteams that are part of it. Move them first |
 | `subteamNesting` | That subteam is already part of another one. Pick one that is not |
+| `inventoryName` | Type a name for the item |
+| `inventoryNameLong` | Shorten the name to 80 characters or fewer |
+| `inventoryNameTaken` | That item is already on the list |
+| `inventoryCategory` | Pick a group for the item |
+| `inventoryCount` | Type a whole number from 0 to 99,999 |
+| `inventoryAmount` | Type a whole number from 1 to 99,999 |
+| `inventoryTakeTooMany` | There are not that many left |
+| `inventoryNotCounted` | Nobody has counted this yet. Add what is there first |
+| `inventoryPhoto` | That picture could not be used. Pick a photo |
+| `inventoryMissing` | That item is not on the list any more |
 | `captainOnly` | Only a captain can make an invite link |
 | `notALead` | Only a lead or a captain can have a login |
 | `leadsAreCaptainOnly` | Only a captain can change a lead or a captain |
@@ -171,10 +181,61 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `members` | Members |
 | `attendance` | Attendance |
 | `kiosk` | Kiosk |
+| `inventory` | Inventory |
 | `logout` | Log out |
 | `menu` | Menu |
 | `closeMenu` | Close |
 | `loggedInAs` | Logged in as Test M. |
+
+## inventory
+
+| Key | Text |
+|---|---|
+| `title` | Inventory |
+| `summary` | 152 items. 148 not counted yet. |
+| `notCounted` | Not counted yet |
+| `amount` | How many |
+| `set` | Set count |
+| `put` | Add |
+| `take` | Take |
+| `dontHave` | We don't have this |
+| `doHave` | We have this |
+| `asideTitle` | Things we don't have (1)<br>Things we don't have (3) |
+| `asideHelp` | Set aside, not deleted. Bring one back if it turns up. |
+| `addTitle` | Add an item |
+| `name` | Item name |
+| `group` | Group |
+| `startCount` | Count, if you know it |
+| `add` | Add item |
+| `addPhoto` | Add photo |
+| `changePhoto` | Change photo |
+| `photoWorking` | Saving the photo |
+| `photoFailed` | That photo could not be saved. Try another one. |
+| `membersOn` | Members can open the inventory from their own page, and add to or take from the counts. |
+| `membersOff` | Members cannot see the inventory yet. |
+| `turnOn` | Open it to members |
+| `turnOff` | Close it to members |
+| `logLink` | Who changed what |
+| `logTitle` | Inventory changes |
+| `logHelp` | Every change of a count, newest first: who, which item, how many and when. |
+| `logEmpty` | No count has changed yet. |
+| `logWhen` | When |
+| `logWho` | Who |
+| `logItem` | Item |
+| `logWhat` | What |
+| `logAfter` | Count after |
+| `logPut` | Added 1<br>Added 3 |
+| `logTake` | Took 1<br>Took 3 |
+| `logCount` | Counted |
+| `byScript` | A script |
+| `back` | Back to the inventory |
+| `problem` | The task needs a title. |
+| `memberLink` | Inventory |
+| `memberHelp` | Took something off the shelf, or put something back? Type how many, then tap Take or Add. Your name goes in the log. |
+| `memberBack` | Back to my page |
+| `empty` | Nothing is on the list yet. |
+| `jump` | Jump to a group |
+| `groupCount` | Motors (13) |
 
 ## today
 

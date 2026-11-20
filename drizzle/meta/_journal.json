@@ -43,6 +43,13 @@
       "when": 1795151254939,
       "tag": "0005_several_subteams",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795161294748,
+      "tag": "0006_inventory",
+      "breakpoints": true
     }
   ]
 }

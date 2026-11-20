@@ -14,6 +14,7 @@ const LINKS = [
   { href: '/dashboard/finished', label: copy.nav.finished },
   { href: '/dashboard/members', label: copy.nav.members },
   { href: '/dashboard/attendance', label: copy.nav.attendance },
+  { href: '/dashboard/inventory', label: copy.nav.inventory },
   { href: '/dashboard/kiosk', label: copy.nav.kiosk },
 ];
 

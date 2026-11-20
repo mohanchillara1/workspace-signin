@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { AddToHomeScreen } from '@/components/member/AddToHomeScreen';
 import { MemberTasks } from '@/components/member/MemberTasks';
@@ -9,6 +10,7 @@ import { clientAddress } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
 import { chicagoDay, dayLabel } from '@/lib/day';
 import { getDb } from '@/lib/db/client';
+import { membersSeeInventory } from '@/lib/inventory';
 import { memberByPageKey } from '@/lib/members';
 import { qrSvg } from '@/lib/qr';
 import { hit } from '@/lib/rate-limit';
@@ -48,11 +50,12 @@ export default async function MemberPage({ params }: { params: Promise<{ key: st
   if (!member) notFound();
 
   const today = chicagoDay(now);
-  const [svg, tasks, count, sentIn] = await Promise.all([
+  const [svg, tasks, count, sentIn, inventoryOpen] = await Promise.all([
     qrSvg(member.scanCode),
     openFor(db, member.id, today),
     memberCount(db, member.id, today),
     standingFor(db, member.id),
+    membersSeeInventory(db),
   ]);
   const m = copy.member;
 
@@ -84,6 +87,12 @@ export default async function MemberPage({ params }: { params: Promise<{ key: st
       <MemberTasks pageKey={key} tasks={tasks} />
 
       <SentInList rows={sentIn} />
+
+      {inventoryOpen && (
+        <p className="mt-8">
+          <Link href={`/m/${key}/inventory`} data-testid="inventory-link" className="btn-pill bg-arcade-fuel text-ink">{copy.inventory.memberLink}</Link>
+        </p>
+      )}
     </main>
   );
 }

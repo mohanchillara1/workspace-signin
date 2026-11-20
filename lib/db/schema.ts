@@ -246,7 +246,42 @@ export const changeLog = pgTable(
   (t) => [index('change_log_at').on(t.at)],
 );
 
+// What the team has on its shelves. A count of null means nobody has counted
+// it yet. `have` false means the team does not have the thing at all: it is
+// set aside, not deleted, and can be brought back.
+export const inventoryItems = pgTable(
+  'inventory_items',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    category: text('category').notNull(),
+    count: integer('count'),
+    have: boolean('have').notNull().default(true),
+    countedAt: at('counted_at'),
+    countedById: uuid('counted_by_id').references(() => members.id),
+    createdAt: at('created_at').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('inventory_items_name').on(sql`lower(${t.name})`)],
+);
+
+// One photo for an item, shrunk in the browser before it is sent, kept here so
+// the app needs no file store. The bytes are base64 text.
+export const inventoryPhotos = pgTable('inventory_photos', {
+  itemId: uuid('item_id').primaryKey().references(() => inventoryItems.id),
+  mime: text('mime').notNull(),
+  data: text('data').notNull(),
+  updatedAt: at('updated_at').notNull().defaultNow(),
+});
+
+// Switches a captain sets for the whole app, one row each.
+export const settings = pgTable('settings', {
+  key: text('key').primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: at('updated_at').notNull().defaultNow(),
+});
+
 export type Member = typeof members.$inferSelect;
+export type InventoryItem = typeof inventoryItems.$inferSelect;
 export type Subteam = typeof subteams.$inferSelect;
 export type Task = typeof tasks.$inferSelect;
 export type Assignment = typeof assignments.$inferSelect;
