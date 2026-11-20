@@ -17,6 +17,7 @@ import {
   reissueScanCode,
   removeSubteam,
   setActive,
+  setSlackUserId,
   updateMember,
   type ManageAction,
   type Role,
@@ -159,3 +160,19 @@ export async function makeInvite(_previous: InviteLinkState, form: FormData): Pr
   }
 }
 
+/** A lead records, changes or clears the Slack member id of a member. */
+export async function setSlackIdAction(form: FormData): Promise<void> {
+  const lead = await requireLead();
+  const id = form.get('id');
+  let outcome: string;
+  try {
+    if (!isUuid(id)) throw new UserError('generic');
+    const value = text(form, 'slackUserId').trim();
+    const result = await setSlackUserId(getDb(), id, value === '' ? null : value, lead.id);
+    outcome = result.ok ? (value === '' ? 'cleared' : 'saved') : result.reason;
+  } catch (error) {
+    return refused(error, memberPath(id));
+  }
+  revalidatePath('/dashboard/members');
+  redirect(`${memberPath(id)}?slack=${outcome}`);
+}

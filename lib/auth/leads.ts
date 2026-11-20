@@ -164,7 +164,9 @@ export async function checkLogin(
   input: { loginName: string; password: string; ip: string; now: Date },
 ): Promise<LoginResult> {
   const loginName = normalLoginName(input.loginName).slice(0, 64);
-  const nameKey = { key: `login-name:${loginName}`, windowSeconds: LOCK_WINDOW_SECONDS, now: input.now };
+  // The count is kept under a hash of the name. People type their own name in
+  // this box by mistake, and the table of counts should not hold it.
+  const nameKey = { key: `login-name:${sha256(loginName)}`, windowSeconds: LOCK_WINDOW_SECONDS, now: input.now };
   const addressKey = { key: `login-ip:${input.ip}`, windowSeconds: LOCK_WINDOW_SECONDS, now: input.now };
   const [byName, byAddress] = await Promise.all([
     hit(db, { ...nameKey, limit: WRONG_PER_NAME }),

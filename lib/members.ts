@@ -11,6 +11,12 @@ export type NewMember = { firstName: string; lastName?: string; subteamId?: stri
 export type MemberListRow = Member & { subteamName: string | null; hasLogin: boolean };
 
 const NAME_MAX = 60;
+/**
+ * A member id as Slack shows them: a U or a W, then capital letters and
+ * digits (the docs' examples are U123ABC456 and W012A3CDE). Slack's pages give
+ * no formal rule, so the length range is a generous reading of the examples.
+ */
+export const SLACK_ID_PATTERN = /^[UW][A-Z0-9]{8,20}$/;
 const PAGE_KEY_PATTERN = /^[A-Za-z0-9_-]{32}$/;
 
 function cleanName(text: string | undefined, emptyError: ErrorKey | null): string {
@@ -282,4 +288,50 @@ export async function importRoster(
     added++;
   }
   return { added, skipped, already };
+}
+
+/**
+ * The active member whose Slack member id this is, or null. A bad shape is
+ * answered without asking the database.
+ */
+export async function memberBySlackUserId(db: Db, id: unknown): Promise<Member | null> {
+  if (typeof id !== 'string' || !SLACK_ID_PATTERN.test(id)) return null;
+  const [member] = await db
+    .select()
+    .from(members)
+    .where(and(eq(members.slackUserId, id), eq(members.active, true)));
+  return member ?? null;
+}
+
+/**
+ * A lead records, changes or clears (empty or null) the Slack member id of a
+ * member. Keeps the rule the other edits keep, so a lead cannot change
+ * another lead or a captain. Returns the reason in words-free form when the
+ * id is not accepted; the screen supplies the words.
+ */
+export async function setSlackUserId(
+  db: Db,
+  memberId: string,
+  value: string | null,
+  actorId: string,
+): Promise<{ ok: true } | { ok: false; reason: 'shape' | 'taken' }> {
+  await assertMayManage(db, actorId, memberId, 'edit');
+  const clean = value === null ? '' : String(value).trim();
+  if (clean !== '' && !SLACK_ID_PATTERN.test(clean)) return { ok: false, reason: 'shape' };
+  const next = clean === '' ? null : clean;
+  if (next !== null) {
+    const [holder] = await db.select({ id: members.id }).from(members).where(eq(members.slackUserId, next));
+    if (holder && holder.id !== memberId) return { ok: false, reason: 'taken' };
+  }
+  try {
+    await db.update(members).set({ slackUserId: next }).where(eq(members.id, memberId));
+  } catch (error) {
+    // Two leads saving the same id at once: the unique index decides.
+    const code = (error as { code?: string; cause?: { code?: string } })?.code ?? (error as { cause?: { code?: string } })?.cause?.code;
+    if (code === '23505') return { ok: false, reason: 'taken' };
+    throw error;
+  }
+  // The id itself is not logged: it is the member's key into /done.
+  await logChange(db, { actorId, action: 'member.slack_id', entity: 'member', entityId: memberId, detail: { cleared: next === null } });
+  return { ok: true };
 }

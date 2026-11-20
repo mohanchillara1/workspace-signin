@@ -102,7 +102,7 @@ Only a real iPad can prove the following, and none has been tried yet:
 - whether the iPad asks for the camera again after a reload. If it does, the reload after an update leaves the kiosk waiting for someone to tap Allow;
 - how the dimmed screen looks on the iPad's display.
 
-The Home Screen icons are drawn from `app/icon.svg` by `npx tsx scripts/make-icons.ts`.
+The Home Screen icons are drawn from the team logo, `public/team-logo.png`, by `npx tsx scripts/make-icons.ts`.
 
 ## A new database (later)
 
@@ -117,6 +117,23 @@ The second command prints a one-time path where the first captain sets a passwor
 
 A copy that holds made-up names only is run with `TEST_COPY=1`. The dashboard and the kiosk then show a "Test copy" tag, so nobody types a real roster into it. `npm run seed` fills a hosted database only when that switch is on, and prints no password there: a captain gets in with `npm run invite-captain -- --login testcaptain`. `scripts/live-check.ts` checks a hosted copy from the outside. Send it few requests: a burst at private-looking paths makes a host treat you as a scanner.
 
+## Wallet passes (off until a key is set)
+
+A member's page can show "Add to Apple Wallet" and "Add to Google Wallet". The pass holds their sign-in code as a QR code, their first name and the team's name. A signing service, WalletWallet, makes it, so the team needs no Apple developer account.
+
+- It is off, and the buttons are hidden, until `WALLETWALLET_API_KEY` is set on the host. No key exists yet and no request has ever been sent to the service: the code follows its public documentation and has only run against a built-in stand-in.
+- When it is on, each tap sends that member's sign-in code and first name to WalletWallet. Nothing else about them leaves. The Members screen says this to leads, with the free plan's limits.
+- A pass is not updated after it is made. A new QR code for a member stops their old pass; they add a new one.
+- `WALLET_STAND_IN=1` makes made-up passes on a developer's machine and in the tests. It wins over a key there, so a test run never spends a real pass, and it is ignored on the real host.
+
+## Checking a task off from Slack (off until a secret is set)
+
+A member types `/done` in the team's Slack to see their own and their subteam's open tasks, each with a short code, and `/done` with a code to finish that one. The code belongs to the task, so it still means the same task after the list has changed. A task that needs a lead's check goes to the leads' queue, the same as pressing Done on the kiosk. Up-for-grabs tasks are not listed: a member takes one on the kiosk or on their page first.
+
+- It is off, and `/api/slack/command` refuses every request, until `SLACK_SIGNING_SECRET` is set. Every request must carry Slack's signature. No Slack app has been installed and no request from Slack has ever reached this code: it follows Slack's public documentation and has only been tested with requests signed by the tests.
+- Slack knows people by a member ID, not by name. A lead records each member's Slack member ID under Edit on the Members screen. Until then `/done` tells that person to ask a lead.
+- An admin installs the app from `slack/manifest.yaml`. The steps are in `slack/README.md`.
+
 ## Not built yet
 
-Photo upload (it needs storage on a host), Wallet passes (members use the home-screen shortcut on their page instead), Slack, a copy into the Google Sheet, sign-out and hours.
+Photo upload (it needs storage on a host), a copy into the Google Sheet, sign-out and hours.

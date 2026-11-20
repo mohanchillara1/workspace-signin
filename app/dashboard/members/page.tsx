@@ -6,6 +6,7 @@ import {
   rosterAction,
 } from '@/app/dashboard/members/actions';
 import { groupColour, NO_GROUP_COLOUR, PersonFigure } from '@/components/dashboard/PersonFigure';
+import { WalletNote } from '@/components/dashboard/WalletNote';
 import { requireLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
 import { getDb } from '@/lib/db/client';
@@ -164,6 +165,10 @@ export default async function MembersPage({
             </ul>
           </section>
         ))}
+      </div>
+
+      <div className="mt-10 max-w-2xl">
+        <WalletNote />
       </div>
     </>
   );

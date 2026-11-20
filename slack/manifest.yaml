@@ -1,0 +1,25 @@
+# App manifest for the team's Slack workspace.
+# Fields follow https://docs.slack.dev/reference/app-manifest (read 2026-11-19).
+# Before pasting it into Slack, replace YOUR-SITE-ADDRESS with the address of
+# this app, for example sign-in.example.org. The address must start with https.
+display_information:
+  name: Workspace sign-in
+  description: Check off your tasks from Slack with /done.
+features:
+  bot_user:
+    display_name: Workspace sign-in
+    always_online: false
+  slash_commands:
+    - command: /done
+      url: https://YOUR-SITE-ADDRESS/api/slack/command
+      description: See your open tasks, or mark one done
+      usage_hint: "[number] [a few words about what you did]"
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - commands
+settings:
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

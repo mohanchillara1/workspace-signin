@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { editMemberAction, memberRowAction } from '@/app/dashboard/members/actions';
+import { editMemberAction, memberRowAction, setSlackIdAction } from '@/app/dashboard/members/actions';
 import { CopyLink, InviteButton } from '@/components/dashboard/MemberBits';
 import { groupColour, PersonFigure } from '@/components/dashboard/PersonFigure';
 import { memberCount } from '@/lib/attendance';
@@ -22,11 +22,11 @@ export default async function MemberDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ problem?: string }>;
+  searchParams: Promise<{ problem?: string; slack?: string }>;
 }) {
   const lead = await requireLead();
   const { id } = await params;
-  const { problem } = await searchParams;
+  const { problem, slack } = await searchParams;
   if (!isUuid(id)) notFound();
   const db = getDb();
   const [all, subteams] = await Promise.all([listMembers(db), listSubteams(db)]);
@@ -60,6 +60,13 @@ export default async function MemberDetailPage({
   const roleOptions = (['member', 'lead', 'captain'] as const).map((role) => (
     <option key={role} value={role}>{roleLabel[role]}</option>
   ));
+  const sc = copy.slack;
+  const slackNotes: Record<string, { text: string; bad: boolean }> = {
+    saved: { text: sc.idSaved, bad: false },
+    cleared: { text: sc.idCleared, bad: false },
+    shape: { text: sc.idBadShape, bad: true },
+    taken: { text: sc.idTaken, bad: true },
+  };
   const s = copy.submit;
   const standingLabel = { waiting: s.waiting, approved: s.approved, sent_back: s.sentBack };
 
@@ -73,6 +80,12 @@ export default async function MemberDetailPage({
         </p>
       )}
 
+      {slack && Object.hasOwn(slackNotes, slack) && (
+        <p role={slackNotes[slack].bad ? 'alert' : 'status'} className={`mt-5 inline-block rounded-xl border-2 border-ink px-4 py-2 font-bold text-ink ${slackNotes[slack].bad ? 'bg-arcade-fuel' : 'bg-arcade-mint'}`}>
+          {slackNotes[slack].text}
+        </p>
+      )}
+
       <div className="mt-4 flex flex-wrap items-center gap-4">
         <PersonFigure firstName={m.firstName} lastName={m.lastName} colour={colour} ringed={m.role !== 'member'} size={72} />
         <div className="min-w-0">
@@ -80,6 +93,7 @@ export default async function MemberDetailPage({
           <p className="mt-2 flex flex-wrap items-center gap-2">
             <span className="chip" style={{ background: colour }}>{m.subteamName ?? c.noSubteam}</span>
             {m.role !== 'member' && <span className="chip !bg-arcade-sky">{roleLabel[m.role]}</span>}
+            {m.slackUserId && <span className="chip">{sc.linkedChip}</span>}
             {m.hasLogin && <span className="chip">{c.hasLogin}</span>}
             {!m.active && <span className="chip !border-arcade-bumper !bg-arcade-bumper !text-paper">{c.inactive}</span>}
           </p>
@@ -190,6 +204,15 @@ export default async function MemberDetailPage({
                   </div>
                 )}
                 <button type="submit" className="btn-pill bg-arcade-purple text-paper !shadow-none sm:col-span-2 sm:justify-self-start">{c.save}</button>
+              </form>
+              <form action={setSlackIdAction} className="mt-5 grid gap-2 sm:grid-cols-[minmax(0,16rem)_auto] sm:items-end">
+                <input type="hidden" name="id" value={m.id} />
+                <div>
+                  <label className="label !text-paper" htmlFor="slackUserId">{sc.idLabel}</label>
+                  <input id="slackUserId" name="slackUserId" className="field" defaultValue={m.slackUserId ?? ''} maxLength={30} autoComplete="off" spellCheck={false} />
+                </div>
+                <button type="submit" className="btn-small">{sc.idSave}</button>
+                <p className="text-sm text-paper/70 sm:col-span-2">{sc.idHelp}</p>
               </form>
             </section>
           )}

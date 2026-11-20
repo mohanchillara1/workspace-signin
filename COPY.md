@@ -459,11 +459,54 @@ Strings with a name or a number in them are shown with sample values, once for o
 
 | Key | Text |
 |---|---|
+| `title` | Keep your code in your phone |
+| `body` | A wallet pass holds your sign-in code and your first name. An outside service, WalletWallet, makes it, so those two things are sent to it. Nothing else about you is. |
+| `apple` | Add to Apple Wallet |
+| `google` | Add to Google Wallet |
+| `passTeam` | Singularity |
+| `passTitle` | Singularity workspace |
+| `passLabel` | MEMBER |
+| `passDescription` | Sign-in code for the team workspace |
+| `failed` | The pass could not be made right now. Go back and try again in a minute, or ask a lead. |
+| `tooMany` | You asked for a pass too many times in a minute. Wait a minute and try again. |
+| `tooManyToday` | You have asked for a pass several times today. You only need one. If it did not work, try again tomorrow or ask a lead. |
+| `limitReached` | The pass service has made all the passes it can this month. Ask a lead. |
+| `noteTitle` | Wallet passes |
+| `noteOn` | Wallet passes are on. Members see two buttons on their own page. |
+| `noteStandIn` | Wallet passes are on, but they come from a built-in stand-in for testing. They are not real passes. |
+| `noteOff` | Wallet passes are off, so members do not see the buttons. They turn on when the pass service key is set. |
+| `noteFree` | On the free plan the pass uses one of six preset colours and the sign-in code, the first name and the team name. A custom colour, logo or picture needs a paid plan. |
+| `noteLimit` | The free plan allows 1,000 passes a month. Each tap on a button makes one new pass, so each member can make five a day and no more. |
+| `noteSent` | When a member taps a button, their sign-in code and first name go to the pass service, WalletWallet, which makes the pass. After that the service has them. Nothing else about the member is sent. |
+| `noteRekey` | A pass is never updated. If you give a member a new QR code, their old pass stops working at the kiosk and they add a new one from their page. |
 
 ## slack
 
 | Key | Text |
 |---|---|
+| `notLinked` | This Slack account isn't linked to a member yet. Ask a lead to add your Slack member ID on the Members screen. |
+| `nothingOpen` | You have nothing open right now. |
+| `listTitle` | Your open tasks ({count}): |
+| `groupYours` | Yours |
+| `groupSubteam` | Your subteam |
+| `listHelp` | To finish one, type /done and the code in front of it. If a lead checks that task, add a few words after the code to say what you did. |
+| `poolHint` | Tasks that are up for grabs are not on this list. Take one on the kiosk or on your page first. |
+| `usage` | Type /done to see your tasks. To finish one, type /done and its code from that list. |
+| `noSuchCode` | There is no task with the code {code} on your list. Type /done to see your tasks. |
+| `finished` | Finished: {title} |
+| `waiting` | Sent to a lead to check: {title}. It isn't finished until they approve it. |
+| `gone` | That task is no longer on your list. Type /done to see your tasks again. |
+| `noteLong` | Those words are too long. Shorten them and try again. Nothing was changed. |
+| `tooMany` | Slow down. Wait a minute and try again. |
+| `failed` | Something went wrong and nothing was changed. Try again in a minute. |
+| `idLabel` | Slack member ID |
+| `idHelp` | In Slack, open their profile and look for the option to copy their member ID. It starts with U or W. Leave it empty to unlink. |
+| `idSave` | Save Slack ID |
+| `idSaved` | Slack member ID saved. |
+| `idCleared` | Slack member ID removed. |
+| `idBadShape` | That doesn't look like a Slack member ID. It starts with U or W and has capital letters and numbers, like U123ABC456. |
+| `idTaken` | Another member already has that Slack member ID. |
+| `linkedChip` | In Slack |
 
 ## kioskAdmin
 
