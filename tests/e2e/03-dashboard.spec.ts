@@ -124,6 +124,11 @@ test('members: deactivate, new code, roster paste, print sheet', async ({ page }
   await logIn(page);
   const target = await addMember(db(), { firstName: 'Row', lastName: 'Actions' }, null);
   await page.goto('/dashboard/members');
+  // The board shows people; their buttons are on their own page.
+  await page.locator('[data-member-name="Row Actions"]').click();
+  await page.waitForURL(`**/dashboard/members/${target.id}`);
+  await expect(page.getByTestId('member-qr')).toBeVisible();
+  await expect(page.getByTestId('scan-code')).toHaveText(target.scanCode);
   const row = page.locator('[data-member-name="Row Actions"]');
   await row.getByRole('button', { name: copy.members.newCode }).click();
   await expect.poll(async () => (await memberNamed('Row', 'Actions')).scanCode).not.toBe(target.scanCode);
@@ -131,10 +136,11 @@ test('members: deactivate, new code, roster paste, print sheet', async ({ page }
   await expect(row).toContainText(copy.members.inactive);
   expect((await memberNamed('Row', 'Actions')).active).toBe(false);
 
+  await page.goto('/dashboard/members');
   await page.getByLabel(copy.members.rosterTitle).fill('Paste One, Build\nPaste Two, Brand New Crew\n,nope');
   await page.getByRole('button', { name: copy.members.rosterSubmit }).click();
   await expect(page.getByText(copy.members.rosterResult(2, 1, 0))).toBeVisible();
-  await expect(page.locator('[data-member-name="Paste Two"]')).toContainText('Brand New Crew');
+  await expect(page.locator('[data-group="Brand New Crew"] [data-member-name="Paste Two"]')).toBeVisible();
 
   await page.goto('/dashboard/members/print');
   await expect(page.getByRole('heading', { name: copy.members.printTitle })).toBeVisible();
@@ -145,6 +151,7 @@ test('members: deactivate, new code, roster paste, print sheet', async ({ page }
 test('a captain makes an invite link and the lead sets a password and gets in', async ({ page, browser }) => {
   await logIn(page);
   await page.goto('/dashboard/members');
+  await page.locator('[data-member-name="Test Lead"]').click();
   await page.locator('[data-member-name="Test Lead"]').getByRole('button', { name: copy.members.invite }).click();
   const link = await page.getByTestId('invite-link').inputValue();
   expect(link).toMatch(/\/invite\/[A-Za-z0-9_-]{43}$/);
