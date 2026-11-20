@@ -107,9 +107,11 @@ Strings with a name or a number in them are shown with sample values, once for o
 | Key | Text |
 |---|---|
 | `greeting` | Hi Test. |
-| `qrCaption` | Hold this up to the iPad when you walk in. |
+| `qrCaption` | Hold this up to the scanner when you walk in. |
 | `qrAlt` | Your sign-in code |
 | `saveTip` | Add this page to your home screen so the code is one tap away. |
+| `homeScreenName` | Singularity |
+| `homeScreen` | [object Object] |
 | `count` | You have been to 1 of 1 meeting since Wed, Nov 18.<br>You have been to 7 of 9 meetings since Wed, Nov 18. |
 | `countNone` | No meetings have been counted since Wed, Nov 18. |
 | `tasksTitle` | Your tasks |

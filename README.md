@@ -104,4 +104,4 @@ A copy that holds made-up names only is run with `TEST_COPY=1`. The dashboard an
 
 ## Not built yet
 
-Photo upload (it needs storage on a host), Wallet passes, Slack, a copy into the Google Sheet, sign-out and hours.
+Photo upload (it needs storage on a host), Wallet passes (members use the home-screen shortcut on their page instead), Slack, a copy into the Google Sheet, sign-out and hours.

@@ -22,6 +22,7 @@ const bricolage = Bricolage_Grotesque({
 export const metadata: Metadata = {
   title: copy.app.title,
   robots: { index: false, follow: false },
+  icons: { icon: '/icon.svg', apple: '/apple-touch-icon.png' },
   appleWebApp: { capable: true, title: copy.app.shortTitle, statusBarStyle: 'black-translucent' },
 };
 

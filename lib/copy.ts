@@ -108,9 +108,26 @@ export const copy = {
 
   member: {
     greeting: (firstName: string) => `Hi ${firstName}.`,
-    qrCaption: 'Hold this up to the iPad when you walk in.',
+    qrCaption: 'Hold this up to the scanner when you walk in.',
     qrAlt: 'Your sign-in code',
     saveTip: 'Add this page to your home screen so the code is one tap away.',
+    // The name under the icon on a member's home screen.
+    homeScreenName: 'Singularity',
+    homeScreen: {
+      title: 'Put your code on your home screen',
+      why: 'Then your QR code and tasks open with one tap, like an app. No app store, nothing to install.',
+      iphoneLabel: 'iPhone or iPad (in Safari)',
+      iphoneSteps: [
+        'Tap the Share button (the square with an arrow pointing up).',
+        'Scroll down and tap "Add to Home Screen".',
+        'Tap "Add".',
+      ],
+      androidLabel: 'Android (in Chrome)',
+      androidSteps: ['Tap the menu (three dots, top right).', 'Tap "Add to home screen" or "Install app".', 'Tap "Add".'],
+      androidButton: 'Add to home screen',
+      otherNote: 'Open this page on your phone to add it. The steps:',
+      after: "Keep this link to yourself: anyone with it can see your page. If you lose your phone, ask a lead for a new link.",
+    },
     count: (attended: number, meetings: number, since: string) =>
       `You have been to ${attended} of ${meetings} ${plural(meetings, 'meeting', 'meetings')} since ${since}.`,
     countNone: (since: string) => `No meetings have been counted since ${since}.`,

@@ -19,8 +19,9 @@ The goal: at meetings, people know what to work on. Each member has an account a
 - [ ] **Load the real roster and print QR codes** for each member
 
 ## Later
+- [x] Home-screen shortcut for the member page (instead of Wallet passes, which need a paid Apple account)
 - [ ] Sign-out and hours
 - [ ] Copy attendance into the Google Sheet
 - [ ] Slack notifications
 - [ ] Photo upload (needs storage)
-- [ ] Wallet passes
+- [ ] Wallet passes (skipped for now: the home-screen shortcut does the job)

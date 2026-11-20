@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { AddToHomeScreen } from '@/components/member/AddToHomeScreen';
 import { MemberTasks } from '@/components/member/MemberTasks';
 import { SentInList } from '@/components/member/SentInList';
 import { memberCount } from '@/lib/attendance';
@@ -14,7 +15,15 @@ import { standingFor } from '@/lib/submit';
 import { openFor } from '@/lib/tasks';
 
 export const dynamic = 'force-dynamic';
-export const metadata: Metadata = { title: copy.app.title };
+export async function generateMetadata({ params }: { params: Promise<{ key: string }> }): Promise<Metadata> {
+  const { key } = await params;
+  return {
+    title: copy.member.homeScreenName,
+    // Android reads this; it opens this member's page from the home screen.
+    manifest: `/m/${key}/manifest.webmanifest`,
+    appleWebApp: { capable: true, title: copy.member.homeScreenName, statusBarStyle: 'black-translucent' },
+  };
+}
 
 const LOADS_A_MINUTE = 30;
 
@@ -58,7 +67,7 @@ export default async function MemberPage({ params }: { params: Promise<{ key: st
           dangerouslySetInnerHTML={{ __html: svg }}
         />
         <p className="mt-5 text-center text-lg font-semibold">{m.qrCaption}</p>
-        <p className="mt-1 text-center text-sm text-paper/70">{m.saveTip}</p>
+        <AddToHomeScreen />
       </div>
 
       <p data-testid="count" className="mt-8 rounded-xl border-2 border-paper/25 px-4 py-3 text-base">
