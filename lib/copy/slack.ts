@@ -6,12 +6,12 @@ export const slackCopy = {
   notLinked: "This Slack account isn't linked to a member yet. Ask a lead to add your Slack member ID on the Members screen.",
   nothingOpen: 'You have nothing open right now.',
   listTitle: (count: number) => `Your open tasks (${count}):`,
-  listHelp: 'To finish one, type /done and its number, like /done 2. Add a few words after the number to tell a lead what you did.',
-  usage: 'Type /done to see your tasks, or /done 2 to finish number 2.',
-  badNumber: (number: number, count: number) =>
-    count === 0
-      ? `There is no task ${number}. You have nothing open right now.`
-      : `There is no task ${number} on your list. Type /done to see your ${count === 1 ? 'task' : `${count} tasks`}.`,
+  groupYours: 'Yours',
+  groupSubteam: 'Your subteam',
+  listHelp: 'To finish one, type /done and the code in front of it. If a lead checks that task, add a few words after the code to say what you did.',
+  poolHint: 'Tasks that are up for grabs are not on this list. Take one on the kiosk or on your page first.',
+  usage: 'Type /done to see your tasks. To finish one, type /done and its code from that list.',
+  noSuchCode: (code: string) => `There is no task with the code ${code} on your list. Type /done to see your tasks.`,
   finished: (title: string) => `Finished: ${title}`,
   waiting: (title: string) => `Sent to a lead to check: ${title}. It isn't finished until they approve it.`,
   gone: 'That task is no longer on your list. Type /done to see your tasks again.',

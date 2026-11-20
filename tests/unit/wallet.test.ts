@@ -298,6 +298,12 @@ describe('the buttons', () => {
     expect(out).toContain('href="/m/KEY-TEST/pass?platform=apple"');
     expect(out).toContain('href="/m/KEY-TEST/pass?platform=google"');
   });
+  it('tell the member that an outside service makes the pass and what is sent to it', () => {
+    const out = html(['apple', 'google']);
+    expect(out).toContain('WalletWallet');
+    expect(out).toMatch(/sign-in code and (your )?first name/);
+    expect(out).toMatch(/sent/);
+  });
   it('leave out a platform that is not offered', () => {
     const out = html(['apple']);
     expect(out).toContain(copy.wallet.apple);

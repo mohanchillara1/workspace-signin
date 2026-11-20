@@ -62,12 +62,15 @@ test('a wrong key, an inactive member and an unknown platform all get a 404', as
 });
 
 test('one address is limited, and the limit is plain words', async ({ request }) => {
-  const member = await addMember(db(), { firstName: 'Walletd' }, null);
+  // Three members take turns, so this is the limit on the address and not the one on each member.
+  const three = [];
+  for (const firstName of ['Walletd', 'Wallete', 'Walletf']) three.push(await addMember(db(), { firstName }, null));
+  const member = three[1];
   const headers = asCaller();
   const statuses: number[] = [];
   let last = '';
   for (let i = 0; i < 12; i++) {
-    const response = await request.get(`/m/${member.pageKey}/pass?platform=apple`, { headers });
+    const response = await request.get(`/m/${three[i % 3].pageKey}/pass?platform=apple`, { headers });
     statuses.push(response.status());
     last = await response.text();
   }

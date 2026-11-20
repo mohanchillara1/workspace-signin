@@ -1,10 +1,11 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import type { Db } from './db/client';
 import { copy } from './copy';
+import { sha256 } from './ids';
 import { memberBySlackUserId, SLACK_ID_PATTERN } from './members';
 import { hit } from './rate-limit';
 import { NOTE_MAX, submitWork } from './submit';
-import { openFor } from './tasks';
+import { openFor, type Handout } from './tasks';
 
 // Built to Slack's pages, read 2026-11-19:
 //   https://docs.slack.dev/authentication/verifying-requests-from-slack
@@ -47,10 +48,32 @@ export function verifySlackRequest(input: {
 /** Slack's message text treats & < > as markup; a title must not become a mention or a link. */
 const escapeForSlack = (text: string) => text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
+const CODE_MIN = 4;
+const CODE_MAX = 12;
+
+/**
+ * A short code for each hand-out, made from the hand-out's own id. A position
+ * in the list moves when a task is added, finished or approved; the code does
+ * not, so a command can never land on a different task than the one the member
+ * was looking at. Longer only when two on one list would share a code.
+ */
+export function taskCodes(handouts: Pick<Handout, 'key'>[]): string[] {
+  const full = handouts.map((handout) => sha256(handout.key));
+  for (let length = CODE_MIN; length < CODE_MAX; length++) {
+    const codes = full.map((hash) => hash.slice(0, length));
+    if (new Set(codes).size === codes.length) return codes;
+  }
+  return full.map((hash) => hash.slice(0, CODE_MAX));
+}
+
 /**
  * What /done answers. Task titles are the only thing taken from the database
  * besides the member's own hand-outs: no lead comment, no note, no other
  * member's name.
+ *
+ * It lists and finishes what the Done button does on the kiosk: the member's
+ * own tasks and their subteam's. An up-for-grabs task has to be taken first,
+ * on the kiosk or the member's page, so a slip here cannot take one.
  */
 export async function handleCommand(
   db: Db,
@@ -59,20 +82,27 @@ export async function handleCommand(
   const member = await memberBySlackUserId(db, input.slackUserId);
   if (!member) return { text: copy.slack.notLinked };
 
-  const handouts = await openFor(db, member.id, input.today);
+  const all = await openFor(db, member.id, input.today);
+  const handouts = all.filter((handout) => handout.group !== 'pool');
+  const codes = taskCodes(handouts);
+  const poolHint = all.length > handouts.length ? ['', copy.slack.poolHint] : [];
   const typed = String(input.text ?? '').trim();
 
   if (typed === '') {
-    if (handouts.length === 0) return { text: copy.slack.nothingOpen };
-    const lines = handouts.map((h, i) => `${i + 1}. ${escapeForSlack(h.title)}`);
-    return { text: [copy.slack.listTitle(handouts.length), ...lines, '', copy.slack.listHelp].join('\n') };
+    if (handouts.length === 0) return { text: [copy.slack.nothingOpen, ...poolHint].join('\n') };
+    const lines: string[] = [];
+    for (const [group, heading] of [['yours', copy.slack.groupYours], ['subteam', copy.slack.groupSubteam]] as const) {
+      const rows = handouts.flatMap((handout, i) => (handout.group === group ? [`\`${codes[i]}\`  ${escapeForSlack(handout.title)}`] : []));
+      if (rows.length > 0) lines.push(heading, ...rows);
+    }
+    return { text: [copy.slack.listTitle(handouts.length), ...lines, '', copy.slack.listHelp, ...poolHint].join('\n') };
   }
 
-  const match = /^(\d{1,3})(?:\s+([\s\S]*))?$/.exec(typed);
+  const match = /^([0-9a-f]{4,12})(?:\s+([\s\S]*))?$/i.exec(typed);
   if (!match) return { text: copy.slack.usage };
-  const number = Number(match[1]);
-  const handout = handouts[number - 1];
-  if (number < 1 || !handout) return { text: copy.slack.badNumber(number, handouts.length) };
+  const code = match[1].toLowerCase();
+  const handout = handouts[codes.indexOf(code)];
+  if (!handout) return { text: copy.slack.noSuchCode(code) };
 
   const note = (match[2] ?? '').trim();
   if ([...note].length > NOTE_MAX) return { text: copy.slack.noteLong };

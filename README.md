@@ -128,7 +128,7 @@ A member's page can show "Add to Apple Wallet" and "Add to Google Wallet". The p
 
 ## Checking a task off from Slack (off until a secret is set)
 
-A member types `/done` in the team's Slack to see their open tasks, and `/done 2` to finish the second one. A task that needs a lead's check goes to the leads' queue, the same as pressing Done on the kiosk.
+A member types `/done` in the team's Slack to see their own and their subteam's open tasks, each with a short code, and `/done` with a code to finish that one. The code belongs to the task, so it still means the same task after the list has changed. A task that needs a lead's check goes to the leads' queue, the same as pressing Done on the kiosk. Up-for-grabs tasks are not listed: a member takes one on the kiosk or on their page first.
 
 - It is off, and `/api/slack/command` refuses every request, until `SLACK_SIGNING_SECRET` is set. Every request must carry Slack's signature. No Slack app has been installed and no request from Slack has ever reached this code: it follows Slack's public documentation and has only been tested with requests signed by the tests.
 - Slack knows people by a member ID, not by name. A lead records each member's Slack member ID under Edit on the Members screen. Until then `/done` tells that person to ask a lead.

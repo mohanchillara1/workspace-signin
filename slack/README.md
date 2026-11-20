@@ -1,13 +1,13 @@
 # Checking tasks off from Slack
 
-Members type `/done` in the team's Slack to see their open tasks, or `/done 2` to finish number 2. Only they see the answer. A task that needs a lead's check goes to the review queue, as it does from a member's page.
+Members type `/done` in the team's Slack to see their open tasks, each with a short code, and `/done` with a code to finish that one. Only they see the answer. A task that needs a lead's check goes to the review queue, as it does from a member's page.
 
 No Slack app exists yet. A person who can add apps to the team's Slack (a workspace admin, or an owner) has to make one. Nothing here sends anything to Slack: the app only answers when Slack calls it.
 
 ## Install it
 
-1. Decide the site's public address. It must be `https`.
-2. Open `manifest.yaml` in this folder and replace `YOUR-SITE-ADDRESS` with that address.
+1. Decide the site's public address. It must be served over `https`.
+2. Open `manifest.yaml` in this folder and replace `YOUR-SITE-ADDRESS` with the site's host name only, for example `sign-in.example.org`. The `https://` in front is already in the file; do not type it again.
 3. In Slack, go to https://api.slack.com/apps, choose **Create New App**, then **From a manifest**, pick the workspace, and paste the file in.
 4. Choose **Install to Workspace**.
 5. In the app's settings, open **Basic Information**, find **Signing Secret**, and copy it.
@@ -17,7 +17,7 @@ No Slack app exists yet. A person who can add apps to the team's Slack (a worksp
 
 ## What it asks Slack for
 
-One bot scope, `commands`, which Slack's reference says "enables shortcuts and slash commands for a workspace" (https://docs.slack.dev/reference/scopes/commands). The app reads no messages and posts nothing by itself. The manifest includes a bot user because the `commands` scope is a bot scope; Slack's pages do not say whether a manifest without one is accepted.
+One bot scope, `commands`, the one Slack lists for slash commands (https://docs.slack.dev/reference/scopes/commands). The app reads no messages and posts nothing by itself. The manifest includes a bot user because the `commands` scope is a bot scope; Slack's pages do not say whether a manifest without one is accepted.
 
 ## How a request is checked
 
@@ -26,3 +26,7 @@ Every request must carry Slack's signature (`X-Slack-Signature`) and timestamp (
 ## Not checked yet
 
 Everything above was built to Slack's pages and tested with requests the tests sign themselves. It has not been run against a real Slack app.
+
+## The command's name
+
+`/done` is a plain word. Slack's page on slash commands says command names are not kept apart between apps: if another app in the workspace also has `/done`, Slack runs whichever was installed most recently. If that happens, change the command in `manifest.yaml` to a name only this team would use, and tell the members.

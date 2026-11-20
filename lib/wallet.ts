@@ -3,7 +3,8 @@
 // WalletWallet.
 //
 // ---- The service details live here, in one place, so they are easy to fix. ----
-// VERIFIED against WalletWallet's own pages, read with curl on 2026-11-19:
+// Read from WalletWallet's own pages with curl on 2026-11-19. Read, not run:
+// no request has ever been sent, so nothing below has been seen to work.
 //   https://www.walletwallet.dev/llms.txt   (API reference, linked from its home page)
 //   https://www.walletwallet.dev/docs/      https://www.walletwallet.dev/pricing/
 //   endpoint  POST https://api.walletwallet.dev/api/passes  (one call, both wallets)
@@ -19,8 +20,7 @@
 //             and Google and counts once". A custom colour, logo, strip, thumbnail,
 //             background, icon, locations and own certificates are Pro.
 //   errors    JSON { error }; 400 validation, 401 key, 429 monthly limit, 500.
-// UNCHECKED: no call has ever been made from this machine, by design. The first
-// real call is the first test of this request shape. The docs disagree with
+// The first real call is the first test of this request shape. The docs disagree with
 // themselves once on whether POST /api/passes answers JSON or the file; both
 // are read here.
 // -------------------------------------------------------------------------------
@@ -37,6 +37,8 @@ export const GOOGLE_HOST = 'pay.google.com';
 export const GOOGLE_PATH = '/gp/v/save/';
 /** Passes one address may ask for in a minute. */
 export const PASSES_A_MINUTE = 10;
+/** For one member, from any address. A pass never changes, so one is enough; each one counts against the month. */
+export const PASSES_A_DAY_EACH = 5;
 
 /** Every field the request may carry. All are free-plan fields in the docs. */
 export const FREE_PLAN_FIELDS = [
@@ -250,6 +252,8 @@ export async function servePass(
   if (!allowed.allowed) return { status: 429, message: copy.wallet.tooMany };
   const member = await memberByPageKey(db, input.key);
   if (!member) return { status: 404 };
+  const today = await hit(db, { key: `wallet-pass-member:${member.id}`, limit: PASSES_A_DAY_EACH, windowSeconds: 86_400, now: input.now });
+  if (!today.allowed) return { status: 429, message: copy.wallet.tooManyToday };
   try {
     const made = await makePass({ scanCode: member.scanCode, firstName: member.firstName, platform }, input.client);
     return { status: 200, made };

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { copy } from '@/lib/copy';
 import { addMember, setActive } from '@/lib/members';
-import { buildPassRequest, servePass, type WalletClient } from '@/lib/wallet';
+import { buildPassRequest, PASSES_A_DAY_EACH, servePass, type WalletClient } from '@/lib/wallet';
 import { useTestDb } from '../setup/db';
 
 const fetchSpy = vi.fn(async () => {
@@ -81,12 +81,26 @@ describe('the pass route logic', () => {
   });
 
   it('limits each address, and counts other addresses separately', async () => {
-    const member = await addMember(getDb(), { firstName: 'Testg' }, null);
-    const statuses: number[] = [];
-    for (let i = 0; i < 12; i++) statuses.push((await ask(member.pageKey, 'apple', 'busy-address')).status);
-    expect(statuses.slice(0, 10).every((s) => s === 200)).toBe(true);
-    expect(statuses.slice(10)).toEqual([429, 429]);
-    expect((await ask(member.pageKey, 'apple', 'other-address')).status).toBe(200);
+    // Three members take turns, so this is the limit on the address and not the one on each member.
+    const three = [];
+    for (const firstName of ['Testg', 'Testh', 'Testi']) three.push(await addMember(getDb(), { firstName }, null));
+    const answers = [];
+    for (let i = 0; i < 12; i++) answers.push(await ask(three[i % 3].pageKey, 'apple', 'busy-address'));
+    expect(answers.slice(0, 10).every((a) => a.status === 200)).toBe(true);
+    expect(answers.slice(10)).toEqual([{ status: 429, message: copy.wallet.tooMany }, { status: 429, message: copy.wallet.tooMany }]);
+    expect((await ask(three[1].pageKey, 'apple', 'other-address')).status).toBe(200);
+  });
+
+  it('limits each member to a few passes a day, whatever address asks, and says so in plain words', async () => {
+    // Every pass counts against the month's allowance, and a pass never changes, so one member needs one.
+    const member = await addMember(getDb(), { firstName: 'Testa', lastName: 'Daily-Test' }, null);
+    const other = await addMember(getDb(), { firstName: 'Testo', lastName: 'Daily-Test' }, null);
+    for (let i = 0; i < PASSES_A_DAY_EACH; i++) expect((await ask(member.pageKey, 'apple')).status).toBe(200);
+    const refused = await ask(member.pageKey, 'google');
+    expect(refused).toEqual({ status: 429, message: copy.wallet.tooManyToday });
+    expect((await ask(other.pageKey, 'apple')).status).toBe(200);
+    const tomorrow = new Date(now.getTime() + 24 * 3600_000 + 1000);
+    expect((await servePass(getDb(), { key: member.pageKey, platform: 'apple', address: 'addr-tomorrow', now: tomorrow })).status).toBe(200);
   });
 
   it('answers 502 with plain words when the service fails', async () => {

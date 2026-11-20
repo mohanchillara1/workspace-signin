@@ -4,7 +4,8 @@ import { eq } from 'drizzle-orm';
 import { copy } from '@/lib/copy';
 import { assignments, members, submissions } from '@/lib/db/schema';
 import { addMember } from '@/lib/members';
-import { createTask, publishTask } from '@/lib/tasks';
+import { taskCodes } from '@/lib/slack';
+import { createTask, openFor, publishTask } from '@/lib/tasks';
 import { captainId, closeDb, db, logIn, state, watchConsole } from './helpers';
 
 test.use({ viewport: { width: 1440, height: 900 } });
@@ -79,17 +80,20 @@ test('the Slack address answers a request signed with the test secret, only to t
   expect(list.headers()['content-type']).toContain('application/json');
   const listed = await list.json();
   expect(listed.response_type).toBe('ephemeral');
-  expect(listed.text).toContain('1. E2E plain task');
-  expect(listed.text).toContain('2. E2E checked task');
+  // Each task is listed with a code that is its own, not a position in the list.
+  const codeFor = (title: string) => new RegExp('`([0-9a-f]{4,12})`  ' + title).exec(listed.text)?.[1] ?? '';
+  expect(codeFor('E2E plain task')).toMatch(/^[0-9a-f]{4,12}$/);
+  expect(codeFor('E2E checked task')).toMatch(/^[0-9a-f]{4,12}$/);
+  expect(codeFor('E2E plain task')).not.toBe(codeFor('E2E checked task'));
 
-  const waiting = await (await request.post(URL_PATH, signed({ user_id: 'U0E2EGAMMA', text: '2 cut it out' }))).json();
+  const waiting = await (await request.post(URL_PATH, signed({ user_id: 'U0E2EGAMMA', text: `${codeFor('E2E checked task')} cut it out` }))).json();
   expect(waiting).toEqual({ response_type: 'ephemeral', text: copy.slack.waiting('E2E checked task') });
   const [sub] = await db().select().from(submissions).where(eq(submissions.memberId, member.id));
   expect(sub).toMatchObject({ via: 'slack', note: 'cut it out' });
   const [checkedRow] = await db().select().from(assignments).where(eq(assignments.taskId, checked.id));
   expect(checkedRow.state).toBe('submitted');
 
-  const done = await (await request.post(URL_PATH, signed({ user_id: 'U0E2EGAMMA', text: '1' }))).json();
+  const done = await (await request.post(URL_PATH, signed({ user_id: 'U0E2EGAMMA', text: codeFor('E2E plain task') }))).json();
   expect(done).toEqual({ response_type: 'ephemeral', text: copy.slack.finished('E2E plain task') });
   const [plainRow] = await db().select().from(assignments).where(eq(assignments.taskId, plain.id));
   expect(plainRow).toMatchObject({ state: 'done', doneVia: 'slack' });
@@ -105,9 +109,11 @@ test('the Slack address refuses an unsigned, wrongly signed, tampered or old req
   const task = await createTask(db(), { title: 'E2E untouched', audience: 'person', memberIds: [member.id], needsCheck: false }, actor);
   await publishTask(db(), task.id, actor);
 
-  const fields = { user_id: 'U0E2EDELTA', text: '1' };
+  // The task's real code, so every refusal below is of a command that would otherwise finish it.
+  const [code] = taskCodes(await openFor(db(), member.id, new Date().toISOString().slice(0, 10)));
+  const fields = { user_id: 'U0E2EDELTA', text: code };
   const good = signed(fields);
-  const tampered = { ...good, data: good.data.replace('text=1', 'text=2') };
+  const tampered = { ...good, data: good.data.replace(`text=${code}`, `text=${code}+extra`) };
   const attempts = [
     { headers: { 'content-type': 'application/x-www-form-urlencoded' }, data: good.data },
     signed(fields, { secret: 'a-different-secret' }),
