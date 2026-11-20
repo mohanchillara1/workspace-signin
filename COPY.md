@@ -151,11 +151,11 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `name` | Login name |
 | `nameHelp` | 3 to 32 characters: lowercase letters, numbers, dots, dashes or underscores. |
 | `password` | Password |
-| `passwordHelp` | At least 10 characters. |
+| `passwordHelp` | At least 5 characters. |
 | `submit` | Save and log in |
 | `badLinkTitle` | This invite link doesn't work |
 | `badLinkBody` | It was used already, or it is more than 7 days old. Ask a captain for a new one. |
-| `weakPassword` | The password needs at least 10 characters. |
+| `weakPassword` | The password needs at least 5 characters. |
 | `badName` | The login name needs 3 to 32 characters: lowercase letters, numbers, dots, dashes or underscores. |
 | `nameTaken` | Someone else has that login name. Pick another. |
 
@@ -273,6 +273,23 @@ Strings with a name or a number in them are shown with sample values, once for o
 | Key | Text |
 |---|---|
 | `title` | Members |
+| `boardHelp` | Tap a person to see their QR code, tasks and attendance, and to change their details. |
+| `groupLeads` | Captains and leads |
+| `groupNone` | No subteam |
+| `groupInactive` | Turned off |
+| `back` | All members |
+| `detailCode` | Scan code |
+| `detailId` | Member ID |
+| `detailQrAlt` | Test M.'s sign-in code |
+| `detailTasks` | Open tasks |
+| `detailNoTasks` | Nothing open for them right now. |
+| `detailSentIn` | Sent in |
+| `detailNoSentIn` | Nothing sent in yet. |
+| `detailManage` | Manage |
+| `taskGroup` | [object Object] |
+| `taskSentBack` | Sent back |
+| `taskTaken` | Taken |
+| `taskDue` | Due Wed, Nov 18 |
 | `addTitle` | Add a member |
 | `firstName` | First name |
 | `lastName` | Last name |

@@ -2,13 +2,10 @@ import Link from 'next/link';
 import {
   addMemberAction,
   addSubteamAction,
-  editMemberAction,
-  memberRowAction,
   removeSubteamAction,
   rosterAction,
-  setSlackIdAction,
 } from '@/app/dashboard/members/actions';
-import { CopyLink, InviteButton } from '@/components/dashboard/MemberBits';
+import { groupColour, NO_GROUP_COLOUR, PersonFigure } from '@/components/dashboard/PersonFigure';
 import { WalletNote } from '@/components/dashboard/WalletNote';
 import { requireLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
@@ -21,7 +18,7 @@ export const dynamic = 'force-dynamic';
 export default async function MembersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ added?: string; skipped?: string; already?: string; problem?: string; slack?: string }>;
+  searchParams: Promise<{ added?: string; skipped?: string; already?: string; problem?: string }>;
 }) {
   const lead = await requireLead();
   const query = await searchParams;
@@ -39,13 +36,20 @@ export default async function MembersPage({
       ))}
     </>
   );
-  const sc = copy.slack;
-  const slackNotes: Record<string, { text: string; bad: boolean }> = {
-    saved: { text: sc.idSaved, bad: false },
-    cleared: { text: sc.idCleared, bad: false },
-    shape: { text: sc.idBadShape, bad: true },
-    taken: { text: sc.idTaken, bad: true },
-  };
+  // Leads and captains first, then each subteam, then people with none, then anyone turned off.
+  type Row = (typeof members)[number];
+  const groups: { key: string; name: string; colour: string; people: Row[] }[] = [];
+  const active = members.filter((m) => m.active);
+  const leaders = active.filter((m) => m.role !== 'member');
+  if (leaders.length) groups.push({ key: 'leads', name: c.groupLeads, colour: '#FFD23F', people: leaders });
+  for (const s of subteams) {
+    const people = active.filter((m) => m.role === 'member' && m.subteamId === s.id);
+    if (people.length) groups.push({ key: s.id, name: s.name, colour: groupColour(s.name, subteams.map((t) => t.name)), people });
+  }
+  const loose = active.filter((m) => m.role === 'member' && !m.subteamId);
+  if (loose.length) groups.push({ key: 'none', name: c.groupNone, colour: NO_GROUP_COLOUR, people: loose });
+  const off = members.filter((m) => !m.active);
+  if (off.length) groups.push({ key: 'off', name: c.groupInactive, colour: NO_GROUP_COLOUR, people: off });
   const roleOptions = (['member', 'lead', 'captain'] as const).map((role) => (
     <option key={role} value={role}>{roleLabel[role]}</option>
   ));
@@ -60,11 +64,6 @@ export default async function MembersPage({
       {query.problem && (
         <p role="alert" className="mt-5 inline-block rounded-xl border-2 border-ink bg-arcade-fuel px-4 py-2 font-bold text-ink">
           {c.problem(errorText(query.problem))}
-        </p>
-      )}
-      {query.slack && Object.hasOwn(slackNotes, query.slack) && (
-        <p role={slackNotes[query.slack].bad ? 'alert' : 'status'} className={`mt-5 inline-block rounded-xl border-2 border-ink px-4 py-2 font-bold text-ink ${slackNotes[query.slack].bad ? 'bg-arcade-fuel' : 'bg-arcade-mint'}`}>
-          {slackNotes[query.slack].text}
         </p>
       )}
       {query.added !== undefined && (
@@ -137,74 +136,36 @@ export default async function MembersPage({
       </section>
 
       <h2 className="mt-10 text-3xl">{c.listTitle(members.length)}</h2>
-      <p className="mt-1 text-sm text-paper/70">{c.rekeyNote}{!captain && ` ${c.captainOnly}`}</p>
-      <ul className="mt-4 space-y-3">
-        {members.map((m) => {
-          const fullName = `${m.firstName} ${m.lastName}`.trim();
-          const self = m.id === lead.id;
-          // A lead looks after members and their own record. A captain looks after everyone.
-          const mine = captain || m.role === 'member' || self;
-          return (
-            <li key={m.id} data-member-name={fullName} className={`rounded-xl border-2 bg-deep p-4 ${m.active ? 'border-paper/30' : 'border-paper/15 text-paper/60'}`}>
-              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-                <p className="min-w-0 break-words">
-                  <span className="text-lg font-bold">{fullName}</span>
-                  <span className="ml-3 text-sm text-paper/70">{m.subteamName ?? c.noSubteam}</span>
-                </p>
-                <p className="flex flex-wrap items-center gap-2">
-                  {m.role !== 'member' && <span className="chip !bg-arcade-sky">{roleLabel[m.role]}</span>}
-                  {m.slackUserId && <span className="chip">{sc.linkedChip}</span>}
-                  {m.hasLogin && <span className="chip">{c.hasLogin}</span>}
-                  {!m.active && <span className="chip !border-arcade-bumper !bg-arcade-bumper !text-paper">{c.inactive}</span>}
-                </p>
-              </div>
-              {mine && (
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {m.active && <CopyLink path={`/m/${m.pageKey}`} />}
-                  {(['new-code', 'new-link', m.active ? 'deactivate' : 'reactivate'] as const).map((what) =>
-                    what === 'deactivate' && self ? null : (
-                      <form key={what} action={memberRowAction}>
-                        <input type="hidden" name="id" value={m.id} />
-                        <input type="hidden" name="what" value={what} />
-                        <button type="submit" className="btn-small">
-                          {what === 'new-code' ? c.newCode : what === 'new-link' ? c.newLink : what === 'deactivate' ? c.deactivate : c.reactivate}
-                        </button>
-                      </form>
-                    ),
-                  )}
-                  {captain && m.active && m.role !== 'member' && <InviteButton memberId={m.id} />}
-                </div>
-              )}
-              {mine && (
-                <details className="mt-3">
-                  <summary className="cursor-pointer text-sm font-bold underline underline-offset-4">{c.edit}</summary>
-                  <form action={editMemberAction} className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_1fr_1fr_auto] sm:items-end">
-                    <input type="hidden" name="id" value={m.id} />
-                    <input name="firstName" aria-label={`${c.firstName}: ${fullName}`} className="field" defaultValue={m.firstName} maxLength={60} required />
-                    <input name="lastName" aria-label={`${c.lastName}: ${fullName}`} className="field" defaultValue={m.lastName} maxLength={60} />
-                    <select name="subteamId" aria-label={`${c.subteam}: ${fullName}`} className="field" defaultValue={m.subteamId ?? ''}>{subteamOptions}</select>
-                    {captain && !self ? (
-                      <select name="role" aria-label={`${c.role}: ${fullName}`} className="field" defaultValue={m.role}>{roleOptions}</select>
-                    ) : (
-                      <span />
-                    )}
-                    <button type="submit" className="btn-small">{c.save}</button>
-                  </form>
-                  <form action={setSlackIdAction} className="mt-3 grid gap-2 sm:grid-cols-[minmax(0,16rem)_auto] sm:items-end">
-                    <input type="hidden" name="id" value={m.id} />
-                    <div>
-                      <label className="label !text-paper" htmlFor={`slack-${m.id}`}>{sc.idLabel}</label>
-                      <input id={`slack-${m.id}`} name="slackUserId" className="field" defaultValue={m.slackUserId ?? ''} maxLength={30} autoComplete="off" spellCheck={false} />
-                    </div>
-                    <button type="submit" className="btn-small">{sc.idSave}</button>
-                    <p className="text-sm text-paper/70 sm:col-span-2">{sc.idHelp}</p>
-                  </form>
-                </details>
-              )}
-            </li>
-          );
-        })}
-      </ul>
+      <p className="mt-1 text-sm text-paper/70">{c.boardHelp}</p>
+      <div data-testid="member-board" className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {groups.map((g) => (
+          <section key={g.key} data-group={g.name} className="min-w-0 rounded-xl border-2 border-paper/20 bg-deep p-4">
+            <h3 className="flex items-center gap-2 text-xl">
+              <span className="inline-block h-3.5 w-3.5 rounded" style={{ background: g.colour }} />
+              {g.name}
+              <span className="ml-auto text-sm font-semibold text-paper/60">{g.people.length}</span>
+            </h3>
+            <ul className="mt-3 flex flex-wrap gap-x-1 gap-y-3">
+              {g.people.map((m) => {
+                const fullName = `${m.firstName} ${m.lastName}`.trim();
+                return (
+                  <li key={m.id} className="w-[5.5rem]">
+                    <Link
+                      href={`/dashboard/members/${m.id}`}
+                      data-member-name={fullName}
+                      className={`grid justify-items-center gap-1 rounded-lg px-1 py-1.5 text-center hover:bg-paper/10 ${m.active ? '' : 'opacity-50'}`}
+                    >
+                      <PersonFigure firstName={m.firstName} lastName={m.lastName} colour={groupColour(m.subteamName, subteams.map((t) => t.name))} ringed={m.role !== 'member'} />
+                      <span className="text-xs font-semibold leading-tight [overflow-wrap:anywhere]">{fullName}</span>
+                      {m.role !== 'member' && <span className="text-[10px] font-bold uppercase tracking-wide text-arcade-fuel">{roleLabel[m.role]}</span>}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        ))}
+      </div>
 
       <div className="mt-10 max-w-2xl">
         <WalletNote />

@@ -31,33 +31,36 @@ test('a lead records a Slack member id on the Members screen, and a taken or bad
   await addMember(db(), { firstName: 'Slack', lastName: 'Alpha' }, null);
   await addMember(db(), { firstName: 'Slack', lastName: 'Beta' }, null);
   await logIn(page);
-  await page.goto('/dashboard/members');
-  const alpha = page.locator('[data-member-name="Slack Alpha"]');
-  await alpha.getByText(copy.members.edit).click();
+  // The Slack ID form is on each person's own page.
+  const open = async (name: string) => {
+    await page.goto('/dashboard/members');
+    await page.locator(`[data-member-name="${name}"]`).click();
+    await page.waitForURL(/\/dashboard\/members\/[0-9a-f-]{36}$/);
+    return page.locator(`div[data-member-name="${name}"]`);
+  };
+  const alpha = await open('Slack Alpha');
   await expect(alpha.getByText(copy.slack.idHelp)).toBeVisible();
   await alpha.getByLabel(copy.slack.idLabel).fill('U0E2EALPHA');
   await alpha.getByRole('button', { name: copy.slack.idSave }).click();
   await expect(page.getByText(copy.slack.idSaved)).toBeVisible();
-  await expect(page.locator('[data-member-name="Slack Alpha"]')).toContainText(copy.slack.linkedChip);
+  await expect(page.locator('div[data-member-name="Slack Alpha"]')).toContainText(copy.slack.linkedChip);
   const [row] = await db().select().from(members).where(eq(members.firstName, 'Slack'));
   expect((await db().select().from(members).where(eq(members.slackUserId, 'U0E2EALPHA')))).toHaveLength(1);
   expect(row).toBeTruthy();
 
-  const beta = page.locator('[data-member-name="Slack Beta"]');
-  await beta.getByText(copy.members.edit).click();
+  const beta = await open('Slack Beta');
   await beta.getByLabel(copy.slack.idLabel).fill('U0E2EALPHA');
   await beta.getByRole('button', { name: copy.slack.idSave }).click();
   await expect(page.getByText(copy.slack.idTaken)).toBeVisible();
 
-  await page.locator('[data-member-name="Slack Beta"]').getByText(copy.members.edit).click();
-  await page.locator('[data-member-name="Slack Beta"]').getByLabel(copy.slack.idLabel).fill('not an id');
-  await page.locator('[data-member-name="Slack Beta"]').getByRole('button', { name: copy.slack.idSave }).click();
+  await page.locator('div[data-member-name="Slack Beta"]').getByLabel(copy.slack.idLabel).fill('not an id');
+  await page.locator('div[data-member-name="Slack Beta"]').getByRole('button', { name: copy.slack.idSave }).click();
   await expect(page.getByText(copy.slack.idBadShape)).toBeVisible();
 
   // Clearing it.
-  await page.locator('[data-member-name="Slack Alpha"]').getByText(copy.members.edit).click();
-  await page.locator('[data-member-name="Slack Alpha"]').getByLabel(copy.slack.idLabel).fill('');
-  await page.locator('[data-member-name="Slack Alpha"]').getByRole('button', { name: copy.slack.idSave }).click();
+  const again = await open('Slack Alpha');
+  await again.getByLabel(copy.slack.idLabel).fill('');
+  await again.getByRole('button', { name: copy.slack.idSave }).click();
   await expect(page.getByText(copy.slack.idCleared)).toBeVisible();
   expect(await db().select().from(members).where(eq(members.slackUserId, 'U0E2EALPHA'))).toHaveLength(0);
   expect(errors).toEqual([]);

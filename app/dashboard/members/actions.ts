@@ -27,7 +27,9 @@ const ROLES: Role[] = ['member', 'lead', 'captain'];
 const ROSTER_MAX = 200_000;
 const text = (form: FormData, name: string) => String(form.get(name) ?? '');
 // The page gets a key, not words, so a link cannot put words of its own on it.
-const refused = (error: unknown): never => redirect(`/dashboard/members?problem=${errorKey(error)}`);
+const refused = (error: unknown, path = '/dashboard/members'): never => redirect(`${path}?problem=${errorKey(error)}`);
+// A member's own page on the dashboard. Actions on one person go back there.
+const memberPath = (id: unknown) => (isUuid(id) ? `/dashboard/members/${id}` : '/dashboard/members');
 
 export async function addMemberAction(form: FormData): Promise<void> {
   const lead = await requireLead();
@@ -73,10 +75,10 @@ export async function editMemberAction(form: FormData): Promise<void> {
       lead.id,
     );
   } catch (error) {
-    refused(error);
+    refused(error, memberPath(id));
   }
   revalidatePath('/dashboard/members');
-  redirect('/dashboard/members');
+  redirect(memberPath(id));
 }
 
 export async function rosterAction(form: FormData): Promise<void> {
@@ -136,10 +138,10 @@ export async function memberRowAction(form: FormData): Promise<void> {
     else if (what === 'new-link') await reissuePageKey(db, id, lead.id);
     else await setActive(db, id, what === 'reactivate', lead.id);
   } catch (error) {
-    refused(error);
+    refused(error, memberPath(id));
   }
   revalidatePath('/dashboard/members');
-  redirect('/dashboard/members');
+  redirect(memberPath(id));
 }
 
 export type InviteLinkState = { link?: string; problem?: string };
@@ -169,8 +171,8 @@ export async function setSlackIdAction(form: FormData): Promise<void> {
     const result = await setSlackUserId(getDb(), id, value === '' ? null : value, lead.id);
     outcome = result.ok ? (value === '' ? 'cleared' : 'saved') : result.reason;
   } catch (error) {
-    return refused(error);
+    return refused(error, memberPath(id));
   }
   revalidatePath('/dashboard/members');
-  redirect(`/dashboard/members?slack=${outcome}`);
+  redirect(`${memberPath(id)}?slack=${outcome}`);
 }
