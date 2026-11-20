@@ -154,7 +154,7 @@ test('a captain makes an invite link and the lead sets a password and gets in', 
   await leadPage.goto(link);
   await expect(leadPage.getByRole('heading', { name: copy.invite.title('Test') })).toBeVisible();
   await leadPage.getByLabel(copy.invite.name).fill('testlead');
-  await leadPage.getByLabel(copy.invite.password).fill('short');
+  await leadPage.getByLabel(copy.invite.password).fill('abcd');
   await leadPage.getByRole('button', { name: copy.invite.submit }).click();
   await expect(leadPage.getByText(copy.invite.weakPassword)).toBeVisible();
   await leadPage.getByLabel(copy.invite.password).fill('a long enough password');

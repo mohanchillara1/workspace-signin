@@ -151,11 +151,11 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `name` | Login name |
 | `nameHelp` | 3 to 32 characters: lowercase letters, numbers, dots, dashes or underscores. |
 | `password` | Password |
-| `passwordHelp` | At least 10 characters. |
+| `passwordHelp` | At least 5 characters. |
 | `submit` | Save and log in |
 | `badLinkTitle` | This invite link doesn't work |
 | `badLinkBody` | It was used already, or it is more than 7 days old. Ask a captain for a new one. |
-| `weakPassword` | The password needs at least 10 characters. |
+| `weakPassword` | The password needs at least 5 characters. |
 | `badName` | The login name needs 3 to 32 characters: lowercase letters, numbers, dots, dashes or underscores. |
 | `nameTaken` | Someone else has that login name. Pick another. |
 

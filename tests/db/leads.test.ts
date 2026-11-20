@@ -34,7 +34,7 @@ describe('lead logins', () => {
   it('refuses a short password and a bad login name, then works once', async () => {
     const db = getDb();
     const token = await createInvite(db, { memberId: lead.id, actorId: captain.id, now: NOW });
-    expect(await acceptInvite(db, { token, loginName: 'testlead', password: 'ninechars', now: NOW })).toEqual({ ok: false, reason: 'weak_password' });
+    expect(await acceptInvite(db, { token, loginName: 'testlead', password: 'four', now: NOW })).toEqual({ ok: false, reason: 'weak_password' });
     expect(await acceptInvite(db, { token, loginName: 'a b', password: GOOD, now: NOW })).toEqual({ ok: false, reason: 'bad_name' });
     expect(await acceptInvite(db, { token: 'not-a-token', loginName: 'testlead', password: GOOD, now: NOW })).toEqual({ ok: false, reason: 'bad_link' });
     expect((await acceptInvite(db, { token, loginName: ' TestLead ', password: GOOD, now: NOW })).ok).toBe(true);
