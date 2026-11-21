@@ -47,9 +47,8 @@ test('a member adds a missing item to a group, cannot add one twice, and brings 
   await expect(theirs).toHaveURL(/[?&]g=Drivetrain%20and%20mechanical/);
   await expect(theirs.locator('[data-item="Old gearbox"]').getByTestId('item-count')).toHaveText(c.notCounted);
 
-  // Still not theirs: an exact count, a photo, setting an item aside.
+  // Still not theirs: an exact count or a photo. Setting an item aside is in 20-inventory-member-aside.
   await expect(theirs.getByRole('button', { name: c.set })).toHaveCount(0);
-  await expect(theirs.getByRole('button', { name: c.dontHave })).toHaveCount(0);
   await expect(theirs.getByTestId('photo-input')).toHaveCount(0);
   expect(theirErrors).toEqual([]);
 

@@ -126,9 +126,8 @@ test('members get the inventory only when a captain opens it; they add and take,
   await act('500', c.take);
   await expect(theirs.getByText(c.problem(copy.errors.inventoryTakeTooMany))).toBeVisible();
   await expect(count).toHaveText('19');
-  // Not theirs to change: an exact count, a photo, setting an item aside. Adding a missing item is (19-inventory-member-add).
+  // Not theirs to change: an exact count or a photo. Adding an item is in 19-inventory-member-add, setting one aside in 20-inventory-member-aside.
   await expect(theirs.getByRole('button', { name: c.set })).toHaveCount(0);
-  await expect(theirs.getByRole('button', { name: c.dontHave })).toHaveCount(0);
   await expect(theirs.getByTestId('photo-input')).toHaveCount(0);
   expect(theirErrors).toEqual([]);
 

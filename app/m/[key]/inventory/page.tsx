@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { memberAddAction, memberCountAction } from '@/app/m/[key]/inventory/actions';
+import { memberAddAction, memberAsideAction, memberCountAction } from '@/app/m/[key]/inventory/actions';
 import { GroupPicture, ItemPicture } from '@/components/inventory/ItemPicture';
 import { clientAddress } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
@@ -15,16 +15,16 @@ export const metadata: Metadata = { title: copy.member.homeScreenName };
 
 // The inventory as a member sees it: every item the team has, with its count,
 // a way to add to a count or take from it, and, inside a group, a way to add an
-// item that group is missing. Photos and setting items aside stay a lead's.
+// item that group is missing or take one off the list. Photos stay a lead's.
 export default async function MemberInventoryPage({
   params,
   searchParams,
 }: {
   params: Promise<{ key: string }>;
-  searchParams: Promise<{ problem?: string; g?: string }>;
+  searchParams: Promise<{ problem?: string; g?: string; note?: string }>;
 }) {
   const { key } = await params;
-  const { problem, g } = await searchParams;
+  const { problem, g, note } = await searchParams;
   const db = getDb();
   const now = new Date();
   const slow = (
@@ -57,6 +57,11 @@ export default async function MemberInventoryPage({
       {problem && (
         <p role="alert" className="mt-5 inline-block rounded-xl border-2 border-ink bg-arcade-fuel px-4 py-2 font-bold text-ink">
           {c.problem(errorText(problem))}
+        </p>
+      )}
+      {!problem && note === 'aside' && (
+        <p role="status" className="mt-5 inline-block rounded-xl border-2 border-ink bg-arcade-mint px-4 py-2 font-bold text-ink">
+          {c.memberAsideDone}
         </p>
       )}
       {group === null ? (
@@ -104,6 +109,17 @@ export default async function MemberInventoryPage({
                   <button type="submit" name="what" value="put" className="btn-small">{c.put}</button>
                   <button type="submit" name="what" value="take" className="btn-small">{c.take}</button>
                 </form>
+                {/* Asks once: the first tap opens the real button. */}
+                <details data-testid="member-aside" className="text-sm">
+                  <summary className="cursor-pointer font-bold underline underline-offset-4">{c.memberAside}</summary>
+                  <form action={memberAsideAction} className="mt-2 space-y-2">
+                    <input type="hidden" name="key" value={key} />
+                    <input type="hidden" name="id" value={item.id} />
+                    <input type="hidden" name="group" value={group} />
+                    <p className="text-ink/70">{c.memberAsideHelp}</p>
+                    <button type="submit" className="btn-small">{c.memberAsideConfirm}</button>
+                  </form>
+                </details>
               </li>
             ))}
           </ul>

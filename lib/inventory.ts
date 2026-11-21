@@ -171,6 +171,19 @@ export async function setHave(db: Db, id: string, have: boolean, actorId: string
   });
 }
 
+/**
+ * A member says the team does not have an item (Mohan, 2026-11-21: members may
+ * take any item off the list). It is set aside, the same as a lead's button:
+ * nothing is deleted, and a lead, or anyone adding that name again, brings it back.
+ */
+export async function memberSetAside(db: Db, id: string, memberId: string): Promise<void> {
+  const [actor] = await db.select().from(members).where(eq(members.id, memberId));
+  if (!actor || !actor.active) throw new UserError('generic');
+  const [item] = await db.select().from(inventoryItems).where(eq(inventoryItems.id, id));
+  if (!item || !item.have) throw new UserError('inventoryMissing');
+  await setHave(db, id, false, actor.id);
+}
+
 /** Keeps one photo for an item, in place of any it had. The picture itself is never logged. */
 export async function setPhoto(db: Db, id: string, photo: { mime: string; base64: string }, actorId: string | null): Promise<void> {
   const data = photo.base64.replace(/\s+/g, '');

@@ -6,13 +6,13 @@ import { clientAddress } from '@/lib/auth/session';
 import { getDb } from '@/lib/db/client';
 import { errorKey, UserError } from '@/lib/errors';
 import { isUuid } from '@/lib/ids';
-import { addressMayUseInventory, changeCount, listInventory, memberAddItem, memberMayUseInventory, membersSeeInventory } from '@/lib/inventory';
+import { addressMayUseInventory, changeCount, listInventory, memberAddItem, memberMayUseInventory, memberSetAside, membersSeeInventory } from '@/lib/inventory';
 import { memberByPageKey } from '@/lib/members';
 
 /**
  * A member adds to a count or takes from it. Apart from adding an item a group
- * is missing (below), that is all a member can do here: photos, setting an
- * item aside and the exact count are a lead's.
+ * is missing and taking one off the list (below), that is all a member can do
+ * here: photos and the exact count are a lead's.
  * The page key is the member's only credential, so the member is looked up
  * from it again, and their name goes in the log with the change.
  */
@@ -75,4 +75,30 @@ export async function memberAddAction(form: FormData): Promise<void> {
   }
   revalidatePath(page);
   redirect(`${page}?g=${encodeURIComponent(shown)}#i-${id}`);
+}
+
+/**
+ * A member says the team does not have an item (Mohan, 2026-11-21). The page
+ * asks once first. The item is set aside, never deleted, and the log names them.
+ */
+export async function memberAsideAction(form: FormData): Promise<void> {
+  const key = String(form.get('key') ?? '');
+  const id = String(form.get('id') ?? '');
+  const db = getDb();
+  const now = new Date();
+  if (!(await addressMayUseInventory(db, await clientAddress(), now))) redirect('/login');
+  const member = await memberByPageKey(db, key);
+  if (!member || !(await membersSeeInventory(db))) redirect('/login');
+  const page = `/m/${key}/inventory`;
+  const group = `g=${encodeURIComponent(String(form.get('group') ?? '').slice(0, 60))}`;
+  try {
+    if (!(await memberMayUseInventory(db, member.id, now))) throw new UserError('inventorySlow');
+    if (!isUuid(id)) throw new UserError('inventoryMissing');
+    await memberSetAside(db, id, member.id);
+  } catch (error) {
+    if (!(error instanceof UserError)) throw error;
+    redirect(`${page}?problem=${errorKey(error)}&${group}`);
+  }
+  revalidatePath(page);
+  redirect(`${page}?note=aside&${group}`);
 }
