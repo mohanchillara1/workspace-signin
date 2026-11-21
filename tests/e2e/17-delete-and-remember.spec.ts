@@ -9,6 +9,10 @@ import { captainId, closeDb, db, logIn, state, watchConsole } from './helpers';
 
 test.afterAll(closeDb);
 
+// Its own address, so the page loads of the files before this one do not count against it.
+// Without it a member page here can answer "Slow down" when earlier files used up the minute.
+test.use({ extraHTTPHeaders: { 'x-forwarded-for': '10.20.40.21' } });
+
 test('a lead deletes a task in two taps, and it is gone from the list and the member page', async ({ page }) => {
   const errors = watchConsole(page);
   const member = await addMember(db(), { firstName: 'Gone', lastName: 'Task' }, null);
