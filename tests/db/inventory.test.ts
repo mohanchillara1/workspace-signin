@@ -88,6 +88,7 @@ describe('inventory', () => {
       ['Test Member A', 'take', 1, 3, 2],
       ['Test Member A', 'take', 2, 5, 3],
       ['Test Member A', 'put', 5, null, 5],
+      ['Test Lead', 'added', null, null, null],
     ]);
     expect(log.every((row) => row.at instanceof Date)).toBe(true);
     // Someone switched off cannot change a count.
@@ -101,8 +102,12 @@ describe('inventory', () => {
     await addItem(db, { name: 'Logged from the start', category: 'Safety', count: 6 }, lead.id);
     await addItem(db, { name: 'No count yet', category: 'Safety' }, lead.id);
     const log = await inventoryLog(db, { limit: 50 });
-    expect(log.filter((row) => row.item === 'Logged from the start').map((row) => [row.who, row.change, row.from, row.to])).toEqual([['Test Lead', 'count', null, 6]]);
-    expect(log.filter((row) => row.item === 'No count yet')).toEqual([]);
+    expect(log.filter((row) => row.item === 'Logged from the start').map((row) => [row.who, row.change, row.from, row.to])).toEqual([
+      ['Test Lead', 'count', null, 6],
+      ['Test Lead', 'added', null, null],
+    ]);
+    // An item with no count has only the line for being added.
+    expect(log.filter((row) => row.item === 'No count yet').map((row) => row.change)).toEqual(['added']);
   });
 
   it('a whole room on one wifi can use the inventory, and one person cannot use up the room\'s share', async () => {

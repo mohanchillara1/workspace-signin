@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { memberCountAction } from '@/app/m/[key]/inventory/actions';
+import { memberAddAction, memberCountAction } from '@/app/m/[key]/inventory/actions';
 import { GroupPicture, ItemPicture } from '@/components/inventory/ItemPicture';
 import { clientAddress } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
@@ -14,7 +14,8 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: copy.member.homeScreenName };
 
 // The inventory as a member sees it: every item the team has, with its count,
-// and a way to add to a count or take from it. Nothing else can be changed here.
+// a way to add to a count or take from it, and, inside a group, a way to add an
+// item that group is missing. Photos and setting items aside stay a lead's.
 export default async function MemberInventoryPage({
   params,
   searchParams,
@@ -106,6 +107,21 @@ export default async function MemberInventoryPage({
               </li>
             ))}
           </ul>
+          <form id="add" action={memberAddAction} data-testid="member-add-item" className="card mt-8 scroll-mt-6 space-y-3 p-4">
+            <h2 className="text-2xl">{c.memberAddTitle}</h2>
+            <p className="text-sm text-ink/70">{c.memberAddHelp}</p>
+            <input type="hidden" name="key" value={key} />
+            <input type="hidden" name="group" value={group} />
+            <div>
+              <label className="label" htmlFor="new-name">{c.name}</label>
+              <input id="new-name" name="name" className="field" maxLength={80} autoComplete="off" required />
+            </div>
+            <div className="w-40">
+              <label className="label" htmlFor="new-count">{c.startCount}</label>
+              <input id="new-count" name="count" className="field" inputMode="numeric" pattern="[0-9]*" maxLength={5} />
+            </div>
+            <button type="submit" className="btn-small">{c.memberAddButton}</button>
+          </form>
         </section>
       )}
     </main>

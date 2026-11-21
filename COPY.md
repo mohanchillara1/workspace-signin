@@ -215,14 +215,14 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `changePhoto` | Change photo |
 | `photoWorking` | Saving the photo |
 | `photoFailed` | That photo could not be saved. Try another one. |
-| `membersOn` | Members can open the inventory from their own page, and add to or take from the counts. |
+| `membersOn` | Members can open the inventory from their own page, add to or take from the counts, and add an item a group is missing. |
 | `membersOff` | Members cannot see the inventory yet. |
 | `turnOn` | Open it to members |
 | `turnOff` | Close it to members |
 | `logLink` | Who changed what |
 | `logTitle` | Inventory changes |
-| `logHelp` | Every change of a count, newest first: who, which item, how many and when. |
-| `logEmpty` | No count has changed yet. |
+| `logHelp` | Every change of a count, and every item added, set aside or brought back, newest first: who, which item, how many and when. |
+| `logEmpty` | Nothing has changed yet. |
 | `logWhen` | When |
 | `logWho` | Who |
 | `logItem` | Item |
@@ -231,11 +231,17 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `logPut` | Added 1<br>Added 3 |
 | `logTake` | Took 1<br>Took 3 |
 | `logCount` | Counted |
+| `logAdded` | Added to the list |
+| `logAside` | Set aside (we don't have it) |
+| `logBack` | Brought back |
 | `byScript` | A script |
 | `back` | Back to the inventory |
 | `problem` | The task needs a title. |
 | `memberLink` | Inventory |
 | `memberHelp` | Took something off the shelf, or put something back? Type how many, then tap Take or Add. Your name goes in the log. |
+| `memberAddTitle` | Something missing from this group? |
+| `memberAddHelp` | Add it here. Your name goes in the log. |
+| `memberAddButton` | Add to the list |
 | `memberBack` | Back to my page |
 | `empty` | Nothing is on the list yet. |
 | `allGroups` | All groups |

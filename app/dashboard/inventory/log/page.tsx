@@ -7,7 +7,7 @@ import { inventoryLog } from '@/lib/inventory';
 
 export const dynamic = 'force-dynamic';
 
-// Who changed which count, and when. Full names are on it, so it needs a lead's login.
+// Who changed which count or which item, and when. Full names are on it, so it needs a lead's login.
 export default async function InventoryLogPage() {
   await requireLead();
   const rows = await inventoryLog(getDb(), { limit: 500 });
@@ -36,9 +36,20 @@ export default async function InventoryLogPage() {
                   <td className="px-4 py-3">{row.who || c.byScript}</td>
                   <td className="px-4 py-3">{row.item}</td>
                   <td className="px-4 py-3 font-bold">
-                    {row.change === 'put' ? c.logPut(row.amount ?? 0) : row.change === 'take' ? c.logTake(row.amount ?? 0) : c.logCount}
+                    {row.change === 'put'
+                      ? c.logPut(row.amount ?? 0)
+                      : row.change === 'take'
+                        ? c.logTake(row.amount ?? 0)
+                        : row.change === 'count'
+                          ? c.logCount
+                          : row.change === 'added'
+                            ? c.logAdded
+                            : row.change === 'back'
+                              ? c.logBack
+                              : c.logAside}
                   </td>
-                  <td className="px-4 py-3">{row.to === null ? c.notCounted : row.to}</td>
+                  {/* Only a change of a count has a count after it. */}
+                  <td className="px-4 py-3">{['put', 'take', 'count'].includes(row.change) ? (row.to === null ? c.notCounted : row.to) : ''}</td>
                 </tr>
               ))}
             </tbody>

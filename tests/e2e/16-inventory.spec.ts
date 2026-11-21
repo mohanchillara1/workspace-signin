@@ -126,11 +126,10 @@ test('members get the inventory only when a captain opens it; they add and take,
   await act('500', c.take);
   await expect(theirs.getByText(c.problem(copy.errors.inventoryTakeTooMany))).toBeVisible();
   await expect(count).toHaveText('19');
-  // The list itself is not theirs to change: no exact count, no photo, no setting aside, no new item.
+  // Not theirs to change: an exact count, a photo, setting an item aside. Adding a missing item is (19-inventory-member-add).
   await expect(theirs.getByRole('button', { name: c.set })).toHaveCount(0);
   await expect(theirs.getByRole('button', { name: c.dontHave })).toHaveCount(0);
   await expect(theirs.getByTestId('photo-input')).toHaveCount(0);
-  await expect(theirs.getByLabel(c.name)).toHaveCount(0);
   expect(theirErrors).toEqual([]);
 
   // The log, for leads: who, what, how many, newest first.
@@ -140,8 +139,9 @@ test('members get the inventory only when a captain opens it; they add and take,
   await expect(rows).toHaveText([
     /Shelf Member.*Shelf bolts.*Added 2.*19/,
     /Shelf Member.*Shelf bolts.*Took 3.*17/,
-    // The count it was added with is the first line of its log.
+    // The count it was added with comes right after the line for adding it.
     /Test Captain.*Shelf bolts.*Counted.*20/,
+    new RegExp(`Test Captain.*Shelf bolts.*${c.logAdded}`),
   ]);
 
   // Closed again: the page is gone for them, and a change sent anyway does nothing.

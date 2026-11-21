@@ -97,6 +97,35 @@ export async function addItem(
   });
 }
 
+/**
+ * A member adds an item the list is missing, inside the group they are looking
+ * at (Mohan, 2026-11-20: members may add new things to a group). An item a lead
+ * set aside under that name comes back to the shelves, in its own group, rather
+ * than being made twice. Their name goes in the log either way.
+ */
+export async function memberAddItem(
+  db: Db,
+  input: { name: string; category: string; count?: number | null },
+  memberId: string,
+): Promise<{ id: string; brought: boolean }> {
+  const [actor] = await db.select().from(members).where(eq(members.id, memberId));
+  if (!actor || !actor.active) throw new UserError('generic');
+  const name = input.name.replace(/\s+/g, ' ').trim();
+  const count = input.count ?? null;
+  if (count !== null && !wholeCount(count)) throw new UserError('inventoryCount');
+  const [there] = name
+    ? await db.select().from(inventoryItems).where(sql`lower(${inventoryItems.name}) = lower(${name})`)
+    : [];
+  if (there) {
+    if (there.have) throw new UserError('inventoryNameTaken');
+    await setHave(db, there.id, true, actor.id);
+    if (count !== null) await setCount(db, there.id, count, actor.id);
+    return { id: there.id, brought: true };
+  }
+  const made = await addItem(db, { name, category: input.category, count }, actor.id);
+  return { id: made.id, brought: false };
+}
+
 /** A lead writes down what was counted. Null takes the count back to "not counted yet". */
 export async function setCount(db: Db, id: string, count: number | null, actorId: string | null): Promise<void> {
   if (count !== null && !wholeCount(count)) throw new UserError('inventoryCount');
@@ -210,19 +239,29 @@ export type InventoryLogRow = {
   /** The whole name, for leads only. Empty when a script did it. */
   who: string;
   item: string;
-  /** put: added to the count. take: taken from it. count: a lead wrote the count down. */
-  change: 'put' | 'take' | 'count';
+  /**
+   * put: added to the count. take: taken from it. count: the count was written down.
+   * added: the item went on the list. aside: set aside as one the team does not have. back: brought back.
+   */
+  change: 'put' | 'take' | 'count' | 'added' | 'aside' | 'back';
   amount: number | null;
   from: number | null;
   to: number | null;
 };
 
-/** Every change of a count, newest first: who, which item, how many, when. */
+/** Every change of a count or of the list itself, newest first: who, which item, how many, when. */
+const CHANGE_OF: Record<string, InventoryLogRow['change']> = {
+  'inventory.put': 'put',
+  'inventory.take': 'take',
+  'inventory.count': 'count',
+  'inventory.add': 'added',
+};
+
 export async function inventoryLog(db: Db, options: { limit: number }): Promise<InventoryLogRow[]> {
   const rows = await db
     .select()
     .from(changeLog)
-    .where(and(eq(changeLog.entity, 'inventory'), inArray(changeLog.action, ['inventory.put', 'inventory.take', 'inventory.count'])))
+    .where(and(eq(changeLog.entity, 'inventory'), inArray(changeLog.action, ['inventory.put', 'inventory.take', 'inventory.count', 'inventory.add', 'inventory.have'])))
     .orderBy(desc(changeLog.at))
     .limit(options.limit);
   const people = new Map((await db.select().from(members)).map((m) => [m.id, `${m.firstName} ${m.lastName}`.trim()]));
@@ -232,7 +271,7 @@ export async function inventoryLog(db: Db, options: { limit: number }): Promise<
     at: row.at,
     who: row.actorId ? (people.get(row.actorId) ?? '') : '',
     item: items.get(row.entityId ?? '') ?? '',
-    change: row.action === 'inventory.put' ? 'put' : row.action === 'inventory.take' ? 'take' : 'count',
+    change: CHANGE_OF[row.action] ?? (row.detail.have ? 'back' : 'aside'),
     amount: number(row.detail.amount),
     from: number(row.detail.from),
     to: number(row.detail.to),
