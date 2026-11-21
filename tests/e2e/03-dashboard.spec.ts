@@ -182,7 +182,7 @@ test('the dashboard has no sideways scroll at 1440 or 390', async ({ page }) => 
   const wide: string[] = [];
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const path of ['/dashboard', '/dashboard/tasks', '/dashboard/tasks/new', '/dashboard/finished', '/dashboard/members', '/dashboard/members/print', '/dashboard/attendance', '/dashboard/kiosk']) {
+    for (const path of ['/dashboard', '/dashboard/tasks', '/dashboard/tasks/new', '/dashboard/finished', '/dashboard/members', '/dashboard/members/print', '/dashboard/attendance', '/dashboard/attendance/chart', '/dashboard/kiosk']) {
       await page.goto(path);
       const widest = await page.evaluate(() => {
         if (document.documentElement.scrollWidth <= window.innerWidth) return null;

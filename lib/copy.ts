@@ -467,6 +467,22 @@ export const copy = {
     csvKiosk: 'kiosk',
     csvManual: 'by hand',
     csvSheet: 'attendance sheet',
+    // The season chart: people down the side, meeting days across.
+    chartLink: 'Season chart',
+    chartTitle: 'Season chart',
+    chartIntro: 'One row for each person and one column for each meeting day. Tap a square to mark someone here, and tap it again to unmark them.',
+    chartAddDay: 'A day with no scans yet is not a column. To mark someone on that day, open it with "One day".',
+    chartDayView: 'One day',
+    chartNoDays: 'No meeting days between these dates.',
+    chartName: 'Name',
+    chartTotal: 'Days here',
+    chartDayTotal: 'Here',
+    chartTotalOf: (n: number, of: number) => `${n} of ${of}`,
+    chartLegendHere: 'Here',
+    chartLegendAway: 'Not here',
+    chartLegendBefore: 'Before they joined (not counted)',
+    chartCell: (name: string, day: string, here: boolean) =>
+      here ? `${name}, ${day}: here. Tap to unmark.` : `${name}, ${day}: not here. Tap to mark here.`,
   },
 
   // Phase 2. Each lives in its own file under lib/copy/.

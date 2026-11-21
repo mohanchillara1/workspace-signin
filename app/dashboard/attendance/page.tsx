@@ -36,7 +36,10 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
 
   return (
     <>
-      <h1 className="text-5xl">{a.title}</h1>
+      <div className="flex flex-wrap items-center gap-4">
+        <h1 className="text-5xl">{a.title}</h1>
+        <Link href="/dashboard/attendance/chart" className="btn-small">{a.chartLink}</Link>
+      </div>
 
       <div className="mt-6 flex flex-wrap items-end gap-3">
         <Link href={`/dashboard/attendance?day=${addDays(day, -1)}`} className="btn-small">{a.previous}</Link>

@@ -450,6 +450,20 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `csvKiosk` | kiosk |
 | `csvManual` | by hand |
 | `csvSheet` | attendance sheet |
+| `chartLink` | Season chart |
+| `chartTitle` | Season chart |
+| `chartIntro` | One row for each person and one column for each meeting day. Tap a square to mark someone here, and tap it again to unmark them. |
+| `chartAddDay` | A day with no scans yet is not a column. To mark someone on that day, open it with "One day". |
+| `chartDayView` | One day |
+| `chartNoDays` | No meeting days between these dates. |
+| `chartName` | Name |
+| `chartTotal` | Days here |
+| `chartDayTotal` | Here |
+| `chartTotalOf` | 1 of {of}<br>3 of {of} |
+| `chartLegendHere` | Here |
+| `chartLegendAway` | Not here |
+| `chartLegendBefore` | Before they joined (not counted) |
+| `chartCell` | Test M., Wed, Nov 18: here. Tap to unmark. |
 
 ## submit
 

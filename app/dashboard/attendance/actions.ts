@@ -10,6 +10,7 @@ import { isUuid } from '@/lib/ids';
 function refresh() {
   revalidatePath('/dashboard');
   revalidatePath('/dashboard/attendance');
+  revalidatePath('/dashboard/attendance/chart');
 }
 
 export async function markByHand(form: FormData): Promise<void> {

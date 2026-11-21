@@ -9,7 +9,8 @@ import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { chromium, type Page } from '@playwright/test';
-import { chicagoDay } from '../lib/day';
+import { recordScan } from '../lib/attendance';
+import { addDays, chicagoDay } from '../lib/day';
 import { makeDb } from '../lib/db/client';
 import { ensureDatabase, startLocalPostgres } from '../lib/db/local';
 import { migrateUrl } from '../lib/db/migrate';
@@ -75,6 +76,15 @@ async function main() {
   const password = `local-${randomBytes(9).toString('base64url')}`;
   const seed = await seedDemo(db, { captainPassword: password, today: chicagoDay(new Date()) });
   const m = seed.members;
+
+  // A few past meeting days, so the season chart has columns to show.
+  const pattern: Record<string, number[]> = { A: [1, 2, 3, 4, 5, 6], B: [1, 3, 5], C: [2, 3, 4, 6], D: [1, 2, 4, 5, 6], E: [6], G: [1, 2, 3], H: [2, 4, 6] };
+  for (const [letter, weeksAgo] of Object.entries(pattern)) {
+    for (const n of weeksAgo) {
+      const day = addDays(chicagoDay(new Date()), -7 * n);
+      await recordScan(db, { memberId: m[letter].id, at: new Date(`${day}T23:30:00Z`), kioskId: null });
+    }
+  }
 
   // Phase 2: one member with work waiting, work sent back and work approved,
   // made with the same functions the screens call.
@@ -211,6 +221,7 @@ async function main() {
         ['finished', '/dashboard/finished'],
         ['members', '/dashboard/members'],
         ['attendance', '/dashboard/attendance'],
+        ['attendance-chart', '/dashboard/attendance/chart'],
         ['kiosk-setup', '/dashboard/kiosk'],
       ] as const) {
         await page.goto(`${BASE}${path}`);

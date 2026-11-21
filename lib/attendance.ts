@@ -231,6 +231,77 @@ export async function attendanceRows(db: Db, range: { from: string; to: string }
   }));
 }
 
+export type ChartRow = {
+  memberId: string;
+  /** The whole name, for the leads' dashboard only. */
+  fullName: string;
+  /** The day their count starts, as on their own page. */
+  since: string;
+  /** The chart's days they have a row for. */
+  here: string[];
+  /** Days here, of the chart's days on or after `since`. */
+  attended: number;
+  /** The chart's days on or after `since`. */
+  counted: number;
+};
+
+export type AttendanceChart = {
+  /** Meeting days in the range, oldest first: one column each. */
+  days: string[];
+  /** Every active member, by name. */
+  rows: ChartRow[];
+  /** How many people were here, one number for each of `days`. */
+  dayTotals: number[];
+};
+
+/**
+ * The leads' season chart: a row for each active member, a column for each
+ * meeting day in the range. A person's count starts where their own page's
+ * count starts, so days before they joined are not held against them.
+ */
+export async function attendanceChart(db: Db, range: { from: string; to: string }): Promise<AttendanceChart> {
+  const days = await meetingDays(db, range);
+  const people = await db
+    .select({
+      memberId: members.id,
+      firstName: members.firstName,
+      lastName: members.lastName,
+      createdAt: members.createdAt,
+      countsFrom: members.countsFrom,
+    })
+    .from(members)
+    .where(eq(members.active, true))
+    .orderBy(asc(members.firstName), asc(members.lastName));
+  const marks = days.length
+    ? await db
+        .select({ memberId: attendance.memberId, day: attendance.day })
+        .from(attendance)
+        .where(inArray(attendance.day, days))
+    : [];
+  const hereByMember = new Map<string, Set<string>>();
+  for (const mark of marks) {
+    const set = hereByMember.get(mark.memberId) ?? new Set<string>();
+    set.add(mark.day);
+    hereByMember.set(mark.memberId, set);
+  }
+  const rows = people.map((p) => {
+    const made = chicagoDay(p.createdAt);
+    const since = p.countsFrom && p.countsFrom < made ? p.countsFrom : made;
+    const mine = hereByMember.get(p.memberId) ?? new Set<string>();
+    const counted = days.filter((d) => d >= since);
+    return {
+      memberId: p.memberId,
+      fullName: `${p.firstName} ${p.lastName}`.trim(),
+      since,
+      here: days.filter((d) => mine.has(d)),
+      attended: counted.filter((d) => mine.has(d)).length,
+      counted: counted.length,
+    };
+  });
+  const dayTotals = days.map((d) => rows.filter((r) => r.here.includes(d)).length);
+  return { days, rows, dayTotals };
+}
+
 export type DayChange = {
   at: Date;
   who: string;
