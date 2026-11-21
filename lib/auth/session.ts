@@ -40,17 +40,27 @@ export async function clientAddress(): Promise<string> {
   return forwarded?.split(',')[0].trim() || 'local';
 }
 
-async function leadSession() {
+/**
+ * remember: true keeps the cookie for SESSION_DAYS; false makes it end when the
+ * browser closes. Either way the server can still end it (log out, new invite).
+ */
+async function leadSession(remember = true) {
   return getIronSession<SessionData>(await cookies(), {
     cookieName: 'lead',
     password: secret(),
     ttl: SESSION_SECONDS,
-    cookieOptions: { httpOnly: true, sameSite: 'lax', secure: await isHttps(), path: '/' },
+    cookieOptions: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: await isHttps(),
+      path: '/',
+      ...(remember ? {} : { maxAge: undefined }),
+    },
   });
 }
 
-export async function signInLead(memberId: string, version: number): Promise<void> {
-  const session = await leadSession();
+export async function signInLead(memberId: string, version: number, remember = true): Promise<void> {
+  const session = await leadSession(remember);
   session.memberId = memberId;
   session.version = version;
   // Names this one login, so logging out here ends this session and no other.
@@ -111,4 +121,28 @@ export async function sameOrigin(request: Request): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+// A member who ticked "Keep me signed in" gets their page key in this cookie,
+// so the login page sends them straight to their page next time. The page key
+// is what opens their page anyway; the cookie only saves typing their name.
+const MEMBER_COOKIE = 'member_page';
+
+export async function rememberMember(pageKey: string): Promise<void> {
+  (await cookies()).set(MEMBER_COOKIE, pageKey, {
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: await isHttps(),
+    path: '/',
+    maxAge: SESSION_SECONDS,
+  });
+}
+
+export async function rememberedMemberKey(): Promise<string | null> {
+  const value = (await cookies()).get(MEMBER_COOKIE)?.value;
+  return value && /^[A-Za-z0-9_-]{20,64}$/.test(value) ? value : null;
+}
+
+export async function forgetMember(): Promise<void> {
+  (await cookies()).delete(MEMBER_COOKIE);
 }

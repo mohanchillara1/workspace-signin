@@ -6,7 +6,8 @@ import { MemberTasks } from '@/components/member/MemberTasks';
 import { SentInList } from '@/components/member/SentInList';
 import { WalletButtons } from '@/components/member/WalletButtons';
 import { memberCount } from '@/lib/attendance';
-import { clientAddress } from '@/lib/auth/session';
+import { signOutMember } from '@/app/login/actions';
+import { clientAddress, rememberedMemberKey } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
 import { chicagoDay, dayLabel } from '@/lib/day';
 import { getDb } from '@/lib/db/client';
@@ -50,6 +51,7 @@ export default async function MemberPage({ params }: { params: Promise<{ key: st
   if (!member) notFound();
 
   const today = chicagoDay(now);
+  const remembered = await rememberedMemberKey();
   const [svg, tasks, count, sentIn, inventoryOpen] = await Promise.all([
     qrSvg(member.scanCode),
     openFor(db, member.id, today),
@@ -92,6 +94,12 @@ export default async function MemberPage({ params }: { params: Promise<{ key: st
         <p className="mt-8">
           <Link href={`/m/${key}/inventory`} data-testid="inventory-link" className="btn-pill bg-arcade-fuel text-ink">{copy.inventory.memberLink}</Link>
         </p>
+      )}
+
+      {remembered === member.pageKey && (
+        <form action={signOutMember} className="mt-10">
+          <button type="submit" data-testid="member-sign-out" className="text-sm font-bold underline underline-offset-4">{copy.login.signOutMember}</button>
+        </form>
       )}
     </main>
   );

@@ -12,7 +12,8 @@ const LOCK_WINDOW_SECONDS = 15 * 60;
 const WRONG_PER_NAME = 5;
 const WRONG_PER_ADDRESS = 20;
 export const LOGIN_NAME_PATTERN = /^[a-z0-9._-]{3,32}$/;
-export const SESSION_DAYS = 14;
+// How long a remembered sign-in lasts. Ended sessions are kept a day longer than this.
+export const SESSION_DAYS = 90;
 // A stored value no password can match. Set when a new invite goes out.
 const NO_PASSWORD = '!';
 

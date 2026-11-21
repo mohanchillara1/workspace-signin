@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import { takeBack } from '@/app/dashboard/tasks/actions';
+import { DeleteTask } from '@/components/dashboard/DeleteTask';
 import { TaskForm } from '@/components/dashboard/TaskForm';
 import { requireLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
@@ -82,6 +83,7 @@ export default async function TaskPage({
           </ul>
         )}
       </section>
+      <DeleteTask taskId={task.id} />
     </>
   );
 }

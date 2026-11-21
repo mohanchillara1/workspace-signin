@@ -7,8 +7,9 @@ import { listTasks, membersWithNothing } from '@/lib/tasks';
 
 export const dynamic = 'force-dynamic';
 
-export default async function TasksPage() {
+export default async function TasksPage({ searchParams }: { searchParams: Promise<{ note?: string }> }) {
   await requireLead();
+  const { note } = await searchParams;
   const db = getDb();
   const today = chicagoDay(new Date());
   const [tasks, nothing] = await Promise.all([listTasks(db), membersWithNothing(db, today)]);
@@ -19,6 +20,12 @@ export default async function TasksPage() {
         <h1 className="text-5xl">{t.title}</h1>
         <Link href="/dashboard/tasks/new" className="btn-pill bg-arcade-fuel text-ink">{t.newTask}</Link>
       </div>
+
+      {note === 'deleted' && (
+        <p role="status" data-testid="task-deleted" className="mt-5 block w-fit rounded-xl border-2 border-ink bg-arcade-mint px-4 py-2 font-bold text-ink">
+          {t.deleted}
+        </p>
+      )}
 
       <p
         data-testid="no-task-line"

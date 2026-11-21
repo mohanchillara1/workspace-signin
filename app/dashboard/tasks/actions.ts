@@ -6,7 +6,7 @@ import { requireLead } from '@/lib/auth/session';
 import { getDb } from '@/lib/db/client';
 import { errorKey, errorText } from '@/lib/errors';
 import { isUuid } from '@/lib/ids';
-import { closeTask, createTask, publishTask, release, reopen, updateTask, type TaskInput } from '@/lib/tasks';
+import { closeTask, createTask, deleteTask, publishTask, release, reopen, taskById, updateTask, type TaskInput } from '@/lib/tasks';
 
 export type TaskFormState = { problem?: string };
 
@@ -64,4 +64,17 @@ export async function reopenFinished(form: FormData): Promise<void> {
   if (!isUuid(assignmentId)) return;
   await reopen(getDb(), assignmentId, lead.id);
   revalidatePath('/dashboard/finished');
+}
+
+/** Deletes a task for good. The page asks twice before this runs. */
+export async function deleteTaskAction(form: FormData): Promise<void> {
+  const lead = await requireLead();
+  const id = form.get('id');
+  if (!isUuid(id)) redirect('/dashboard/tasks');
+  const db = getDb();
+  const task = await taskById(db, id);
+  if (!task) redirect('/dashboard/tasks');
+  await deleteTask(db, id, lead.id);
+  revalidatePath('/dashboard/tasks');
+  redirect('/dashboard/tasks?note=deleted');
 }

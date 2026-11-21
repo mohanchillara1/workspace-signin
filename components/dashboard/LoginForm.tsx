@@ -18,6 +18,13 @@ export function LoginForm() {
         <label className="label" htmlFor="password">{c.password}</label>
         <input id="password" name="password" type="password" className="field" autoComplete="current-password" required />
       </div>
+      <label className="flex items-start gap-3 text-base">
+        <input type="checkbox" name="remember" defaultChecked className="mt-1 h-5 w-5 shrink-0 accent-arcade-purple" />
+        <span>
+          {c.remember}
+          <span className="block text-sm text-ink/70">{c.rememberHelp}</span>
+        </span>
+      </label>
       {state.error && <p role="alert" className="font-bold text-arcade-bumper">{state.error}</p>}
       <button type="submit" disabled={pending} className="btn-pill bg-arcade-purple text-paper !shadow-none">
         {c.submit}

@@ -143,6 +143,9 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `firstName` | First name |
 | `lastName` | Last name |
 | `memberSubmit` | Open my page |
+| `remember` | Keep me signed in on this device |
+| `rememberHelp` | Leave this off on a phone or computer you share. |
+| `signOutMember` | Not you? Sign out |
 | `memberNotFound` | That name isn't on the team list. Check the spelling, or ask a lead. |
 | `memberTwoMatch` | Two people have that name. Ask a lead for your page link. |
 | `memberLocked` | Too many names that are not on the list. Wait 15 minutes, then try again. |
@@ -304,6 +307,12 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `save` | Save |
 | `publish` | Publish |
 | `close` | Close task |
+| `deleteTitle` | Delete this task |
+| `deleteHelp` | Deleting takes it off every list for good, along with anything members sent in for it. To stop it but keep the record, close it instead. |
+| `deleteButton` | Delete task |
+| `deleteConfirm` | Yes, delete it for good |
+| `deleteCancel` | Keep it |
+| `deleted` | Task deleted. |
 | `handoutsTitle` | Who has it |
 | `handoutsNone` | Nobody yet. A standing task shows up here when someone takes it that day. |
 | `handoutOpen` | Not started |

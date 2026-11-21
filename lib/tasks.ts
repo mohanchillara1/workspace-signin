@@ -258,6 +258,26 @@ export async function closeTask(db: Db, taskId: string, actorId: string | null):
 }
 
 /**
+ * A lead deletes a task for good: the task, every hand-out of it and anything
+ * members sent in for it. Closing keeps the history; deleting does not. The
+ * change log keeps the title, so the deletion itself can still be seen.
+ */
+export async function deleteTask(db: Db, taskId: string, actorId: string | null): Promise<void> {
+  await db.transaction(async (tx) => {
+    await lockTask(tx, taskId);
+    const [task] = await tx.select().from(tasks).where(eq(tasks.id, taskId));
+    if (!task) throw new UserError('taskMissing');
+    const handouts = await tx.select({ id: assignments.id }).from(assignments).where(eq(assignments.taskId, taskId));
+    if (handouts.length) {
+      await tx.delete(submissions).where(inArray(submissions.assignmentId, handouts.map((h) => h.id)));
+      await tx.delete(assignments).where(eq(assignments.taskId, taskId));
+    }
+    await tx.delete(tasks).where(eq(tasks.id, taskId));
+    await logChange(tx, { actorId, action: 'task.delete', entity: 'task', entityId: taskId, detail: { title: task.title } });
+  });
+}
+
+/**
  * Brings one member's hand-outs in line after they are added, put in or taken
  * out of a subteam, deactivated or reactivated: they get the "everyone does
  * their own" tasks of each subteam that reaches them, lose the ones that no

@@ -3,7 +3,7 @@
 import { redirect } from 'next/navigation';
 import { checkLogin } from '@/lib/auth/leads';
 import { logInByName } from '@/lib/auth/member-logins';
-import { clientAddress, signInLead, signOutLead } from '@/lib/auth/session';
+import { clientAddress, forgetMember, rememberMember, signInLead, signOutLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
 import { getDb } from '@/lib/db/client';
 
@@ -17,7 +17,7 @@ export async function logIn(_previous: LoginState, form: FormData): Promise<Logi
     now: new Date(),
   });
   if (!result.ok) return { error: result.reason === 'locked' ? copy.login.locked : copy.login.wrong };
-  await signInLead(result.memberId, result.version);
+  await signInLead(result.memberId, result.version, form.get('remember') === 'on');
   redirect('/dashboard');
 }
 
@@ -29,9 +29,19 @@ export async function openMemberPage(_previous: LoginState, form: FormData): Pro
     ip: await clientAddress(),
     now: new Date(),
   });
-  if (result.ok) redirect(`/m/${result.pageKey}`);
+  if (result.ok) {
+    if (form.get('remember') === 'on') await rememberMember(result.pageKey);
+    else await forgetMember();
+    redirect(`/m/${result.pageKey}`);
+  }
   const c = copy.login;
   return { error: result.reason === 'locked' ? c.memberLocked : result.reason === 'two_match' ? c.memberTwoMatch : c.memberNotFound };
+}
+
+/** "Not you? Sign out" on a member page: forget the saved sign-in on this device. */
+export async function signOutMember(): Promise<void> {
+  await forgetMember();
+  redirect('/login');
 }
 
 export async function logOut(): Promise<void> {

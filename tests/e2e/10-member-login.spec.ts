@@ -11,6 +11,8 @@ async function byName(page: Page, first: string, last: string) {
   const form = page.getByTestId('member-login');
   await form.getByLabel(copy.login.firstName).fill(first);
   await form.getByLabel(copy.login.lastName).fill(last);
+  // One browser stands in for many people here, so nobody is kept signed in.
+  await form.getByLabel(copy.login.remember).setChecked(false);
   await form.getByRole('button', { name: copy.login.memberSubmit }).click();
 }
 
