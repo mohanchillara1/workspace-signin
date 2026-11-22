@@ -25,6 +25,7 @@ export default async function AttendanceChartPage({ searchParams }: { searchPara
     <>
       <div className="flex flex-wrap items-center gap-4">
         <h1 className="text-5xl">{a.chartTitle}</h1>
+        <Link href="/dashboard/attendance/graph" className="btn-small">{a.graphLink}</Link>
         <Link href="/dashboard/attendance" className="btn-small">{a.chartDayView}</Link>
       </div>
       <p className="mt-3 max-w-3xl text-paper/85">{a.chartIntro}</p>

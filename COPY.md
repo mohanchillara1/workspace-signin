@@ -474,6 +474,40 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `chartLegendAway` | Not here |
 | `chartLegendBefore` | Before they joined (not counted) |
 | `chartCell` | Test M., Wed, Nov 18: here. Tap to unmark. |
+| `graphLink` | Graph |
+| `graphTitle` | Attendance graph |
+| `graphIntro` | How many people came to each meeting, and who comes least. Tap a bar to see who came and who missed. |
+| `graphSubteam` | Subteam |
+| `graphEveryone` | Everyone |
+| `graphStatToday` | Here today |
+| `graphStatLast` | Last meeting |
+| `graphStatAverage` | Average per meeting |
+| `graphStatBest` | Most at one meeting |
+| `graphStatOf` | of {of} |
+| `graphStatMeetings` | over 1 meeting<br>over 3 meetings |
+| `graphBarsTitle` | People at each meeting |
+| `graphLegendHere` | Came |
+| `graphLegendTeam` | On the team then |
+| `graphToday` | Today |
+| `graphBar` | Wed, Nov 18: {here} of {of} came |
+| `graphDayCount` | {here} of {of} came |
+| `graphOpenDay` | Open this day |
+| `graphCame` | Came (1)<br>Came (3) |
+| `graphMissed` | Missed (1)<br>Missed (3) |
+| `graphNobody` | Nobody |
+| `graphPeopleTitle` | Everyone, lowest first |
+| `graphPeopleHelp` | The share of meetings since each person joined. The squares are their last meetings, oldest on the left. |
+| `graphPeopleNone` | Nobody in this subteam. |
+| `graphShareOf` | 1 of {of}<br>3 of {of} |
+| `graphNew` | No meetings yet |
+| `graphLast` | Last 3 meetings: missed, came, not on the team yet |
+| `graphNumbers` | Show the numbers |
+| `graphNumbersDay` | Day |
+| `graphNumbersCame` | Came |
+| `graphNumbersTeam` | On the team |
+| `graphLive` | Updates by itself. Last updated 4:32 PM. |
+| `graphPaused` | Updates paused after 3 hours with no taps. |
+| `graphResume` | Update now |
 
 ## submit
 

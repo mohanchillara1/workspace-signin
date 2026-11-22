@@ -36,6 +36,8 @@ async function main() {
       SESSION_SECRET: randomBytes(32).toString('base64url'),
       KIOSK_TEST_FEED: '1',
       KIOSK_IDLE_SECONDS: '3',
+      // The attendance graph asks for new sign-ins this often while it is open.
+      GRAPH_REFRESH_SECONDS: '2',
       STEP_DRAFTS_STAND_IN: '1',
       // Wallet passes come from a built-in stand-in, and Slack requests are
       // signed with this made-up secret. Neither service is ever called.

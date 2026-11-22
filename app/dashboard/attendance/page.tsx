@@ -38,6 +38,7 @@ export default async function AttendancePage({ searchParams }: { searchParams: P
     <>
       <div className="flex flex-wrap items-center gap-4">
         <h1 className="text-5xl">{a.title}</h1>
+        <Link href="/dashboard/attendance/graph" className="btn-small">{a.graphLink}</Link>
         <Link href="/dashboard/attendance/chart" className="btn-small">{a.chartLink}</Link>
       </div>
 

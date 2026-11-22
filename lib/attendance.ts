@@ -5,7 +5,7 @@ import type { Db } from './db/client';
 import { attendance, changeLog, members, struckDays, type AttendanceRow } from './db/schema';
 import { logChange } from './log';
 import { shortName } from './names';
-import { memberships, subteamLine } from './subteams';
+import { memberships, peopleReached, subteamLine } from './subteams';
 
 export type BoardRow = {
   memberId: string;
@@ -300,6 +300,68 @@ export async function attendanceChart(db: Db, range: { from: string; to: string 
   });
   const dayTotals = days.map((d) => rows.filter((r) => r.here.includes(d)).length);
   return { days, rows, dayTotals };
+}
+
+/** How many of a person's latest meetings the graph shows as marks. */
+export const GRAPH_LAST_MEETINGS = 8;
+
+export type GraphName = { memberId: string; fullName: string };
+
+export type GraphDay = {
+  day: string;
+  /** How many came: the length of `hereNames`. */
+  here: number;
+  /** How many could have come (on the team by then): here plus missed. */
+  of: number;
+  hereNames: GraphName[];
+  missedNames: GraphName[];
+};
+
+export type GraphPerson = GraphName & {
+  attended: number;
+  counted: number;
+  /** Percent of counted days here, rounded, or null with nothing to count yet. */
+  share: number | null;
+  /** The last meetings in the range, oldest first. */
+  last: ('here' | 'missed' | 'before')[];
+};
+
+export type AttendanceGraph = { days: GraphDay[]; people: GraphPerson[] };
+
+/**
+ * The leads' attendance graph: a bar for each meeting day, then everyone with
+ * the lowest share first. Built from the season chart, so the two pages never
+ * disagree. A subteam narrows it to the people a task for that subteam reaches;
+ * the meeting days stay the team's.
+ */
+export async function attendanceGraph(
+  db: Db,
+  input: { from: string; to: string; subteamId: string | null },
+): Promise<AttendanceGraph> {
+  const chart = await attendanceChart(db, input);
+  const reached = input.subteamId ? new Set(await peopleReached(db, input.subteamId)) : null;
+  const rows = reached ? chart.rows.filter((r) => reached.has(r.memberId)) : chart.rows;
+  const name = (r: ChartRow): GraphName => ({ memberId: r.memberId, fullName: r.fullName });
+
+  const days = chart.days.map((day) => {
+    const onTeam = rows.filter((r) => day >= r.since || r.here.includes(day));
+    const hereNames = onTeam.filter((r) => r.here.includes(day)).map(name);
+    const missedNames = onTeam.filter((r) => !r.here.includes(day)).map(name);
+    return { day, here: hereNames.length, of: onTeam.length, hereNames, missedNames };
+  });
+
+  const lastDays = chart.days.slice(-GRAPH_LAST_MEETINGS);
+  const people = rows
+    .map((r) => ({
+      ...name(r),
+      attended: r.attended,
+      counted: r.counted,
+      share: r.counted ? Math.round((r.attended / r.counted) * 100) : null,
+      last: lastDays.map((d) => (r.here.includes(d) ? 'here' : d < r.since ? 'before' : 'missed')) as GraphPerson['last'],
+    }))
+    // Lowest share first; people with nothing to count yet go last. Ties stay in name order.
+    .sort((a, b) => (a.share ?? 101) - (b.share ?? 101));
+  return { days, people };
 }
 
 export type DayChange = {
