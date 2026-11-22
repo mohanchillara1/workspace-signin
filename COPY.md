@@ -606,9 +606,13 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `body` | A wallet pass holds your sign-in code and your first name. An outside service, WalletWallet, makes it, so those two things are sent to it. Nothing else about you is. |
 | `apple` | Add to Apple Wallet |
 | `google` | Add to Google Wallet |
-| `passTeam` | Singularity |
-| `passTitle` | Singularity workspace |
+| `passTeam` | Singularity Robotics |
+| `passTitle` | SINGULARITY |
+| `passHeaderLabel` | FRC |
+| `passHeaderValue` | 10032 |
 | `passLabel` | MEMBER |
+| `passFront` | TEAM,Singularity Robotics<br>SIGN IN,Scan at the iPad |
+| `passBack` | How to sign in,Hold this code up to the iPad at the workspace. One scan signs you in for the day.<br>Your page and tasks,https://workspace-signin.vercel.app/login<br>Team site,https://singularity-frc.com<br>Code stopped working?,Ask a lead for a new QR code, then add a new pass from your page. |
 | `passDescription` | Sign-in code for the team workspace |
 | `failed` | The pass could not be made right now. Go back and try again in a minute, or ask a lead. |
 | `tooMany` | You asked for a pass too many times in a minute. Wait a minute and try again. |

@@ -7,6 +7,7 @@ import { copy } from '@/lib/copy';
 import {
   buildPassRequest,
   FREE_PLAN_FIELDS,
+  PASS_COLOR,
   makePass,
   safeGoogleLink,
   standInClient,
@@ -88,10 +89,21 @@ describe('buildPassRequest', () => {
       logoText: copy.wallet.passTitle,
       organizationName: copy.wallet.passTeam,
       description: copy.wallet.passDescription,
+      headerFields: [{ label: copy.wallet.passHeaderLabel, value: copy.wallet.passHeaderValue }],
       primaryFields: [{ label: copy.wallet.passLabel, value: 'Testa' }],
-      colorPreset: 'dark',
+      secondaryFields: copy.wallet.passFront.map(([label, value]) => ({ label, value })),
+      backFields: copy.wallet.passBack.map(([label, value]) => ({ label, value })),
+      colorPreset: PASS_COLOR,
       sharingProhibited: true,
     });
+  });
+  it('looks like the team: its name and number on the front, how to use it on the back', () => {
+    const text = JSON.stringify(buildPassRequest({ ...member, platform: 'apple' }));
+    for (const words of ['SINGULARITY', '10032', 'Singularity Robotics', 'workspace-signin.vercel.app/login', 'singularity-frc.com']) {
+      expect(text).toContain(words);
+    }
+    // One of the six free presets; the site's own colour is a paid field.
+    expect(['dark', 'blue', 'green', 'red', 'purple', 'orange']).toContain(PASS_COLOR);
   });
   it('is the same request for both wallets', () => {
     expect(buildPassRequest({ ...member, platform: 'google' })).toEqual(buildPassRequest({ ...member, platform: 'apple' }));
@@ -118,6 +130,13 @@ describe('buildPassRequest', () => {
     expect(body.logoText.length).toBeLessThanOrEqual(64);
     expect(body.description.length).toBeLessThanOrEqual(128);
     expect(body.organizationName.length).toBeLessThanOrEqual(64);
+    for (const list of [body.headerFields, body.primaryFields, body.secondaryFields, body.backFields]) {
+      expect(list.length).toBeLessThanOrEqual(10);
+      for (const field of list) {
+        expect(field.label.length).toBeLessThanOrEqual(64);
+        expect(field.value.length).toBeLessThanOrEqual(256);
+      }
+    }
   });
 });
 

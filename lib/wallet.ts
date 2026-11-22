@@ -3,15 +3,18 @@
 // WalletWallet.
 //
 // ---- The service details live here, in one place, so they are easy to fix. ----
-// Read from WalletWallet's own pages with curl on 2026-11-19. Read, not run:
-// no request has ever been sent, so nothing below has been seen to work.
+// Read from WalletWallet's own pages with curl on 2026-11-19. First run for real
+// on 2026-11-22: a pass made this way installed on an iPhone and scanned at the
+// iPad. The extra fields added that day were read from the docs, not yet run.
 //   https://www.walletwallet.dev/llms.txt   (API reference, linked from its home page)
 //   https://www.walletwallet.dev/docs/      https://www.walletwallet.dev/pricing/
 //   endpoint  POST https://api.walletwallet.dev/api/passes  (one call, both wallets)
 //   headers   Authorization: Bearer ww_live_<key>, Content-Type: application/json
 //   body      barcodeValue, barcodeFormat "QR", barcodeAltText, logoText,
-//             description, organizationName, primaryFields [{label, value}],
-//             colorPreset, sharingProhibited. These are all free-plan fields.
+//             description, organizationName, headerFields, primaryFields,
+//             secondaryFields, backFields (each [{label, value}], up to 10,
+//             label 64, value 256), colorPreset, sharingProhibited. These are
+//             all free-plan fields (llms.txt, read again 2026-11-22).
 //   reply     JSON { serialNumber, googleSaveUrl, applePass (base64 .pkpass),
 //             shareUrl }. The legacy binary shape is also read: the .pkpass as
 //             the body and the Google link in the X-Google-Save-Url header.
@@ -20,9 +23,8 @@
 //             and Google and counts once". A custom colour, logo, strip, thumbnail,
 //             background, icon, locations and own certificates are Pro.
 //   errors    JSON { error }; 400 validation, 401 key, 429 monthly limit, 500.
-// The first real call is the first test of this request shape. The docs disagree with
-// themselves once on whether POST /api/passes answers JSON or the file; both
-// are read here.
+// The docs disagree with themselves once on whether POST /api/passes answers
+// JSON or the file; both are read here.
 // -------------------------------------------------------------------------------
 import type { Db } from './db/client';
 import { copy } from './copy';
@@ -39,6 +41,11 @@ export const GOOGLE_PATH = '/gp/v/save/';
 export const PASSES_A_MINUTE = 10;
 /** For one member, from any address. A pass never changes, so one is enough; each one counts against the month. */
 export const PASSES_A_DAY_EACH = 5;
+/**
+ * One of the free plan's six presets: Mohan's pick on 2026-11-22, from previews of
+ * `dark` and `purple`. Its purple is rgb(126, 34, 206), close to the site's #6B2FD6.
+ */
+export const PASS_COLOR = 'purple';
 
 /** Every field the request may carry. All are free-plan fields in the docs. */
 export const FREE_PLAN_FIELDS = [
@@ -48,12 +55,17 @@ export const FREE_PLAN_FIELDS = [
   'logoText',
   'description',
   'organizationName',
+  'headerFields',
   'primaryFields',
+  'secondaryFields',
+  'backFields',
   'colorPreset',
   'sharingProhibited',
 ] as const;
 
 export type Platform = 'apple' | 'google';
+
+export type PassField = { label: string; value: string };
 
 export type PassRequest = {
   barcodeValue: string;
@@ -62,8 +74,11 @@ export type PassRequest = {
   logoText: string;
   description: string;
   organizationName: string;
-  primaryFields: { label: string; value: string }[];
-  colorPreset: 'dark';
+  headerFields: PassField[];
+  primaryFields: PassField[];
+  secondaryFields: PassField[];
+  backFields: PassField[];
+  colorPreset: typeof PASS_COLOR;
   sharingProhibited: true;
 };
 
@@ -117,6 +132,8 @@ export function walletPlatforms(): Platform[] {
 // ---------- The request ----------
 
 const cut = (text: unknown, max: number) => String(text ?? '').slice(0, max);
+/** A field inside the documented limits: label 64, value 256. */
+const field = (label: string, value: unknown): PassField => ({ label: cut(label, 64), value: cut(value, 256) });
 
 /**
  * The documented request, free-plan fields only. Takes the scan code and the
@@ -133,8 +150,11 @@ export function buildPassRequest(input: { scanCode: string; firstName: string; p
     logoText: cut(w.passTitle, 64),
     organizationName: cut(w.passTeam, 64),
     description: cut(w.passDescription, 128),
-    primaryFields: [{ label: cut(w.passLabel, 64), value: cut(input.firstName, 256) }],
-    colorPreset: 'dark',
+    headerFields: [field(w.passHeaderLabel, w.passHeaderValue)],
+    primaryFields: [field(w.passLabel, input.firstName)],
+    secondaryFields: w.passFront.map(([label, value]) => field(label, value)),
+    backFields: w.passBack.map(([label, value]) => field(label, value)),
+    colorPreset: PASS_COLOR,
     sharingProhibited: true,
   };
 }

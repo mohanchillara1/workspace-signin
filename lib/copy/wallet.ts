@@ -8,10 +8,26 @@ export const walletCopy = {
   apple: 'Add to Apple Wallet',
   google: 'Add to Google Wallet',
 
-  // Written on the pass itself. The pass never carries a last name.
-  passTeam: 'Singularity',
-  passTitle: 'Singularity workspace',
+  // Written on the pass itself. The pass never carries a last name, and nothing
+  // else about the member: the rest is the same on every member's pass.
+  passTeam: 'Singularity Robotics',
+  passTitle: 'SINGULARITY',
+  // Top right, the only words that show when passes are stacked in Wallet.
+  passHeaderLabel: 'FRC',
+  passHeaderValue: '10032',
   passLabel: 'MEMBER',
+  // Under the name, as [label, value].
+  passFront: [
+    ['TEAM', 'Singularity Robotics'],
+    ['SIGN IN', 'Scan at the iPad'],
+  ] as [string, string][],
+  // The back of the pass (the i button). iPhone makes the addresses tappable.
+  passBack: [
+    ['How to sign in', 'Hold this code up to the iPad at the workspace. One scan signs you in for the day.'],
+    ['Your page and tasks', 'https://workspace-signin.vercel.app/login'],
+    ['Team site', 'https://singularity-frc.com'],
+    ['Code stopped working?', 'Ask a lead for a new QR code, then add a new pass from your page.'],
+  ] as [string, string][],
   passDescription: 'Sign-in code for the team workspace',
 
   // Shown when a pass could not be made. Plain text, one line each.
