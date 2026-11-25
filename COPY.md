@@ -253,6 +253,9 @@ Strings with a name or a number in them are shown with sample values, once for o
 | `tileNotCounted` | 1 not counted<br>3 not counted |
 | `tileAside` | 1 set aside<br>3 set aside |
 | `pickGroup` | Pick a group to see what is in it. |
+| `searchLabel` | Find an item |
+| `searchPlaceholder` | Type part of a name, like "bolt" |
+| `searchNone` | Nothing matches that. |
 
 ## today
 

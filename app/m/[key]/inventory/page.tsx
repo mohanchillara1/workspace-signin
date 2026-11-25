@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { memberAddAction, memberAsideAction, memberCountAction } from '@/app/m/[key]/inventory/actions';
+import { InventorySearch } from '@/components/inventory/InventorySearch';
 import { GroupPicture, ItemPicture } from '@/components/inventory/ItemPicture';
 import { clientAddress } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
@@ -69,7 +70,8 @@ export default async function MemberInventoryPage({
           <p className="mt-8 text-paper/70">{c.empty}</p>
         ) : (
           <>
-            <p className="mt-2 text-paper/85">{c.pickGroup}</p>
+            <InventorySearch base={`/m/${key}/inventory`} items={have.map(({ id, name, category, count }) => ({ id, name, category, count }))} />
+            <p className="mt-6 text-paper/85">{c.pickGroup}</p>
             <ul data-testid="inventory-tiles" className="mt-5 grid grid-cols-2 gap-3">
               {groups.map((name) => (
                 <li key={name}>
