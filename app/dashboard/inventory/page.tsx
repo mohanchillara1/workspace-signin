@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { addItemAction, countAction, haveAction, membersAction } from '@/app/dashboard/inventory/actions';
 import { GroupPicture, ItemPicture } from '@/components/inventory/ItemPicture';
+import { InventorySearch } from '@/components/inventory/InventorySearch';
 import { PhotoPicker } from '@/components/inventory/PhotoPicker';
 import { requireLead } from '@/lib/auth/session';
 import { copy } from '@/lib/copy';
@@ -79,6 +80,7 @@ export default async function InventoryPage({ searchParams }: { searchParams: Pr
             <p className="mt-8 text-paper/70">{c.empty}</p>
           ) : (
             <>
+              <InventorySearch base="/dashboard/inventory" items={have.map(({ id, name, category, count }) => ({ id, name, category, count }))} />
               <p className="mt-10 text-paper/70">{c.pickGroup}</p>
               <ul data-testid="inventory-tiles" className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
                 {groups.map((name) => {
